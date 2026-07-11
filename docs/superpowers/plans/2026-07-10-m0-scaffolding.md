@@ -84,7 +84,7 @@ playwright-report/
 
 ```json
 {
-  "name": "ai-browser",
+  "name": "wmfx",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -716,7 +716,7 @@ export {};
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Browser</title>
+    <title>WMFX</title>
   </head>
   <body>
     <div id="app"></div>
@@ -740,7 +740,7 @@ async function sendPing() {
 
 <template>
   <main>
-    <h1>AI Browser</h1>
+    <h1>WMFX</h1>
     <button data-testid="ping-btn" @click="sendPing">Ping main</button>
     <p data-testid="pong">{{ pong }}</p>
   </main>
@@ -909,7 +909,7 @@ test.afterAll(async () => {
 });
 
 test('window loads with the app title', async () => {
-  await expect(page.locator('h1')).toHaveText('AI Browser');
+  await expect(page.locator('h1')).toHaveText('WMFX');
 });
 
 test('type-safe IPC round-trips renderer -> main -> renderer', async () => {
@@ -952,7 +952,7 @@ git commit -m "feat: 类型安全 IPC 演示通道 + 安全基线 E2E 测试"
 - [ ] **Step 10: 手动验证开发模式（可选）**
 
 Run: `pnpm dev`
-Expected: Electron 窗口打开，显示 "AI Browser"，点击 Ping main 显示 "pong: hello from renderer"，改动 `App.vue` 触发 Vite HMR
+Expected: Electron 窗口打开，显示 "WMFX"，点击 Ping main 显示 "pong: hello from renderer"，改动 `App.vue` 触发 Vite HMR
 
 ---
 

@@ -3,13 +3,253 @@
  * 主进程用它约束 handle，渲染进程用它约束 invoke。
  * 后续里程碑在此扩展（tab:*, nav:*, proxy:* ...）。
  */
+
+export interface TabState {
+  id: string
+  windowId: string
+  sessionId: string
+  url: string
+  title: string
+  favicon: string | null
+  isLoading: boolean
+  canGoBack: boolean
+  canGoForward: boolean
+  zoomFactor: number
+  isMuted: boolean
+  isPinned: boolean
+  active: boolean
+}
+
+export interface ViewBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface CreateTabOptions {
+  url?: string
+  sessionId?: string
+  activate?: boolean
+}
+
+/** 下载状态 */
+export type DownloadState =
+  | 'pending'
+  | 'downloading'
+  | 'paused'
+  | 'completed'
+  | 'cancelled'
+  | 'error'
+
+/** 下载项 */
+export interface DownloadItem {
+  id: string
+  url: string
+  filename: string
+  path: string
+  state: DownloadState
+  receivedBytes: number
+  totalBytes: number
+  createdAt: number
+  errorMsg: string | null
+}
+
+/** 历史记录项 */
+export interface HistoryItem {
+  id: string
+  url: string
+  title: string | null
+  favicon: string | null
+  visitTime: number
+  visitCount: number
+}
+
+/** 书签项 */
+export interface BookmarkItem {
+  id: string
+  parentId: string | null
+  title: string
+  url: string | null
+  favicon: string | null
+  position: number
+  createdAt: number
+}
+
+/** 主题模式 */
+export type ThemeMode = 'light' | 'dark' | 'system'
+
+/** 下载创建参数 */
+export interface DownloadCreateOptions {
+  url: string
+  filename?: string
+  path?: string
+}
+
+/** 搜索参数 */
+export interface SearchOptions {
+  query: string
+  limit?: number
+  offset?: number
+}
+
+/** 列表查询参数 */
+export interface ListOptions {
+  limit?: number
+  offset?: number
+}
+
+/** 下载列表参数 */
+export interface DownloadListOptions {
+  state?: DownloadState
+  limit?: number
+  offset?: number
+}
+
+/** 书签创建参数 */
+export interface BookmarkCreateOptions {
+  title: string
+  url: string | null
+  favicon?: string | null
+  parentId?: string | null
+}
+
+/** 页面打印选项 */
+export interface PrintOptions {
+  deviceName?: string
+  printBackground?: boolean
+  margins?: {
+    top: number
+    bottom: number
+    left: number
+    right: number
+  }
+}
+
+/** 页面导出 PDF 选项 */
+export interface PrintToPdfOptions {
+  filename?: string
+  pageSize?: 'A3' | 'A4' | 'A5' | 'Letter' | 'Legal' | 'Tabloid'
+  marginsType?: number
+}
+
+export interface TabPrintOptions {
+  tabId: string
+  options?: PrintOptions
+}
+
+export interface TabPrintToPdfOptions {
+  tabId: string
+  options?: PrintToPdfOptions
+}
+
+export interface TabZoomOptions {
+  tabId: string
+  factor: number
+}
+
 export interface IpcContract {
   'app:ping': (message: string) => string
+  'tab:create': (opts: CreateTabOptions) => TabState
+  'tab:close': (tabId: string) => void
+  'tab:activate': (tabId: string) => void
+  'tab:getState': (tabId: string) => TabState
+  'tab:getList': () => TabState[]
+  'tab:setViewportBounds': (tabId: string, bounds: ViewBounds) => void
+  'tab:setSidebarOpen': (open: boolean) => void
+  'nav:goBack': (tabId: string) => void
+  'nav:goForward': (tabId: string) => void
+  'nav:reload': (tabId: string) => void
+  'nav:stop': (tabId: string) => void
+  'nav:loadURL': (tabId: string, url: string) => void
+  'session:getPartitions': () => string[]
+  // Download
+  'download:create': (opts: DownloadCreateOptions) => { id: string }
+  'download:pause': (id: string) => void
+  'download:resume': (id: string) => void
+  'download:cancel': (id: string) => void
+  'download:get': (id: string) => DownloadItem | null
+  'download:getList': (opts?: DownloadListOptions) => DownloadItem[]
+  'download:setPath': (path: string) => void
+  // History
+  'history:add': (item: { url: string; title?: string | null; favicon?: string | null }) => void
+  'history:delete': (id: string) => void
+  'history:search': (opts: SearchOptions) => HistoryItem[]
+  'history:getList': (opts?: ListOptions) => HistoryItem[]
+  'history:clear': () => void
+  // Bookmark
+  'bookmark:add': (item: BookmarkCreateOptions) => { id: string }
+  'bookmark:delete': (id: string) => void
+  'bookmark:rename': ({ id, title }: { id: string; title: string }) => void
+  'bookmark:getList': (parentId?: string | null) => BookmarkItem[]
+  'bookmark:search': ({ query }: { query: string }) => BookmarkItem[]
+  'bookmark:import': (html: string) => void
+  'bookmark:export': () => { html: string }
+  // Page
+  'page:print': (opts: TabPrintOptions) => void
+  'page:printToPDF': (opts: TabPrintToPdfOptions) => { path: string }
+  'page:setZoom': (opts: TabZoomOptions) => void
+  'page:getZoom': (tabId: string) => { factor: number }
+  // Settings
+  'settings:get': (key: string) => unknown
+  'settings:set': ({ key, value }: { key: string; value: unknown }) => void
+  'settings:getAll': () => Record<string, unknown>
+  // Theme
+  'theme:get': () => ThemeMode
+  'theme:set': (theme: ThemeMode) => void
 }
 
 export type IpcChannel = keyof IpcContract
 
-export const IPC_CHANNELS: readonly IpcChannel[] = ['app:ping'] as const
+export const IPC_CHANNELS: readonly IpcChannel[] = [
+  'app:ping',
+  'tab:create',
+  'tab:close',
+  'tab:activate',
+  'tab:getState',
+  'tab:getList',
+  'tab:setViewportBounds',
+  'nav:goBack',
+  'nav:goForward',
+  'nav:reload',
+  'nav:stop',
+  'nav:loadURL',
+  'session:getPartitions',
+  // Download
+  'download:create',
+  'download:pause',
+  'download:resume',
+  'download:cancel',
+  'download:get',
+  'download:getList',
+  'download:setPath',
+  // History
+  'history:add',
+  'history:delete',
+  'history:search',
+  'history:getList',
+  'history:clear',
+  // Bookmark
+  'bookmark:add',
+  'bookmark:delete',
+  'bookmark:rename',
+  'bookmark:getList',
+  'bookmark:search',
+  'bookmark:import',
+  'bookmark:export',
+  // Page
+  'page:print',
+  'page:printToPDF',
+  'page:setZoom',
+  'page:getZoom',
+  // Settings
+  'settings:get',
+  'settings:set',
+  'settings:getAll',
+  // Theme
+  'theme:get',
+  'theme:set',
+] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {
   return (IPC_CHANNELS as readonly string[]).includes(name)

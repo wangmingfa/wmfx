@@ -1,8 +1,15 @@
 import vue from '@vitejs/plugin-vue'
+import { codeInspectorPlugin } from 'code-inspector-plugin'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    codeInspectorPlugin({
+      bundler: 'vite',
+      editor: 'webstorm',
+    }),
+  ],
   base: './',
   build: {
     outDir: 'dist',

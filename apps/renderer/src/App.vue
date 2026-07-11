@@ -1,23 +1,27 @@
 <template>
-  <main>
-    <h1>AI Browser</h1>
-    <button
-      data-testid="ping-btn"
-      @click="sendPing"
-    >
-      Ping main
-    </button>
-    <p data-testid="pong">
-      {{ pong }}
-    </p>
-  </main>
+  <ChromeUI />
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-
-const pong = ref<string>('')
-async function sendPing() {
-  pong.value = await window.browserAPI.ping('hello from renderer')
-}
+import ChromeUI from './components/ChromeUI.vue'
 </script>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  width: 100%;
+  background: #ffffff;
+  color: #333333;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+</style>

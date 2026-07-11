@@ -299,7 +299,7 @@ Channels:
 -   Electron APIs wrapped in browser-core
 -   IPC only between renderer and main
 -   Everything testable
--   Future-proof for AI Browser
+-   Future-proof for WMFX
 
 ## 12. Long-term Vision
 

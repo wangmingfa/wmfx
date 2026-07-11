@@ -1,10 +1,13 @@
 #!/usr/bin/env bun
 
 import { watch } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { ResultPromise } from 'execa'
-import { checkDependencies } from './check-deps.js'
+import { execa, execaCommand, execaCommandSync } from 'execa'
+
+const require = createRequire(import.meta.url)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -18,38 +21,41 @@ let devServerUrl = ''
 let electronProcess: ResultPromise | null = null
 let restartTimer: ReturnType<typeof setTimeout> | null = null
 let isRestarting = false
+let startupComplete = false
 
 const childProcesses: ResultPromise[] = []
 
-async function loadExeca() {
-  const { execaCommand, execaCommandSync } = await import('execa')
-  return { execaCommand, execaCommandSync }
-}
-
 function run(command: string, cwd: string, env: NodeJS.ProcessEnv = {}): ResultPromise {
-  const p = execaCommand!(command, { cwd, stdio: 'inherit', env: { ...process.env, ...env } })
+  const p = execaCommand(command, { cwd, stdio: 'inherit', env: { ...process.env, ...env } })
   childProcesses.push(p)
   return p
 }
 
-let execaCommand: typeof import('execa').execaCommand | null = null
+function resolveElectronBinary(): string {
+  return require('electron')
+}
 
 function startElectron(): void {
-  console.log(`${CYAN}[dev]${RESET} 🖥️  启动 Electron...`)
-  electronProcess = execaCommand!(`bun x electron ${path.join(ROOT, 'apps/main/dist/index.cjs')}`, {
+  const binary = resolveElectronBinary()
+  const entry = path.join(ROOT, 'apps/main/dist/index.cjs')
+  console.log(`${CYAN}[dev]${RESET} 🖥️  启动 Electron: ${binary} ${entry}`)
+  electronProcess = execa(binary, [entry], {
     cwd: ROOT,
     stdio: 'inherit',
     env: { ...process.env, VITE_DEV_SERVER_URL: devServerUrl },
   })
 
-  electronProcess.catch(() => {})
+  electronProcess.catch((err) => {
+    console.error(`${RED}[dev] Electron 启动失败:`, err.message)
+    cleanup()
+  })
   electronProcess.on('close', (code: number | null) => {
     electronProcess = null
     if (isRestarting) {
       isRestarting = false
       startElectron()
     } else if (code !== null && code !== 0) {
-      console.log(`Electron 退出，code=${code}`)
+      console.log(`${RED}[dev]${RESET} Electron 退出，code=${code}`)
     } else {
       console.log('🛑 Electron 关闭，正在清理...')
       cleanup()
@@ -58,6 +64,7 @@ function startElectron(): void {
 }
 
 function restartElectron(): void {
+  if (!startupComplete) return // tsup 初次构建期间不重启
   if (restartTimer) clearTimeout(restartTimer)
   restartTimer = setTimeout(() => {
     isRestarting = true
@@ -87,11 +94,6 @@ function watchMainDist(): void {
 }
 
 async function main(): Promise<void> {
-  if (!(await checkDependencies())) process.exit(1)
-
-  const { execaCommand: cmd, execaCommandSync } = await loadExeca()
-  execaCommand = cmd
-
   console.log(`${CYAN}[dev]${RESET} 🚀 启动渲染进程 Vite dev server...`)
   const vite = execaCommand('bun run --filter @browser/renderer dev', {
     cwd: ROOT,
@@ -123,6 +125,19 @@ async function main(): Promise<void> {
   run('bun x tsup --watch', path.join(ROOT, 'packages/shared'))
   run('bun x tsup --watch', path.join(ROOT, 'packages/ipc-contract'))
 
+  console.log(`${CYAN}[dev]${RESET} 🔍 检查 better-sqlite3 原生模块...`)
+  try {
+    execaCommandSync('bun run scripts/check-native.ts', { cwd: ROOT, stdio: 'inherit' })
+  } catch {
+    console.log(`${CYAN}[dev]${RESET} 🔧 需要重建原生模块...`)
+    try {
+      execaCommandSync('bun run rebuild', { cwd: ROOT, stdio: 'inherit' })
+    } catch {
+      console.log(`${RED}✗${RESET} 原生模块重建失败`)
+      process.exit(1)
+    }
+  }
+
   console.log(`${CYAN}[dev]${RESET} 🔨 构建主进程 (初次)`)
   try {
     execaCommandSync('bun run build', { cwd: path.join(ROOT, 'apps/main'), stdio: 'inherit' })
@@ -137,7 +152,11 @@ async function main(): Promise<void> {
       devServerUrl = url
       console.log(`${CYAN}[dev]${RESET} ${GREEN}✅${RESET} Vite 就绪: ${devServerUrl}`)
       startElectron()
-      watchMainDist()
+      // 延迟启用 watch，让 tsup 初次构建完成，避免重启 Electron
+      setTimeout(() => {
+        startupComplete = true
+        watchMainDist()
+      }, 1000)
     })
     .catch((err) => {
       console.error('❌', err.message)
