@@ -1,0 +1,58 @@
+{
+  "name": "ai-browser",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build:shared": "bun run --filter @browser/shared build",
+    "build:ipc": "bun run --filter @browser/ipc-contract build",
+    "build:main": "bun run --filter @browser/main build",
+    "build:renderer": "bun run --filter @browser/renderer build",
+    "build": "bun run build:shared && bun run build:ipc && bun run build:renderer && bun run build:main",
+    "clean": "rm -rf node_modules apps/*/dist packages/*/dist .vitest node_modules/.vite test-results playwright-report apps/main/node_modules apps/renderer/node_modules",
+    "dev": "bun run scripts/dev.ts",
+    "prepare": "husky",
+    "lint": "bun run lint:ts && bun run lint:vue && bun run lint:typecheck",
+    "lint:ts": "bun x biome check .",
+    "lint:vue": "bun x eslint .",
+    "lint:typecheck": "bun run --filter '*' typecheck && bun x tsc --noEmit -p scripts/tsconfig.json",
+    "format": "bun x biome format --write . && bun x eslint --fix '**/*.vue'",
+    "test": "bun x vitest run",
+    "test:e2e": "bun run build && bun x playwright test",
+    "typecheck": "bun run --filter '*' typecheck"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^9.1.0",
+    "@biomejs/biome": "^2.5.3",
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^24.10.1",
+    "@types/semver": "^7.7.1",
+    "electron": "^43.1.0",
+    "eslint": "^10.7.0",
+    "execa": "^9.6.1",
+    "husky": "^9.1.7",
+    "jiti": "^2.7.0",
+    "lint-staged": "^17.0.8",
+    "playwright": "^1.61.1",
+    "semver": "^7.8.5",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
+  },
+  "lint-staged": {
+    "*.ts": "biome check --write --no-errors-on-unmatched",
+    "*.vue": [
+      "eslint --fix",
+      "eslint",
+      "bun run --filter @browser/renderer x vue-tsc --noEmit"
+    ]
+  }
+}

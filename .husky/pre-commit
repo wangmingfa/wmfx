@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+
+# 检测 Termux / Termux 内运行的 Ubuntu(proroot-distro / andronix) 环境
+detect_termux() {
+  [ -n "$TERMUX_VERSION" ] && return 0
+  case "$PREFIX" in
+    /data/data/com.termux/*) return 0 ;;
+  esac
+  # Termux 的 Android 根目录下必存在该路径，proot 内的 Ubuntu 同样可见
+  [ -d /data/data/com.termux ] && return 0
+  # 兜底：内核版本含 Android / termux 标识
+  case "$(uname -s 2>/dev/null)" in
+    Linux*) grep -qaE 'Android|termux' /proc/version 2>/dev/null && return 0 ;;
+  esac
+  return 1
+}
+
+if detect_termux; then
+  echo "检测到 Termux 环境，跳过 pre-commit 校验"
+  exit 0
+fi
+
+if [ -x node_modules/.bin/lint-staged ]; then
+  ./node_modules/.bin/lint-staged
+else
+  bun x lint-staged
+fi

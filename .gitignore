@@ -1,0 +1,30 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+resources/mihomo/*/mihomo
+resources/mihomo/*/mihomo.exe
+test-results/
+playwright-report/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Local config overrides
+*.local
+
+# Bun
+bun.lock
+
+# husky internal
+.husky/_

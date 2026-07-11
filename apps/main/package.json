@@ -1,0 +1,16 @@
+{
+  "name": "@browser/main",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.cjs",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@browser/ipc-contract": "workspace:*",
+    "@browser/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1"  }
+}
