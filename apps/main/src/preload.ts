@@ -1,11 +1,17 @@
 import type {
+  AutocompleteQuery,
+  AutocompleteSuggestion,
+  BookmarkCheckResult,
   BookmarkCreateOptions,
   BookmarkItem,
   CreateTabOptions,
   DownloadCreateOptions,
   DownloadItem,
   DownloadListOptions,
+  FindInPageDirection,
+  FindInPageOptions,
   HistoryItem,
+  QuickLink,
   TabPrintOptions,
   TabPrintToPdfOptions,
   TabState,
@@ -83,6 +89,30 @@ const api: {
   onDownloadProgress: (
     cb: (data: { id: string; state: string; receivedBytes: number; totalBytes: number }) => void
   ) => void
+  // QuickLinks
+  getQuickLinks: () => Promise<QuickLink[]>
+  setQuickLinks: (links: QuickLink[]) => Promise<void>
+  // Autocomplete
+  getAutocompleteSuggestions: (opts: AutocompleteQuery) => Promise<AutocompleteSuggestion[]>
+  // Bookmark
+  isBookmarked: (url: string) => Promise<BookmarkCheckResult>
+  // Find in Page
+  startFind: (opts: FindInPageOptions) => void
+  endFind: (tabId: string) => Promise<void>
+  findNext: (opts: FindInPageDirection) => Promise<void>
+  findPrevious: (opts: FindInPageDirection) => Promise<void>
+  // Tab reorder
+  reorderTabs: (ids: string[]) => Promise<void>
+  // Broadcast
+  onFoundInPage: (
+    cb: (data: {
+      tabId: string
+      requestId: string
+      activeMatchIndex: number
+      totalMatches: number
+      selection: string
+    }) => void
+  ) => void
 } = {
   ping: (message) => ipcRenderer.invoke('app:ping', message),
   createTab: (opts) => ipcRenderer.invoke('tab:create', opts),
@@ -141,6 +171,33 @@ const api: {
   onDownloadProgress: (cb) =>
     ipcRenderer.on('download:progress', (_e, data) =>
       cb(data as { id: string; state: string; receivedBytes: number; totalBytes: number })
+    ),
+  // QuickLinks
+  getQuickLinks: () => ipcRenderer.invoke('settings:getQuickLinks'),
+  setQuickLinks: (links) => ipcRenderer.invoke('settings:setQuickLinks', links),
+  // Autocomplete
+  getAutocompleteSuggestions: (opts) => ipcRenderer.invoke('autocomplete:suggestions', opts),
+  // Bookmark
+  isBookmarked: (url) => ipcRenderer.invoke('bookmark:isBookmarked', url),
+  // Find in Page
+  startFind: (opts) => ipcRenderer.send('page:startFind', opts),
+  endFind: (tabId) => ipcRenderer.invoke('page:endFind', tabId),
+  findNext: (opts) => ipcRenderer.invoke('page:findNext', opts),
+  findPrevious: (opts) => ipcRenderer.invoke('page:findPrevious', opts),
+  // Tab reorder
+  reorderTabs: (ids) => ipcRenderer.invoke('tab:reorder', ids),
+  // Broadcast
+  onFoundInPage: (cb) =>
+    ipcRenderer.on('page:foundInPage', (_e, data) =>
+      cb(
+        data as {
+          tabId: string
+          requestId: string
+          activeMatchIndex: number
+          totalMatches: number
+          selection: string
+        }
+      )
     ),
 }
 

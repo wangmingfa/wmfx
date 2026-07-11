@@ -68,6 +68,14 @@ export class BookmarkManager {
     return this.repo.search(query).map(toDto)
   }
 
+  isBookmarked(url: string): { isBookmarked: boolean; id: string | null } {
+    const items = this.repo.search(url)
+    if (items.length > 0) {
+      return { isBookmarked: true, id: items[0].id }
+    }
+    return { isBookmarked: false, id: null }
+  }
+
   importHTML(html: string): void {
     const links = this.parseBookmarksHTML(html)
     for (const link of links) {

@@ -65,3 +65,12 @@
 - Theme toggle (light/dark via nativeTheme + CSS variables)
 - 28 new IPC channels, 41 total handlers
 - 12 E2E tests (7 original + 5 M2 features)
+
+**M3 — 用户体验增强（Phase 3）** ✅ COMPLETED
+- New Tab Page (search box + quick links grid + recent history)
+- Find in Page UI (slides from AddressBar bottom-right, Ctrl+F)
+- AddressBar autocomplete (history + bookmark suggestions, 200ms debounce)
+- Bookmark star button (toggle current page bookmark, gold filled)
+- Tab drag & drop reordering (HTML5 DnD, persisted to SettingsManager)
+- 9 new IPC channels, 50 total handlers
+- 17 E2E tests (7 original + 5 M2 + 5 M3)

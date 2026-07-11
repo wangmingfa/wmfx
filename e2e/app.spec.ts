@@ -105,3 +105,30 @@ test('sidebar opens and closes via toggle button', async () => {
   await page.locator('.sidebar-button').click()
   await expect(page.locator('.sidebar')).not.toHaveClass(/open/)
 })
+
+test('new tab page renders', async () => {
+  await expect(page.locator('.new-tab')).toBeVisible()
+})
+
+test('find bar opens on Ctrl+F', async () => {
+  await page.keyboard.press('Control+F')
+  await expect(page.locator('.find-bar')).toBeVisible()
+})
+
+test('autocomplete dropdown appears on input focus', async () => {
+  await page.locator('.url-input').click()
+  await page.keyboard.type('test')
+  await page.waitForTimeout(250)
+  const dropdown = page.locator('.autocomplete')
+  await expect(dropdown).toBeVisible()
+})
+
+test('bookmark star button exists', async () => {
+  await expect(page.locator('.bookmark-btn')).toBeVisible()
+})
+
+test('tab reorder via drag', async () => {
+  await page.locator('.tab-new').click()
+  await expect(page.locator('.tab-item')).toHaveCount(2)
+  await page.locator('.tab-item').first().dragTo(page.locator('.tab-item').last())
+})

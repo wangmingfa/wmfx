@@ -17,10 +17,18 @@
           :is-loading="activeTab.isLoading"
         />
         <Viewport
-          v-if="activeTab"
+          v-if="activeTab && activeTab.url !== 'about:blank'"
+          :tab-id="activeTab.id"
+        />
+        <NewTab
+          v-if="activeTab && activeTab.url === 'about:blank'"
           :tab-id="activeTab.id"
         />
       </div>
+      <FindBar
+        v-if="activeTab"
+        :tab-id="activeTab.id"
+      />
     </div>
     <Sidebar
       :is-open="isSidebarOpen"
@@ -32,7 +40,9 @@
 <script setup lang="ts">
 import type { TabState } from '@browser/ipc-contract'
 import { onMounted, onUnmounted, ref } from 'vue'
+import NewTab from '../views/NewTab.vue'
 import AddressBar from './AddressBar.vue'
+import FindBar from './FindBar.vue'
 import Sidebar from './Sidebar.vue'
 import TabBar from './TabBar.vue'
 import Viewport from './Viewport.vue'

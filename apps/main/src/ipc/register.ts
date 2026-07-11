@@ -1,6 +1,20 @@
-import type { IpcContract, ThemeMode } from '@browser/ipc-contract'
-import { BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import type {
+  AutocompleteSuggestion,
+  IpcContract,
+  QuickLink,
+  ThemeMode,
+} from '@browser/ipc-contract'
+import { BrowserWindow, type Event, ipcMain, nativeTheme } from 'electron'
 import type { BrowserWindowInstance } from '../window-manager'
+
+/** Type for raw WebContents event methods (TS overloads don't cover 'found-in-page') */
+interface WebContentsEventTarget {
+  removeListener(event: string, listener?: (...args: never[]) => void): void
+  on(event: string, listener: (...args: never[]) => void): WebContentsEventTarget
+}
+
+/** Tracks found-in-page handlers per webContents id for cleanup in endFind */
+const foundHandlers = new Map<string, (_: Event, result: Electron.FoundInPageResult) => void>()
 
 declare global {
   var browserInstances: Map<string, BrowserWindowInstance>
@@ -316,5 +330,111 @@ export function registerIpcHandlers(): void {
     nativeTheme.themeSource = theme
     const inst = getInstance()
     if (inst) inst.settingsManager.set('theme' as never, theme as never)
+  })
+
+  // QuickLinks
+  handle('settings:getQuickLinks', () => {
+    const inst = getInstance()
+    if (!inst) return []
+    return inst.settingsManager.get('quickLinks') as QuickLink[]
+  })
+
+  handle('settings:setQuickLinks', (links) => {
+    const inst = getInstance()
+    if (!inst) return
+    inst.settingsManager.set('quickLinks' as never, links as never)
+  })
+
+  // Autocomplete
+  handle('autocomplete:suggestions', (opts) => {
+    const inst = getInstance()
+    if (!inst) return []
+    const { query = '', limit = 6 } = opts
+    const historyResults = inst.historyManager.search(query, limit, 0).map((item) => ({
+      type: 'history' as const,
+      title: item.title ?? item.url,
+      url: item.url,
+    }))
+    const bookmarkResults = inst.bookmarkManager.search(query).map((item) => ({
+      type: 'bookmark' as const,
+      title: item.title,
+      url: item.url ?? '',
+    }))
+    const results = [...historyResults, ...bookmarkResults]
+    const unique = new Map<string, AutocompleteSuggestion>()
+    for (const r of results) {
+      if (!unique.has(r.url)) {
+        unique.set(r.url, r)
+      }
+    }
+    const suggestions = Array.from(unique.values())
+      .slice(0, limit)
+      .filter((s) => s.url)
+    return suggestions
+  })
+
+  // Bookmark
+  handle('bookmark:isBookmarked', (url) => {
+    const inst = getInstance()
+    if (!inst) return { isBookmarked: false, id: null }
+    return inst.bookmarkManager.isBookmarked(url)
+  })
+
+  // Find in Page — use ipcMain.on (not handle) because found-in-page is an async event
+  // that must be broadcast back to the renderer
+  ipcMain.on('page:startFind', (event, opts) => {
+    const inst = getInstance()
+    if (!inst) return
+    const wc = inst.tabManager.getWebContents(opts.tabId)
+    if (!wc) return
+    const wcId = String(wc.id)
+
+    const foundHandler = (_: Event, result: Electron.FoundInPageResult) => {
+      event.sender.send('page:foundInPage', {
+        matches: result.matches,
+        activeMatch: result.activeMatchOrdinal,
+        tabId: opts.tabId,
+      })
+    }
+
+    const wcEventTarget = wc as unknown as WebContentsEventTarget
+    wcEventTarget.removeListener('found-in-page', foundHandlers.get(wcId))
+    wcEventTarget.on('found-in-page', foundHandler)
+    foundHandlers.set(wcId, foundHandler)
+    wc.findInPage(opts.searchText)
+  })
+
+  handle('page:endFind', (tabId) => {
+    const inst = getInstance()
+    if (!inst) return
+    const wc = inst.tabManager.getWebContents(tabId)
+    if (wc) {
+      const wcId = String(wc.id)
+      const wcEventTarget = wc as unknown as WebContentsEventTarget
+      wcEventTarget.removeListener('found-in-page', foundHandlers.get(wcId))
+      foundHandlers.delete(wcId)
+      wc.stopFindInPage('clearSelection')
+    }
+  })
+
+  handle('page:findNext', (opts) => {
+    const inst = getInstance()
+    if (!inst) return
+    const wc = inst.tabManager.getWebContents(opts.tabId)
+    if (wc) wc.findInPage('', { forward: opts.forward, findNext: true })
+  })
+
+  handle('page:findPrevious', (opts) => {
+    const inst = getInstance()
+    if (!inst) return
+    const wc = inst.tabManager.getWebContents(opts.tabId)
+    if (wc) wc.findInPage('', { forward: !opts.forward, findNext: true })
+  })
+
+  // Tab reorder
+  handle('tab:reorder', (ids) => {
+    const inst = getInstance()
+    if (!inst) return
+    inst.tabManager.reorder(ids)
   })
 }

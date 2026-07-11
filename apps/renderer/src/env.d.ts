@@ -1,6 +1,11 @@
 /// <reference types="vite/client" />
 
-import type { CreateTabOptions, IpcInvoke, TabState } from '@browser/ipc-contract'
+import type {
+  CreateTabOptions,
+  FindInPageOptions,
+  IpcInvoke,
+  TabState,
+} from '@browser/ipc-contract'
 
 declare global {
   interface Window {
@@ -48,6 +53,23 @@ declare global {
       getSetting: IpcInvoke['settings:get']
       setSetting: IpcInvoke['settings:set']
       getAllSettings: IpcInvoke['settings:getAll']
+      // QuickLinks
+      getQuickLinks: IpcInvoke['settings:getQuickLinks']
+      setQuickLinks: IpcInvoke['settings:setQuickLinks']
+      // Autocomplete
+      getAutocompleteSuggestions: IpcInvoke['autocomplete:suggestions']
+      // Bookmark
+      isBookmarked: IpcInvoke['bookmark:isBookmarked']
+      // Find in Page
+      startFind: (opts: FindInPageOptions) => void
+      endFind: IpcInvoke['page:endFind']
+      findNext: IpcInvoke['page:findNext']
+      findPrevious: IpcInvoke['page:findPrevious']
+      onFoundInPage: (
+        handler: (data: { matches: number; activeMatch: number; tabId: string }) => void
+      ) => void
+      // Tab reorder
+      reorderTabs: IpcInvoke['tab:reorder']
       // Theme
       getTheme: IpcInvoke['theme:get']
       setTheme: IpcInvoke['theme:set']

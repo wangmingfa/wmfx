@@ -1,6 +1,6 @@
 # M2 — 浏览增强 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 实现下载管理、历史记录、书签管理、隐身模式、打印/PDF/缩放、设置界面和浅/深色主题适配
 
@@ -71,7 +71,7 @@ apps/renderer/src/
 **Interfaces:**
 - Produces: `Database` singleton + 三个 Repository（HistoryRepository, DownloadRepository, BookmarkRepository）
 
-- [ ] **Step 1: 创建数据库包**
+- [x] **Step 1: 创建数据库包**
 
 在 `packages/database/` 下创建：
 
@@ -131,7 +131,7 @@ export default defineConfig({
 })
 ```
 
-- [ ] **Step 2: 实现 Database singleton**
+- [x] **Step 2: 实现 Database singleton**
 
 **`packages/database/src/database.ts`:**
 ```typescript
@@ -206,7 +206,7 @@ class DatabaseManager {
 export default DatabaseManager
 ```
 
-- [ ] **Step 3: 实现 HistoryRepository**
+- [x] **Step 3: 实现 HistoryRepository**
 
 **`packages/database/src/repositories/history-repository.ts`:**
 ```typescript
@@ -283,7 +283,7 @@ export class HistoryRepository {
 }
 ```
 
-- [ ] **Step 4: 实现 DownloadRepository**
+- [x] **Step 4: 实现 DownloadRepository**
 
 **`packages/database/src/repositories/download-repository.ts`:**
 ```typescript
@@ -364,7 +364,7 @@ export class DownloadRepository {
 }
 ```
 
-- [ ] **Step 5: 实现 BookmarkRepository**
+- [x] **Step 5: 实现 BookmarkRepository**
 
 **`packages/database/src/repositories/bookmark-repository.ts`:**
 ```typescript
@@ -449,7 +449,7 @@ export class BookmarkRepository {
 }
 ```
 
-- [ ] **Step 6: 导出模块**
+- [x] **Step 6: 导出模块**
 
 **`packages/database/src/index.ts`:**
 ```typescript
@@ -462,7 +462,7 @@ export type { DownloadItem, DownloadState } from './repositories/download-reposi
 export type { BookmarkItem } from './repositories/bookmark-repository'
 ```
 
-- [ ] **Step 7: 安装依赖并构建**
+- [x] **Step 7: 安装依赖并构建**
 
 ```bash
 cd packages/database && bun install && bun run build && bun run typecheck
@@ -470,7 +470,7 @@ cd packages/database && bun install && bun run build && bun run typecheck
 
 Expected: 构建成功，typecheck 通过
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add packages/database/
@@ -488,7 +488,7 @@ git commit -m "feat(database): add SQLite database layer with history/download/b
 **Interfaces:**
 - Produces: 所有新通道类型定义
 
-- [ ] **Step 1: 扩展 channels.ts**
+- [x] **Step 1: 扩展 channels.ts**
 
 在 `packages/ipc-contract/src/channels.ts` 末尾添加新类型和通道：
 
@@ -642,7 +642,7 @@ export interface TabZoomOptions {
   'theme:set': (theme: ThemeMode) => void
 ```
 
-- [ ] **Step 2: 更新 index.ts**
+- [x] **Step 2: 更新 index.ts**
 
 在 `packages/ipc-contract/src/index.ts` 中添加新类型导出：
 
@@ -672,7 +672,7 @@ export type {
 } from './channels'
 ```
 
-- [ ] **Step 3: 构建验证**
+- [x] **Step 3: 构建验证**
 
 ```bash
 bun run build:ipc && bun run typecheck
@@ -680,7 +680,7 @@ bun run build:ipc && bun run typecheck
 
 Expected: 所有包类型检查通过
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add packages/ipc-contract/
@@ -697,13 +697,13 @@ git commit -m "feat(ipc-contract): extend with download/history/bookmark/setting
 **Interfaces:**
 - Produces: `SettingsManager`（electron-store KV 操作）
 
-- [ ] **Step 1: 安装 electron-store**
+- [x] **Step 1: 安装 electron-store**
 
 ```bash
 bun add electron-store
 ```
 
-- [ ] **Step 2: 实现 SettingsManager**
+- [x] **Step 2: 实现 SettingsManager**
 
 创建 `apps/main/src/settings-manager.ts`：
 
@@ -750,7 +750,7 @@ export class SettingsManager {
 }
 ```
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add apps/main/src/settings-manager.ts bun.lock package.json
@@ -768,7 +768,7 @@ git commit -m "feat(main): add SettingsManager with electron-store KV"
 - Consumes: `DownloadRepository` from `@wmfx/database`, `SettingsManager`
 - Produces: `DownloadManager`（下载操作 + 进度广播）
 
-- [ ] **Step 1: 实现 DownloadManager**
+- [x] **Step 1: 实现 DownloadManager**
 
 创建 `apps/main/src/download-manager.ts`：
 
@@ -904,7 +904,7 @@ export class DownloadManager {
 
 **注意**：上面的 `crypto` 需要导入，实际实现中应该从 `node:crypto` 导入。
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add apps/main/src/download-manager.ts
@@ -923,7 +923,7 @@ git commit -m "feat(main): add DownloadManager with download tracking and progre
 - Consumes: `HistoryRepository` from `@wmfx/database`
 - Produces: `HistoryManager`
 
-- [ ] **Step 1: 实现 HistoryManager**
+- [x] **Step 1: 实现 HistoryManager**
 
 创建 `apps/main/src/history-manager.ts`：
 
@@ -972,7 +972,7 @@ export class HistoryManager {
 }
 ```
 
-- [ ] **Step 2: 修改 TabManager 自动记录历史**
+- [x] **Step 2: 修改 TabManager 自动记录历史**
 
 在 `apps/main/src/tab-manager.ts` 中，`setupTabListeners` 方法的 `did-navigate` 事件处理中，添加历史记录的调用。
 
@@ -1010,7 +1010,7 @@ webContentsObj.on('did-navigate', (_e, url) => {
 })
 ```
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add apps/main/src/history-manager.ts apps/main/src/tab-manager.ts
@@ -1028,7 +1028,7 @@ git commit -m "feat(main): add HistoryManager with auto-logging via TabManager"
 - Consumes: `BookmarkRepository` from `@wmfx/database`
 - Produces: `BookmarkManager`（含 HTML 导入导出）
 
-- [ ] **Step 1: 实现 BookmarkManager**
+- [x] **Step 1: 实现 BookmarkManager**
 
 创建 `apps/main/src/bookmark-manager.ts`：
 
@@ -1136,7 +1136,7 @@ export class BookmarkManager {
 }
 ```
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add apps/main/src/bookmark-manager.ts
@@ -1155,7 +1155,7 @@ git commit -m "feat(main): add BookmarkManager with folder hierarchy and HTML im
 - Consumes: 所有新 Manager
 - Produces: 扩展的 `BrowserWindowInstance`
 
-- [ ] **Step 1: 修改 window-manager.ts**
+- [x] **Step 1: 修改 window-manager.ts**
 
 ```typescript
 import { BrowserWindow } from 'electron'
@@ -1226,7 +1226,7 @@ export function createMainWindow(): BrowserWindowInstance {
 }
 ```
 
-- [ ] **Step 2: 修改 index.ts — 主题初始化**
+- [x] **Step 2: 修改 index.ts — 主题初始化**
 
 ```typescript
 import { app, BrowserWindow, nativeTheme } from 'electron'
@@ -1259,7 +1259,7 @@ app.whenReady().then(() => {
 })
 ```
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add apps/main/src/window-manager.ts apps/main/src/index.ts
@@ -1276,7 +1276,7 @@ git commit -m "feat(main): wire all M2 managers into window-manager and init the
 **Interfaces:**
 - Consumes: `BrowserWindowInstance` 中所有 Manager
 
-- [ ] **Step 1: 扩展 register.ts**
+- [x] **Step 1: 扩展 register.ts**
 
 在现有 handlers 之后添加所有新通道的 handler。模式与 Task 5（M1 IPC 注册）一致，通过 `getInstance()` 获取当前窗口的 Manager 实例。
 
@@ -1298,13 +1298,13 @@ handle('history:search', (opts) => {
 })
 ```
 
-- [ ] **Step 2: 构建验证**
+- [x] **Step 2: 构建验证**
 
 ```bash
 bun run build:main && bun run typecheck
 ```
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add apps/main/src/ipc/register.ts
@@ -1318,7 +1318,7 @@ git commit -m "feat(main): register all M2 IPC handlers (download/history/bookma
 **Files:**
 - Modify: `apps/main/src/preload.ts`
 
-- [ ] **Step 1: 扩展 preload.ts**
+- [x] **Step 1: 扩展 preload.ts**
 
 添加所有新 API 方法：
 
@@ -1376,7 +1376,7 @@ setTheme: (theme: ThemeMode) => Promise<void>
 onDownloadProgress: (cb: (data: { id: string; state: string; receivedBytes: number; totalBytes: number }) => void) => void
 ```
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add apps/main/src/preload.ts
@@ -1390,11 +1390,11 @@ git commit -m "feat(main): extend preload with M2 browserAPI methods"
 **Files:**
 - Modify: `apps/renderer/src/env.d.ts`
 
-- [ ] **Step 1: 扩展 browserAPI 类型**
+- [x] **Step 1: 扩展 browserAPI 类型**
 
 在 `browserAPI` 接口中添加所有新方法的类型定义，与 preload 中一致。
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add apps/renderer/src/env.d.ts
@@ -1410,19 +1410,19 @@ git commit -m "feat(renderer): extend browserAPI types for M2 features"
 - Modify: `apps/renderer/src/components/ChromeUI.vue`
 - Modify: `apps/renderer/src/components/TabBar.vue`（incognito 支持）
 
-- [ ] **Step 1: 创建 Sidebar.vue**
+- [x] **Step 1: 创建 Sidebar.vue**
 
 侧边栏组件，包含：历史、书签、下载、设置四个标签页导航，固定宽度 280px，从右侧滑出。
 
-- [ ] **Step 2: 修改 ChromeUI.vue**
+- [x] **Step 2: 修改 ChromeUI.vue**
 
 在 TabBar 和 Viewport 之间加入 Sidebar，通过按钮切换显示/隐藏。
 
-- [ ] **Step 3: 修改 TabBar.vue**
+- [x] **Step 3: 修改 TabBar.vue**
 
 添加右键菜单支持"新建隐身标签页"，使用 `sessionId: 'incognito'`。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add apps/renderer/src/components/Sidebar.vue apps/renderer/src/components/ChromeUI.vue apps/renderer/src/components/TabBar.vue
@@ -1440,11 +1440,11 @@ git commit -m "feat(renderer): add Sidebar navigation and incognito tab support"
 - Consumes: `browserAPI`（getDownloads, pauseDownload, resumeDownload, cancelDownload, onDownloadProgress）
 - Produces: 下载列表 UI + 进度条 + 操作按钮
 
-- [ ] **Step 1: 实现 DownloadsView.vue**
+- [x] **Step 1: 实现 DownloadsView.vue**
 
 下载列表视图，显示所有下载任务，支持暂停/恢复/取消操作，实时进度条。
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add apps/renderer/src/views/DownloadsView.vue
@@ -1462,11 +1462,11 @@ git commit -m "feat(renderer): add DownloadsView with progress tracking"
 - Consumes: `browserAPI`（getHistoryList, searchHistory, deleteHistory, clearHistory）
 - Produces: 历史列表 + 搜索框 + 右键菜单（打开新标签/删除）
 
-- [ ] **Step 1: 实现 HistoryView.vue**
+- [x] **Step 1: 实现 HistoryView.vue**
 
 历史记录列表，支持关键词搜索，右键菜单删除单条记录。
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add apps/renderer/src/views/HistoryView.vue
@@ -1484,11 +1484,11 @@ git commit -m "feat(renderer): add HistoryView with search and delete"
 - Consumes: `browserAPI`（getBookmarks, addBookmark, deleteBookmark, renameBookmark, searchBookmarks, importBookmarks, exportBookmarks）
 - Produces: 书签树形列表 + 搜索 + 右键菜单 + 导入导出
 
-- [ ] **Step 1: 实现 BookmarkView.vue**
+- [x] **Step 1: 实现 BookmarkView.vue**
 
 书签管理视图，支持文件夹层级展示、搜索、右键菜单（添加/删除/重命名）、导入导出 HTML。
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add apps/renderer/src/views/BookmarkView.vue
@@ -1507,7 +1507,7 @@ git commit -m "feat(renderer): add BookmarkView with folder hierarchy and import
 - Consumes: `browserAPI`（getAllSettings, setSetting, getTheme, setTheme）
 - Produces: 设置表单 + 主题切换
 
-- [ ] **Step 1: 实现 SettingsView.vue**
+- [x] **Step 1: 实现 SettingsView.vue**
 
 设置页面，包含：
 - 主题选择（light/dark/system 单选）
@@ -1518,7 +1518,7 @@ git commit -m "feat(renderer): add BookmarkView with folder hierarchy and import
 
 主题切换时调用 `setTheme`，主进程通过 `nativeTheme.themeSource` 切换。
 
-- [ ] **Step 2: 修改 ChromeUI 样式为 CSS variables**
+- [x] **Step 2: 修改 ChromeUI 样式为 CSS variables**
 
 将 ChromeUI.vue 和内联样式改为使用 CSS variables，支持浅/深色切换：
 
@@ -1548,7 +1548,7 @@ git commit -m "feat(renderer): add BookmarkView with folder hierarchy and import
 </style>
 ```
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add apps/renderer/src/views/SettingsView.vue apps/renderer/src/components/ChromeUI.vue
@@ -1562,13 +1562,13 @@ git commit -m "feat(renderer): add SettingsView and CSS variables for light/dark
 **Files:**
 - Modify: `apps/renderer/src/components/AddressBar.vue`
 
-- [ ] **Step 1: 添加打印和缩放按钮**
+- [x] **Step 1: 添加打印和缩放按钮**
 
 在地址栏右侧添加：
 - 打印按钮（点击调用 `printPage`）
 - 缩放显示/设置按钮（显示当前缩放百分比，点击可切换 50%/75%/100%/125%/150%）
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add apps/renderer/src/components/AddressBar.vue
@@ -1579,21 +1579,21 @@ git commit -m "feat(renderer): add print and zoom controls to AddressBar"
 
 ### Task 17: 构建验证 + lint
 
-- [ ] **Step 1: 完整构建**
+- [x] **Step 1: 完整构建**
 
 ```bash
 bun run build
 ```
 
-- [ ] **Step 2: 完整 lint**
+- [x] **Step 2: 完整 lint**
 
 ```bash
 bun run lint
 ```
 
-- [ ] **Step 3: 修复所有 lint 错误**
+- [x] **Step 3: 修复所有 lint 错误**
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add -A
@@ -1607,7 +1607,7 @@ git commit -m "chore: fix all lint issues for M2"
 **Files:**
 - Modify: `e2e/app.spec.ts`
 
-- [ ] **Step 1: 添加 M2 功能测试**
+- [x] **Step 1: 添加 M2 功能测试**
 
 在现有测试基础上增加：
 - 下载列表可见性测试
@@ -1616,7 +1616,7 @@ git commit -m "chore: fix all lint issues for M2"
 - 主题切换测试
 - 侧边栏导航测试
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add e2e/app.spec.ts
@@ -1627,13 +1627,13 @@ git commit -m "test(e2e): add M2 feature tests"
 
 ## 验收标准
 
-- [ ] 下载管理：能创建下载、暂停、恢复、取消，进度实时更新
-- [ ] 历史记录：自动记录、搜索、删除、清空
-- [ ] 书签：添加、删除、重命名、文件夹、搜索、导入导出 HTML
-- [ ] 隐身模式：TabBar 右键新建隐身标签页，正确使用 incognito partition
-- [ ] 打印/PDF：能打印页面、导出 PDF
-- [ ] 缩放：能设置缩放级别，设置存储到 SettingsManager
-- [ ] 设置界面：能修改主题、下载路径、默认搜索、新标签页 URL
-- [ ] 主题：浅色/深色/system 三模式正常切换，nativeTheme.themeSource 控制标签页主题
-- [ ] 侧边栏：能切换历史记录/书签/下载/设置视图
-- [ ] 所有 lint/typecheck/build 通过
+- [x] 下载管理：能创建下载、暂停、恢复、取消，进度实时更新
+- [x] 历史记录：自动记录、搜索、删除、清空
+- [x] 书签：添加、删除、重命名、文件夹、搜索、导入导出 HTML
+- [x] 隐身模式：TabBar 右键新建隐身标签页，正确使用 incognito partition
+- [x] 打印/PDF：能打印页面、导出 PDF
+- [x] 缩放：能设置缩放级别，设置存储到 SettingsManager
+- [x] 设置界面：能修改主题、下载路径、默认搜索、新标签页 URL
+- [x] 主题：浅色/深色/system 三模式正常切换，nativeTheme.themeSource 控制标签页主题
+- [x] 侧边栏：能切换历史记录/书签/下载/设置视图
+- [x] 所有 lint/typecheck/build 通过

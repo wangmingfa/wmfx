@@ -51,7 +51,8 @@ export function createMainWindow(): BrowserWindowInstance {
     win,
     (name) => sessionManager.getSession(name),
     'default',
-    historyManager
+    historyManager,
+    settingsManager
   )
   const navigationManager = new NavigationManager(tabManager)
   const downloadManager = new DownloadManager(win, downloadRepo, settingsManager)

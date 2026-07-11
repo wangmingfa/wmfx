@@ -61,6 +61,22 @@
       @blur="onBlur"
       @keydown.enter="navigate"
     >
+    <Autocomplete
+      :query="urlInput"
+      @select="onAutocompleteSelect"
+      @close="onAutocompleteClose"
+    />
+    <button
+      class="bookmark-btn"
+      :class="{ bookmarked: isBookmarked }"
+      @click="toggleBookmark"
+    >
+      <Icon
+        :icon="isBookmarked ? 'ic:round-star' : 'ic:round-star-outline'"
+        :width="iconSize"
+        :height="iconSize"
+      />
+    </button>
     <button
       class="zoom-display"
       @click="cycleZoom"
@@ -73,6 +89,8 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { onMounted, ref, watch } from 'vue'
+
+import Autocomplete from './Autocomplete.vue'
 
 const props = defineProps<{
   tabId: string
@@ -90,6 +108,7 @@ const iconSize = 18
 
 const urlInput = ref(props.url)
 const inputRef = ref<HTMLInputElement>()
+const isBookmarked = ref(false)
 
 const ZOOM_LEVELS = [50, 75, 100, 125, 150]
 const ZOOM_FACTORS = [0.5, 0.75, 1.0, 1.25, 1.5]
@@ -172,14 +191,65 @@ function printPage(): void {
   window.browserAPI.printPage({ tabId: props.tabId })
 }
 
+function onAutocompleteSelect(url: string): void {
+  window.browserAPI.loadURL(props.tabId, url)
+  emit('navigate', url)
+}
+
+function onAutocompleteClose(): void {
+  // do nothing
+}
+
+async function syncBookmarkStatus(): Promise<void> {
+  const url = props.url
+  if (url && url.startsWith('http')) {
+    const result = await window.browserAPI.isBookmarked(url)
+    isBookmarked.value = result.isBookmarked
+  }
+  else {
+    isBookmarked.value = false
+  }
+}
+
+async function toggleBookmark(): Promise<void> {
+  const url = props.url
+  if (!url || !url.startsWith('http')) {
+    return
+  }
+
+  if (isBookmarked.value) {
+    const result = await window.browserAPI.isBookmarked(url)
+    if (result.id) {
+      await window.browserAPI.deleteBookmark(result.id)
+    }
+    isBookmarked.value = false
+  }
+  else {
+    await window.browserAPI.addBookmark({
+      title: url,
+      url,
+    })
+    isBookmarked.value = true
+  }
+}
+
+watch(
+  () => props.url,
+  () => {
+    syncBookmarkStatus()
+  },
+)
+
 onMounted(async () => {
   currentZoomIndex.value = await getZoomLevel()
   currentZoomLevel.value = `${ZOOM_LEVELS[currentZoomIndex.value]}%`
+  await syncBookmarkStatus()
 })
 </script>
 
 <style scoped>
 .address-bar {
+  position: relative;
   display: flex;
   align-items: center;
   height: 40px;
@@ -245,5 +315,25 @@ onMounted(async () => {
 
 .zoom-display:hover {
   background: var(--bg-tertiary);
+}
+
+.bookmark-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.bookmark-btn:not(:disabled):hover {
+  background: var(--bg-tertiary);
+}
+
+.bookmark-btn.bookmarked {
+  color: #f5b041;
 }
 </style>

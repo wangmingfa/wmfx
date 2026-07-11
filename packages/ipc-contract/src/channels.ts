@@ -148,6 +148,56 @@ export interface TabZoomOptions {
   factor: number
 }
 
+/** 新标签页快捷网站 */
+export interface QuickLink {
+  id: string
+  title: string
+  url: string
+}
+
+/** 补全建议项 */
+export interface AutocompleteSuggestion {
+  type: 'history' | 'bookmark' | 'search'
+  title: string
+  url: string
+}
+
+/** 补全查询参数 */
+export interface AutocompleteQuery {
+  query: string
+  limit?: number
+}
+
+/** 书签检查结果 */
+export interface BookmarkCheckResult {
+  isBookmarked: boolean
+  id: string | null
+}
+
+/** 标签页查找结果 */
+export interface FindInPageResult {
+  matches: number
+  activeMatch: number
+  searchText: string
+}
+
+/** 页面内查找参数 */
+export interface FindInPageOptions {
+  tabId: string
+  searchText: string
+}
+
+/** 标签页查找翻页参数 */
+export interface FindInPageDirection {
+  tabId: string
+  forward: boolean
+}
+
+/** 新标签页快捷网站列表参数 */
+export interface QuickLinksListOptions {
+  tabId?: string
+}
+
 export interface IpcContract {
   'app:ping': (message: string) => string
   'tab:create': (opts: CreateTabOptions) => TabState
@@ -197,6 +247,20 @@ export interface IpcContract {
   // Theme
   'theme:get': () => ThemeMode
   'theme:set': (theme: ThemeMode) => void
+  // New Tab
+  'settings:getQuickLinks': () => QuickLink[]
+  'settings:setQuickLinks': (links: QuickLink[]) => void
+  // Autocomplete
+  'autocomplete:suggestions': (opts: AutocompleteQuery) => AutocompleteSuggestion[]
+  // Bookmark
+  'bookmark:isBookmarked': (url: string) => BookmarkCheckResult
+  // Find in Page
+  'page:startFind': (opts: FindInPageOptions) => void
+  'page:endFind': (tabId: string) => void
+  'page:findNext': (opts: FindInPageDirection) => void
+  'page:findPrevious': (opts: FindInPageDirection) => void
+  // Tab reorder
+  'tab:reorder': (ids: string[]) => void
 }
 
 export type IpcChannel = keyof IpcContract
@@ -249,6 +313,20 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   // Theme
   'theme:get',
   'theme:set',
+  // New Tab
+  'settings:getQuickLinks',
+  'settings:setQuickLinks',
+  // Autocomplete
+  'autocomplete:suggestions',
+  // Bookmark
+  'bookmark:isBookmarked',
+  // Find in Page
+  'page:startFind',
+  'page:endFind',
+  'page:findNext',
+  'page:findPrevious',
+  // Tab reorder
+  'tab:reorder',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {

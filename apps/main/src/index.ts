@@ -22,7 +22,7 @@ app.whenReady().then(() => {
     nativeTheme.themeSource = 'light'
   }
 
-  mainWindow.tabManager.create({ url: 'https://www.google.com' })
+  mainWindow.tabManager.create({ url: 'about:blank' })
   // F12 打开/关闭当前标签页 DevTools
   registerAppShortcut(mainWindow.window, 'F12', () => {
     const focused = BrowserWindow.getFocusedWindow()
@@ -52,7 +52,7 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) {
       const win = createMainWindow()
       globalThis.browserInstances.set(String(win.window.id), win)
-      win.tabManager.create({ url: 'https://www.google.com' })
+      win.tabManager.create({ url: 'about:blank' })
     }
   })
 })

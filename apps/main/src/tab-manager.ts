@@ -2,6 +2,7 @@ import type { CreateTabOptions, TabState, ViewBounds } from '@browser/ipc-contra
 import { type BrowserWindow, type Session, WebContentsView } from 'electron'
 
 import type { HistoryManager } from './history-manager'
+import type { SettingsManager } from './settings-manager'
 
 export interface TabManagerConfig {
   defaultSessionName?: string
@@ -19,7 +20,8 @@ export class TabManager {
     private window: BrowserWindow,
     private getSession: (name: string) => Session,
     private defaultSessionName: string = 'default',
-    private historyManager: HistoryManager
+    private historyManager: HistoryManager,
+    private settingsManager: SettingsManager | null = null
   ) {
     this.windowId = window.id.toString()
     window.on('close', () => this.destroy())
@@ -254,6 +256,44 @@ export class TabManager {
   private broadcastAllStates(): void {
     for (const tab of this.tabs.values()) {
       this.broadcastState(tab)
+    }
+  }
+
+  reorder(ids: string[]): void {
+    if (!this.settingsManager) return
+    this.settingsManager.set('tabOrder', ids)
+
+    for (const tab of this.tabs.values()) {
+      tab.view.setBounds({ ...tab.view.getBounds(), y: -10000 })
+    }
+
+    const activeId = this.activeTabId
+    let activeIdx = -1
+
+    for (let i = 0; i < ids.length; i++) {
+      const tab = this.tabs.get(ids[i])
+      if (!tab) continue
+
+      if (ids[i] === activeId) {
+        activeIdx = i
+      }
+
+      const bounds = this.tabBounds.get(tab.id)
+      const newY = i * 20 - 20
+      tab.view.setBounds({
+        x: bounds?.x ?? 0,
+        y: newY,
+        width: bounds?.width ?? 0,
+        height: bounds?.height ?? 0,
+      })
+    }
+
+    if (activeIdx >= 0 && activeId) {
+      const activeTab = this.tabs.get(activeId)
+      if (activeTab) {
+        this.activeTabId = null
+        this.activate(activeId)
+      }
     }
   }
 }

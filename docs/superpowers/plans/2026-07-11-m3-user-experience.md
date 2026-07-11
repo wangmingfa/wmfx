@@ -1,6 +1,6 @@
 # M3 — 用户体验增强 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 补全日常浏览器体验中高频但缺失的功能：新标签页、页面内搜索、地址栏补全、书签快速操作、标签拖拽排序
 
@@ -59,7 +59,7 @@ apps/renderer/src/
 **Interfaces:**
 - Produces: M3 所有通道类型定义
 
-- [ ] **Step 1: 在 channels.ts 末尾添加新类型**
+- [x] **Step 1: 在 channels.ts 末尾添加新类型**
 
 ```typescript
 /** 新标签页快捷网站 */
@@ -113,7 +113,7 @@ export interface QuickLinksListOptions {
 }
 ```
 
-- [ ] **Step 2: 在 IpcContract 接口中添加新通道**
+- [x] **Step 2: 在 IpcContract 接口中添加新通道**
 
 ```typescript
   // New Tab
@@ -132,7 +132,7 @@ export interface QuickLinksListOptions {
   'tab:reorder': (ids: string[]) => void
 ```
 
-- [ ] **Step 3: 在 index.ts 中添加新类型导出**
+- [x] **Step 3: 在 index.ts 中添加新类型导出**
 
 ```typescript
 export type {
@@ -147,7 +147,7 @@ export type {
 } from './channels'
 ```
 
-- [ ] **Step 4: 构建验证**
+- [x] **Step 4: 构建验证**
 
 ```bash
 bun run build:ipc && bun run typecheck
@@ -155,7 +155,7 @@ bun run build:ipc && bun run typecheck
 
 Expected: 所有包类型检查通过
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add packages/ipc-contract/
@@ -172,7 +172,7 @@ git commit -m "feat(ipc-contract): add M3 channels (autocomplete/bookmark/quickl
 **Interfaces:**
 - Produces: `SettingsManager` 扩展 quickLinks 和 tabOrder 字段
 
-- [ ] **Step 1: 修改 settings-manager.ts**
+- [x] **Step 1: 修改 settings-manager.ts**
 
 ```typescript
 import Store from 'electron-store'
@@ -222,7 +222,7 @@ export class SettingsManager {
 }
 ```
 
-- [ ] **Step 2: 构建验证**
+- [x] **Step 2: 构建验证**
 
 ```bash
 bun run build:main && bun run typecheck
@@ -230,7 +230,7 @@ bun run build:main && bun run typecheck
 
 Expected: 构建成功
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add apps/main/src/settings-manager.ts
@@ -249,7 +249,7 @@ git commit -m "feat(main): add quickLinks and tabOrder to SettingsManager"
 - Produces: `HistoryManager.getRecent()` 返回最近访问的历史记录
 - Produces: `BookmarkManager.isBookmarked()` 检查 URL 是否已收藏
 
-- [ ] **Step 1: 修改 history-manager.ts**
+- [x] **Step 1: 修改 history-manager.ts**
 
 在 `HistoryManager` 类中添加 `getRecent` 方法：
 
@@ -259,7 +259,7 @@ git commit -m "feat(main): add quickLinks and tabOrder to SettingsManager"
   }
 ```
 
-- [ ] **Step 2: 修改 bookmark-manager.ts**
+- [x] **Step 2: 修改 bookmark-manager.ts**
 
 在 `BookmarkManager` 类中添加 `isBookmarked` 方法：
 
@@ -273,7 +273,7 @@ git commit -m "feat(main): add quickLinks and tabOrder to SettingsManager"
   }
 ```
 
-- [ ] **Step 3: 构建验证**
+- [x] **Step 3: 构建验证**
 
 ```bash
 bun run build:main && bun run typecheck
@@ -281,7 +281,7 @@ bun run build:main && bun run typecheck
 
 Expected: 构建成功
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add apps/main/src/history-manager.ts apps/main/src/bookmark-manager.ts
@@ -299,7 +299,7 @@ git commit -m "feat(main): add getRecent to HistoryManager and isBookmarked to B
 **Interfaces:**
 - Produces: `TabManager.reorder(ids: string[])` 重新排列标签顺序
 
-- [ ] **Step 1: 修改 tab-manager.ts**
+- [x] **Step 1: 修改 tab-manager.ts**
 
 在 `TabManager` 构造器中添加 SettingsManager 参数，在类中添加 `reorder` 方法：
 
@@ -354,7 +354,7 @@ constructor(
   }
 ```
 
-- [ ] **Step 2: 修改 window-manager.ts**
+- [x] **Step 2: 修改 window-manager.ts**
 
 将 `SettingsManager` 传递给 `TabManager` 构造器：
 
@@ -362,7 +362,7 @@ constructor(
 const tabManager = new TabManager(win, (name) => sessionManager.getSession(name), 'default', historyManager, settingsManager)
 ```
 
-- [ ] **Step 3: 构建验证**
+- [x] **Step 3: 构建验证**
 
 ```bash
 bun run build:main && bun run typecheck
@@ -370,7 +370,7 @@ bun run build:main && bun run typecheck
 
 Expected: 构建成功
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add apps/main/src/tab-manager.ts apps/main/src/window-manager.ts
@@ -387,7 +387,7 @@ git commit -m "feat(main): add reorder to TabManager with SettingsManager inject
 **Interfaces:**
 - Consumes: M3 Manager 方法 + SettingsManager 字段
 
-- [ ] **Step 1: 在 register.ts 末尾添加新 handlers**
+- [x] **Step 1: 在 register.ts 末尾添加新 handlers**
 
 ```typescript
   // QuickLinks
@@ -496,7 +496,7 @@ import type { IpcContract, ThemeMode, FoundInPageEvent } from '@browser/ipc-cont
   'page:foundInPage': (data: { matches: number; activeMatch: number; tabId: string }) => void
 ```
 
-- [ ] **Step 2: 构建验证**
+- [x] **Step 2: 构建验证**
 
 ```bash
 bun run build:main && bun run typecheck
@@ -504,7 +504,7 @@ bun run build:main && bun run typecheck
 
 Expected: 构建成功
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add apps/main/src/ipc/register.ts
@@ -521,7 +521,7 @@ git commit -m "feat(main): register M3 IPC handlers (quicklinks/autocomplete/boo
 **Interfaces:**
 - Produces: 渲染进程可用的 M3 API
 
-- [ ] **Step 1: 修改 preload.ts**
+- [x] **Step 1: 修改 preload.ts**
 
 添加 import：
 
@@ -578,7 +578,7 @@ import type {
   })
 ```
 
-- [ ] **Step 2: 构建验证**
+- [x] **Step 2: 构建验证**
 
 ```bash
 bun run build:main && bun run typecheck
@@ -586,7 +586,7 @@ bun run build:main && bun run typecheck
 
 Expected: 构建成功
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add apps/main/src/preload.ts
@@ -603,7 +603,7 @@ git commit -m "feat(main): add M3 browserAPI methods to preload"
 **Interfaces:**
 - Produces: 渲染进程 TypeScript 类型
 
-- [ ] **Step 1: 修改 env.d.ts**
+- [x] **Step 1: 修改 env.d.ts**
 
 添加 import：
 
@@ -641,7 +641,7 @@ import type {
       reorderTabs: IpcInvoke['tab:reorder']
 ```
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add apps/renderer/src/env.d.ts
@@ -661,7 +661,7 @@ git commit -m "feat(renderer): add M3 browserAPI types to env.d.ts"
 - Consumes: `browserAPI.getQuickLinks`, `browserAPI.setQuickLinks`, `browserAPI.getHistoryList`, `browserAPI.loadURL`
 - Produces: 新标签页 UI
 
-- [ ] **Step 1: 创建 NewTab.vue**
+- [x] **Step 1: 创建 NewTab.vue**
 
 核心元素：
 - 顶部：大搜索框（居中），聚焦时显示搜索引擎选择（Google/Baidu/Bing）
@@ -950,7 +950,7 @@ onMounted(() => {
 </style>
 ```
 
-- [ ] **Step 2: 修改 ChromeUI.vue**
+- [x] **Step 2: 修改 ChromeUI.vue**
 
 在 `ChromeUI` 中，当没有激活标签时渲染 NewTab：
 
@@ -1004,7 +1004,7 @@ onMounted(() => {
 import NewTab from './views/NewTab.vue'
 ```
 
-- [ ] **Step 3: 修改 index.ts**
+- [x] **Step 3: 修改 index.ts**
 
 将新标签创建的默认 URL 改为 `'about:blank'`，由渲染进程加载 NewTab：
 
@@ -1012,7 +1012,7 @@ import NewTab from './views/NewTab.vue'
 mainWindow.tabManager.create({ url: 'about:blank' })
 ```
 
-- [ ] **Step 4: 构建验证**
+- [x] **Step 4: 构建验证**
 
 ```bash
 bun run build && bun run lint
@@ -1020,7 +1020,7 @@ bun run build && bun run lint
 
 Expected: 构建成功，lint 通过
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add apps/renderer/src/views/NewTab.vue apps/renderer/src/components/ChromeUI.vue apps/main/src/index.ts
@@ -1039,7 +1039,7 @@ git commit -m "feat: add NewTab page with quick links and recent history"
 - Consumes: `browserAPI.startFind`, `browserAPI.endFind`, `browserAPI.findNext`, `browserAPI.findPrevious`
 - Produces: 页面内搜索 UI
 
-- [ ] **Step 1: 创建 FindBar.vue**
+- [x] **Step 1: 创建 FindBar.vue**
 
 ```vue
 <template>
@@ -1238,7 +1238,7 @@ onUnmounted(() => {
 </style>
 ```
 
-- [ ] **Step 2: 修改 ChromeUI.vue**
+- [x] **Step 2: 修改 ChromeUI.vue**
 
 在 template 中添加 FindBar：
 
@@ -1266,7 +1266,7 @@ const findBarRef = ref()
 }
 ```
 
-- [ ] **Step 3: 构建验证**
+- [x] **Step 3: 构建验证**
 
 ```bash
 bun run build && bun run lint
@@ -1274,7 +1274,7 @@ bun run build && bun run lint
 
 Expected: 构建成功，lint 通过
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add apps/renderer/src/components/FindBar.vue apps/renderer/src/components/ChromeUI.vue
@@ -1293,7 +1293,7 @@ git commit -m "feat: add Find in Page bar sliding out from AddressBar bottom-rig
 - Consumes: `browserAPI.getAutocompleteSuggestions`
 - Produces: 地址栏下拉建议 UI
 
-- [ ] **Step 1: 创建 Autocomplete.vue**
+- [x] **Step 1: 创建 Autocomplete.vue**
 
 ```vue
 <template>
@@ -1424,7 +1424,7 @@ function select(url: string): void {
 </style>
 ```
 
-- [ ] **Step 2: 修改 AddressBar.vue**
+- [x] **Step 2: 修改 AddressBar.vue**
 
 在 template 中的 `<input>` 后添加 Autocomplete：
 
@@ -1459,7 +1459,7 @@ function onAutocompleteClose(): void {
 }
 ```
 
-- [ ] **Step 3: 构建验证**
+- [x] **Step 3: 构建验证**
 
 ```bash
 bun run build && bun run lint
@@ -1467,7 +1467,7 @@ bun run build && bun run lint
 
 Expected: 构建成功，lint 通过
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add apps/renderer/src/components/Autocomplete.vue apps/renderer/src/components/AddressBar.vue
@@ -1485,7 +1485,7 @@ git commit -m "feat: add autocomplete dropdown to AddressBar with history/bookma
 - Consumes: `browserAPI.isBookmarked`, `browserAPI.addBookmark`, `browserAPI.deleteBookmark`
 - Produces: 地址栏书签星标按钮
 
-- [ ] **Step 1: 修改 AddressBar.vue**
+- [x] **Step 1: 修改 AddressBar.vue**
 
 在 URL 输入框后、缩放按钮前添加星标按钮：
 
@@ -1567,7 +1567,7 @@ watch(
 }
 ```
 
-- [ ] **Step 2: 构建验证**
+- [x] **Step 2: 构建验证**
 
 ```bash
 bun run build && bun run lint
@@ -1575,7 +1575,7 @@ bun run build && bun run lint
 
 Expected: 构建成功，lint 通过
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add apps/renderer/src/components/AddressBar.vue
@@ -1593,7 +1593,7 @@ git commit -m "feat: add bookmark star button to AddressBar"
 - Consumes: `browserAPI.reorderTabs`
 - Produces: TabBar 拖拽排序
 
-- [ ] **Step 1: 修改 TabBar.vue**
+- [x] **Step 1: 修改 TabBar.vue**
 
 在 script 中添加拖拽状态：
 
@@ -1684,7 +1684,7 @@ function onDragEnd(): void {
 }
 ```
 
-- [ ] **Step 2: 构建验证**
+- [x] **Step 2: 构建验证**
 
 ```bash
 bun run build && bun run lint
@@ -1692,7 +1692,7 @@ bun run build && bun run lint
 
 Expected: 构建成功，lint 通过
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add apps/renderer/src/components/TabBar.vue
@@ -1703,21 +1703,21 @@ git commit -m "feat: add HTML5 drag & drop tab reordering"
 
 ### Task 13: 完整构建 + lint 验证
 
-- [ ] **Step 1: 完整构建**
+- [x] **Step 1: 完整构建**
 
 ```bash
 bun run build
 ```
 
-- [ ] **Step 2: 完整 lint**
+- [x] **Step 2: 完整 lint**
 
 ```bash
 bun run lint
 ```
 
-- [ ] **Step 3: 修复所有 lint 错误**
+- [x] **Step 3: 修复所有 lint 错误**
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add -A
@@ -1734,7 +1734,7 @@ git commit -m "chore: fix all lint issues for M3"
 **Interfaces:**
 - Produces: M3 功能测试
 
-- [ ] **Step 1: 添加 M3 功能测试**
+- [x] **Step 1: 添加 M3 功能测试**
 
 在现有测试基础上增加：
 - New Tab Page 可见性测试
@@ -1772,7 +1772,7 @@ test('tab reorder via drag', async () => {
 })
 ```
 
-- [ ] **Step 2: 提交**
+- [x] **Step 2: 提交**
 
 ```bash
 git add e2e/app.spec.ts
@@ -1783,9 +1783,9 @@ git commit -m "test(e2e): add M3 feature tests (newtab/findbar/autocomplete/book
 
 ## 验收标准
 
-- [ ] New Tab Page：打开新标签页显示搜索框 + 快捷链接 + 最近访问
-- [ ] Find in Page：Ctrl+F 打开搜索栏（地址栏下方右对齐），支持翻页
-- [ ] 地址栏补全：输入时显示历史/书签建议下拉
-- [ ] 书签星标：地址栏有星标按钮，点击切换收藏
-- [ ] 标签拖拽：HTML5 DnD 重新排列标签顺序
-- [ ] 所有 lint/typecheck/build 通过
+- [x] New Tab Page：打开新标签页显示搜索框 + 快捷链接 + 最近访问
+- [x] Find in Page：Ctrl+F 打开搜索栏（地址栏下方右对齐），支持翻页
+- [x] 地址栏补全：输入时显示历史/书签建议下拉
+- [x] 书签星标：地址栏有星标按钮，点击切换收藏
+- [x] 标签拖拽：HTML5 DnD 重新排列标签顺序
+- [x] 所有 lint/typecheck/build 通过

@@ -1,3 +1,4 @@
+import type { QuickLink } from '@browser/ipc-contract'
 import Store from 'electron-store'
 
 interface SettingsSchema {
@@ -6,6 +7,8 @@ interface SettingsSchema {
   defaultSearch: 'google' | 'baidu' | 'bing'
   newTabUrl: string
   zoomFactor: number
+  quickLinks: QuickLink[]
+  tabOrder: string[]
 }
 
 const defaultSettings: SettingsSchema = {
@@ -14,6 +17,8 @@ const defaultSettings: SettingsSchema = {
   defaultSearch: 'google',
   newTabUrl: 'https://www.google.com',
   zoomFactor: 1,
+  quickLinks: [],
+  tabOrder: [],
 }
 
 export class SettingsManager {

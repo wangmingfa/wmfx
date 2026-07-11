@@ -1,4 +1,4 @@
-import type { HistoryRepository } from '@wmfx/database'
+import type { HistoryItem, HistoryRepository } from '@wmfx/database'
 
 export interface HistoryAddOptions {
   url: string
@@ -30,6 +30,10 @@ export class HistoryManager {
 
   getList(limit = 50, offset = 0) {
     return this.repo.getList(limit, offset)
+  }
+
+  getRecent(limit = 5): HistoryItem[] {
+    return this.repo.getList(limit, 0)
   }
 
   delete(id: string): boolean {

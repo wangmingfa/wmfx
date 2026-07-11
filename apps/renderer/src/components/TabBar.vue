@@ -5,13 +5,19 @@
     @contextmenu="onContextMenu"
   >
     <div
-      v-for="tab in tabs"
+      v-for="(tab, index) in tabs"
       :key="tab.id"
       class="tab-item"
-      :class="{ active: tab.active, incognito: tab.sessionId === 'incognito' }"
+      :class="{ 'active': tab.active, 'incognito': tab.sessionId === 'incognito', 'dragging': draggingIndex === index, 'drag-over': dragOverIndex === index }"
       :style="`width:${tabWidth}px;min-width:${tabWidth}px;max-width:${tabWidth}px`"
+      :draggable="true"
       @click="activateTab(tab.id)"
       @contextmenu="onTabContextMenu($event, tab)"
+      @dragstart="onDragStart($event, index)"
+      @dragover="onDragOver($event, index)"
+      @dragleave="onDragLeave"
+      @drop="onDrop($event, index)"
+      @dragend="onDragEnd"
     >
       <template v-if="tab.active">
         <svg
@@ -138,6 +144,12 @@ const contextMenu = ref({
   tab: null as TabState | null,
 })
 
+const draggingIndex = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
+
+let dragSrcIndex: number | null = null
+let isDragging = false
+
 const tabWidth = computed(() => {
   const count = tabs.value.length
   if (count === 0) {
@@ -193,6 +205,53 @@ function onContextMenu(event: MouseEvent): void {
 
 function hideContextMenu(): void {
   contextMenu.value = { visible: false, x: 0, y: 0, tab: null }
+}
+
+function onDragStart(event: DragEvent, index: number): void {
+  if (!event.dataTransfer) {
+    return
+  }
+  dragSrcIndex = index
+  draggingIndex.value = index
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', String(index))
+  isDragging = true
+}
+
+function onDragOver(event: DragEvent, index: number): void {
+  event.preventDefault()
+  if (!isDragging || dragSrcIndex === null || dragSrcIndex === index) {
+    return
+  }
+  dragOverIndex.value = index
+}
+
+function onDragLeave(): void {
+  dragOverIndex.value = null
+}
+
+function onDrop(_event: DragEvent, targetIndex: number): void {
+  if (dragSrcIndex === null || dragSrcIndex === targetIndex) {
+    dragOverIndex.value = null
+    return
+  }
+
+  const newOrder = [...tabs.value]
+  const [removed] = newOrder.splice(dragSrcIndex, 1)
+  newOrder.splice(targetIndex, 0, removed)
+  const newIds = newOrder.map(t => t.id)
+
+  tabs.value = newOrder
+  window.browserAPI.reorderTabs(newIds)
+
+  dragOverIndex.value = null
+}
+
+function onDragEnd(): void {
+  draggingIndex.value = null
+  dragOverIndex.value = null
+  dragSrcIndex = null
+  isDragging = false
 }
 
 let stateChangeHandler: (state: TabState) => void
@@ -330,6 +389,14 @@ onUnmounted(() => {
     background: var(--accent-color);
     border-radius: 0 0 2px 2px;
   }
+}
+
+.tab-item.dragging {
+  opacity: 0.5;
+}
+
+.tab-item.drag-over {
+  border-left: 2px solid var(--accent-color);
 }
 
 .tab-favicon {
