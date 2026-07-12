@@ -15,6 +15,9 @@ export class TabManager {
   private sidebarOpen = false
   private tabBounds = new Map<string, ViewBounds>()
   private readonly SIDEBAR_WIDTH = 280
+  private lastActiveTime = new Map<string, number>()
+  private suspendTimer: ReturnType<typeof setInterval> | null = null
+  private readonly SUSPEND_THRESHOLD = 5 * 60 * 1000 // 5 minutes
 
   constructor(
     private window: BrowserWindow,
@@ -25,6 +28,7 @@ export class TabManager {
   ) {
     this.windowId = window.id.toString()
     window.on('close', () => this.destroy())
+    this.suspendTimer = setInterval(() => this.checkSuspendTabs(), 60_000)
   }
 
   create(opts?: CreateTabOptions): TabState {
@@ -55,6 +59,7 @@ export class TabManager {
         isMuted: false,
         isPinned: false,
       },
+      isSuspended: false,
     }
 
     this.setupTabListeners(tab)
@@ -110,9 +115,14 @@ export class TabManager {
     const previousActive = this.activeTabId ? this.tabs.get(this.activeTabId) : null
 
     this.activeTabId = tabId
+    this.lastActiveTime.set(tabId, Date.now())
 
     if (previousActive) {
       this.window.contentView.removeChildView(previousActive.view)
+    }
+
+    if (tab.isSuspended) {
+      this.resumeTab(tab)
     }
 
     this.window.contentView.addChildView(tab.view)
@@ -183,6 +193,10 @@ export class TabManager {
   }
 
   destroy(): void {
+    if (this.suspendTimer) {
+      clearInterval(this.suspendTimer)
+      this.suspendTimer = null
+    }
     for (const tab of this.tabs.values()) {
       this.window.contentView.removeChildView(tab.view)
       tab.view.webContents.close()
@@ -216,6 +230,46 @@ export class TabManager {
   }
 
   // --- Private helpers ---
+
+  private checkSuspendTabs(): void {
+    const now = Date.now()
+    for (const tab of this.tabs.values()) {
+      if (tab.id === this.activeTabId) continue
+      if (tab.isSuspended) continue
+      if (tab.state.isPinned) continue
+
+      const lastActive = this.lastActiveTime.get(tab.id) ?? 0
+      if (now - lastActive > this.SUSPEND_THRESHOLD) {
+        this.suspendTab(tab)
+      }
+    }
+  }
+
+  private suspendTab(tab: Tab): void {
+    if (tab.isSuspended) return
+    this.window.contentView.removeChildView(tab.view)
+    tab.view.webContents.close()
+    tab.isSuspended = true
+    this.broadcastState(tab)
+  }
+
+  private resumeTab(tab: Tab): void {
+    if (!tab.isSuspended) return
+
+    const view = new WebContentsView({
+      webPreferences: {
+        session: this.getSession(tab.sessionId),
+      },
+    })
+
+    tab.view = view
+    tab.isSuspended = false
+    this.setupTabListeners(tab)
+
+    if (tab.state.url && tab.state.url !== 'about:blank') {
+      view.webContents.loadURL(tab.state.url)
+    }
+  }
 
   private setupTabListeners(tab: Tab): void {
     const wc = tab.view.webContents
@@ -274,6 +328,7 @@ export class TabManager {
     return {
       ...tab.state,
       active: tab.id === this.activeTabId,
+      isSuspended: tab.isSuspended,
     }
   }
 
@@ -333,4 +388,5 @@ interface Tab {
   view: WebContentsView
   sessionId: string
   state: Omit<TabState, 'active'>
+  isSuspended: boolean
 }

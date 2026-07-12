@@ -18,6 +18,7 @@ export interface TabState {
   isMuted: boolean
   isPinned: boolean
   active: boolean
+  isSuspended: boolean
 }
 
 export interface ViewBounds {
