@@ -219,12 +219,25 @@ async function loadDownloads(): Promise<void> {
 
 async function loadTheme(): Promise<void> {
   theme.value = await window.browserAPI.getTheme()
+  applyTheme(theme.value)
+}
+
+function applyTheme(mode: ThemeMode): void {
+  const el = document.documentElement
+  if (mode === 'system') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    el.setAttribute('data-theme', prefersDark ? 'dark' : 'light')
+  }
+  else {
+    el.setAttribute('data-theme', mode)
+  }
 }
 
 async function onThemeChange(event: Event): Promise<void> {
   const target = event.target as HTMLSelectElement
   const value = target.value as ThemeMode
   theme.value = value
+  applyTheme(value)
   await window.browserAPI.setTheme(value)
 }
 
@@ -260,14 +273,14 @@ onUnmounted(() => {
   right: 0;
   width: 280px;
   height: 100vh;
-  background: #2a2a2a;
-  color: #e0e0e0;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   z-index: 1000;
   transform: translateX(100%);
   transition: transform 0.25s ease-in-out;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid #404040;
+  border-left: 1px solid var(--border-color);
   box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
 }
 
@@ -280,22 +293,22 @@ onUnmounted(() => {
   align-items: center;
   justify-content: flex-end;
   padding: 8px 12px;
-  border-bottom: 1px solid #404040;
+  border-bottom: 1px solid var(--border-color);
   -webkit-app-region: no-drag;
 }
 
 .sidebar-close {
-  color: #999;
+  color: var(--text-secondary);
   cursor: pointer;
 
   &:hover {
-    color: #e53935;
+    color: var(--danger-color);
   }
 }
 
 .sidebar-tabs {
   display: flex;
-  border-bottom: 1px solid #404040;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .sidebar-tab {
@@ -306,16 +319,16 @@ onUnmounted(() => {
   justify-content: center;
   padding: 10px 4px;
   cursor: pointer;
-  color: #999;
+  color: var(--text-secondary);
   gap: 4px;
 
   &.active {
-    color: #4a9eff;
-    border-bottom: 2px solid #4a9eff;
+    color: var(--accent-color);
+    border-bottom: 2px solid var(--accent-color);
   }
 
   &:hover {
-    background: #353535;
+    background: var(--bg-tertiary);
   }
 }
 
@@ -340,7 +353,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #888;
+  color: var(--text-secondary);
   gap: 12px;
 }
 
@@ -361,7 +374,7 @@ onUnmounted(() => {
   cursor: pointer;
 
   &:hover {
-    background: #353535;
+    background: var(--bg-tertiary);
   }
 }
 
@@ -393,13 +406,13 @@ onUnmounted(() => {
 
 .sidebar-setting-label {
   font-size: 13px;
-  color: #ccc;
+  color: var(--text-primary);
 }
 
 .sidebar-setting-select {
-  background: #3a3a3a;
-  color: #e0e0e0;
-  border: 1px solid #555;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 4px 8px;
   font-size: 12px;

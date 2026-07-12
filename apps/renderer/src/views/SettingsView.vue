@@ -143,8 +143,20 @@ async function loadSettings(): Promise<void> {
 }
 
 async function onThemeChange(): Promise<void> {
+  applyTheme(themeMode.value)
   await window.browserAPI.setTheme(themeMode.value)
   await saveSetting('theme', themeMode.value)
+}
+
+function applyTheme(mode: ThemeMode): void {
+  const el = document.documentElement
+  if (mode === 'system') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    el.setAttribute('data-theme', prefersDark ? 'dark' : 'light')
+  }
+  else {
+    el.setAttribute('data-theme', mode)
+  }
 }
 
 async function saveSetting(key: string, value: unknown): Promise<void> {
@@ -158,6 +170,7 @@ async function saveSetting(key: string, value: unknown): Promise<void> {
 
 onMounted(async () => {
   await loadSettings()
+  applyTheme(themeMode.value)
 })
 </script>
 
