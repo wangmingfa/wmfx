@@ -9,6 +9,9 @@ interface SettingsSchema {
   zoomFactor: number
   quickLinks: QuickLink[]
   tabOrder: string[]
+  openTabs: { url: string; title: string }[]
+  activeTabIndex: number
+  windowBounds: { x: number; y: number; width: number; height: number } | null
 }
 
 const defaultSettings: SettingsSchema = {
@@ -19,6 +22,9 @@ const defaultSettings: SettingsSchema = {
   zoomFactor: 1,
   quickLinks: [],
   tabOrder: [],
+  openTabs: [],
+  activeTabIndex: 0,
+  windowBounds: null,
 }
 
 export class SettingsManager {

@@ -191,6 +191,30 @@ export class TabManager {
     this.activeTabId = null
   }
 
+  serializeTabs(): { url: string; title: string }[] {
+    const tabs: { url: string; title: string }[] = []
+    for (const tab of this.tabs.values()) {
+      tabs.push({ url: tab.state.url, title: tab.state.title })
+    }
+    return tabs
+  }
+
+  getActiveTabIndex(): number {
+    if (!this.activeTabId) return 0
+    const ids = Array.from(this.tabs.keys())
+    return ids.indexOf(this.activeTabId)
+  }
+
+  restoreTabs(tabs: { url: string; title: string }[], activeIndex: number): void {
+    if (tabs.length === 0) {
+      this.create({ url: 'about:blank' })
+      return
+    }
+    for (let i = 0; i < tabs.length; i++) {
+      this.create({ url: tabs[i].url, activate: i === activeIndex })
+    }
+  }
+
   // --- Private helpers ---
 
   private setupTabListeners(tab: Tab): void {

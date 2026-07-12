@@ -9,6 +9,23 @@ declare global {
 }
 globalThis.browserInstances = new Map()
 
+function saveSessionState(instance: BrowserWindowInstance): void {
+  const tabs = instance.tabManager.serializeTabs()
+  const activeIndex = instance.tabManager.getActiveTabIndex()
+  const bounds = instance.window.getBounds()
+  const isMaximized = instance.window.isMaximized()
+
+  instance.settingsManager.set('openTabs', tabs)
+  instance.settingsManager.set('activeTabIndex', activeIndex)
+  instance.settingsManager.set('windowBounds', isMaximized ? null : bounds)
+}
+
+function saveAllSessionStates(): void {
+  for (const instance of globalThis.browserInstances.values()) {
+    saveSessionState(instance)
+  }
+}
+
 app.whenReady().then(async () => {
   if (process.platform !== 'darwin') {
     Menu.setApplicationMenu(null)
@@ -26,7 +43,14 @@ app.whenReady().then(async () => {
     nativeTheme.themeSource = 'light'
   }
 
-  mainWindow.tabManager.create({ url: 'about:blank' })
+  const savedTabs = mainWindow.settingsManager.get('openTabs')
+  const savedActiveIndex = mainWindow.settingsManager.get('activeTabIndex')
+
+  if (savedTabs && savedTabs.length > 0) {
+    mainWindow.tabManager.restoreTabs(savedTabs, savedActiveIndex ?? 0)
+  } else {
+    mainWindow.tabManager.create({ url: 'about:blank' })
+  }
 
   // Start mihomo proxy
   try {
@@ -66,6 +90,10 @@ app.whenReady().then(async () => {
       win.tabManager.create({ url: 'about:blank' })
     }
   })
+})
+
+app.on('before-quit', () => {
+  saveAllSessionStates()
 })
 
 app.on('window-all-closed', () => {
