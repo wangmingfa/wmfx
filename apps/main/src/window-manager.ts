@@ -31,9 +31,13 @@ export interface BrowserWindowInstance {
 }
 
 export function createMainWindow(): BrowserWindowInstance {
+  const settingsManager = new SettingsManager()
+  const savedBounds = settingsManager.get('windowBounds')
+
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    ...(savedBounds
+      ? { x: savedBounds.x, y: savedBounds.y, width: savedBounds.width, height: savedBounds.height }
+      : { width: 1280, height: 800 }),
     show: false,
     titleBarStyle: process.platform === 'win32' ? undefined : 'hidden',
     trafficLightPosition: { x: 12, y: 11 },
@@ -46,7 +50,6 @@ export function createMainWindow(): BrowserWindowInstance {
   })
 
   const sessionManager = new SessionManager()
-  const settingsManager = new SettingsManager()
   const database = DatabaseManager.getInstance()
   const historyRepo = new HistoryRepository(database.db)
   const downloadRepo = new DownloadRepository(database.db)
@@ -74,6 +77,18 @@ export function createMainWindow(): BrowserWindowInstance {
   )
 
   win.once('ready-to-show', () => win.show())
+
+  let boundsTimer: ReturnType<typeof setTimeout> | null = null
+  const saveBounds = (): void => {
+    if (boundsTimer) clearTimeout(boundsTimer)
+    boundsTimer = setTimeout(() => {
+      if (win.isDestroyed()) return
+      const isMaximized = win.isMaximized()
+      settingsManager.set('windowBounds', isMaximized ? null : win.getBounds())
+    }, 500)
+  }
+  win.on('resize', saveBounds)
+  win.on('move', saveBounds)
 
   const devUrl = getRendererDevServerUrl()
   if (devUrl) {
