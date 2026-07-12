@@ -11,5 +11,4 @@ export default defineConfig({
   target: 'node20',
   external: ['electron', 'better-sqlite3', '@wmfx/database'],
   noExternal: ['@browser/ipc-contract', '@browser/shared'],
-  clean: true,
 })

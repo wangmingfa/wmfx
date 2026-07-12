@@ -29,7 +29,7 @@ export function createMainWindow(): BrowserWindowInstance {
     width: 1280,
     height: 800,
     show: false,
-    titleBarStyle: process.platform === 'darwin' ? 'hidden' : undefined,
+    titleBarStyle: process.platform === 'win32' ? undefined : 'hidden',
     trafficLightPosition: { x: 12, y: 11 },
     webPreferences: {
       preload: getPreloadPath(),

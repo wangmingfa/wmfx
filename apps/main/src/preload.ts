@@ -103,6 +103,10 @@ const api: {
   findPrevious: (opts: FindInPageDirection) => Promise<void>
   // Tab reorder
   reorderTabs: (ids: string[]) => Promise<void>
+  // Window controls
+  minimizeWindow: () => Promise<void>
+  maximizeWindow: () => Promise<void>
+  closeWindow: () => Promise<void>
   // Broadcast
   onFoundInPage: (
     cb: (data: {
@@ -186,6 +190,10 @@ const api: {
   findPrevious: (opts) => ipcRenderer.invoke('page:findPrevious', opts),
   // Tab reorder
   reorderTabs: (ids) => ipcRenderer.invoke('tab:reorder', ids),
+  // Window controls
+  minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
+  maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
+  closeWindow: () => ipcRenderer.invoke('window:close'),
   // Broadcast
   onFoundInPage: (cb) =>
     ipcRenderer.on('page:foundInPage', (_e, data) =>

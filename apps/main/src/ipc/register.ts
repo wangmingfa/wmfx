@@ -24,14 +24,23 @@ declare global {
 function handle<K extends keyof IpcContract>(
   channel: K,
   handler: (
+    event: Electron.IpcMainEvent,
     ...args: Parameters<IpcContract[K]>
   ) => ReturnType<IpcContract[K]> | Promise<ReturnType<IpcContract[K]>>
 ): void {
-  ipcMain.handle(channel, (_event, ...args) => handler(...(args as Parameters<IpcContract[K]>)))
+  ipcMain.handle(channel, (event, ...args) =>
+    handler(event, ...(args as Parameters<IpcContract[K]>))
+  )
 }
 
-/** 从聚焦窗口获取对应的 BrowserWindowInstance。 */
-function getInstance(): BrowserWindowInstance | null {
+/** 从 IPC 事件的 sender 获取对应的 BrowserWindowInstance。 */
+function getInstance(event?: Electron.IpcMainEvent): BrowserWindowInstance | null {
+  if (event) {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) {
+      return globalThis.browserInstances?.get(String(win.id)) ?? null
+    }
+  }
   const focused = BrowserWindow.getFocusedWindow()
   if (!focused) return null
   const key = String(focused.id)
@@ -39,78 +48,78 @@ function getInstance(): BrowserWindowInstance | null {
 }
 
 export function registerIpcHandlers(): void {
-  handle('app:ping', (message) => `pong: ${message}`)
+  handle('app:ping', (_event, message) => `pong: ${message}`)
 
-  handle('tab:create', (opts) => {
-    const inst = getInstance()
+  handle('tab:create', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return {} as ReturnType<IpcContract['tab:create']>
     return inst.tabManager.create(opts)
   })
 
-  handle('tab:close', (tabId) => {
-    const inst = getInstance()
+  handle('tab:close', (event, tabId) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.close(tabId)
   })
 
-  handle('tab:activate', (tabId) => {
-    const inst = getInstance()
+  handle('tab:activate', (event, tabId) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.activate(tabId)
   })
 
-  handle('tab:getState', (tabId) => {
-    const inst = getInstance()
+  handle('tab:getState', (event, tabId) => {
+    const inst = getInstance(event)
     if (!inst) return {} as ReturnType<IpcContract['tab:getState']>
     const state = inst.tabManager.getState(tabId)
     if (!state) return {} as ReturnType<IpcContract['tab:getState']>
     return state
   })
 
-  handle('tab:getList', () => {
-    const inst = getInstance()
+  handle('tab:getList', (event) => {
+    const inst = getInstance(event)
     if (!inst) return []
     return inst.tabManager.getList()
   })
 
-  ipcMain.on('tab:setViewportBounds', (_event, tabId, bounds) => {
-    const inst = getInstance()
+  ipcMain.on('tab:setViewportBounds', (event, tabId, bounds) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.setViewportBounds(tabId, bounds)
   })
 
-  handle('tab:setSidebarOpen', (open) => {
-    const inst = getInstance()
+  handle('tab:setSidebarOpen', (event, open) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.setSidebarOpen(open)
   })
 
-  handle('nav:goBack', (tabId) => {
-    const inst = getInstance()
+  handle('nav:goBack', (event, tabId) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.navigationManager.goBack(tabId)
   })
 
-  handle('nav:goForward', (tabId) => {
-    const inst = getInstance()
+  handle('nav:goForward', (event, tabId) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.navigationManager.goForward(tabId)
   })
 
-  handle('nav:reload', (tabId) => {
-    const inst = getInstance()
+  handle('nav:reload', (event, tabId) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.navigationManager.reload(tabId)
   })
 
-  handle('nav:stop', (tabId) => {
-    const inst = getInstance()
+  handle('nav:stop', (event, tabId) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.navigationManager.stop(tabId)
   })
 
-  handle('nav:loadURL', (tabId, url) => {
-    const inst = getInstance()
+  handle('nav:loadURL', (event, tabId, url) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.navigationManager.loadURL(tabId, url)
   })
@@ -119,32 +128,32 @@ export function registerIpcHandlers(): void {
     return ['default', 'incognito']
   })
 
-  handle('download:create', (opts) => {
-    const inst = getInstance()
+  handle('download:create', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return {} as ReturnType<IpcContract['download:create']>
     return inst.downloadManager.create(opts)
   })
 
-  handle('download:pause', (id) => {
-    const inst = getInstance()
+  handle('download:pause', (event, id) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.downloadManager.pause(id)
   })
 
-  handle('download:resume', (id) => {
-    const inst = getInstance()
+  handle('download:resume', (event, id) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.downloadManager.resume(id)
   })
 
-  handle('download:cancel', (id) => {
-    const inst = getInstance()
+  handle('download:cancel', (event, id) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.downloadManager.cancel(id)
   })
 
-  handle('download:get', (id) => {
-    const inst = getInstance()
+  handle('download:get', (event, id) => {
+    const inst = getInstance(event)
     if (!inst) return null
     const item = inst.downloadManager.get(id)
     if (!item) return null
@@ -161,8 +170,8 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  handle('download:getList', (opts) => {
-    const inst = getInstance()
+  handle('download:getList', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return []
     return inst.downloadManager.getList(opts).map((item) => ({
       id: item.id,
@@ -177,26 +186,26 @@ export function registerIpcHandlers(): void {
     }))
   })
 
-  handle('download:setPath', (path) => {
-    const inst = getInstance()
+  handle('download:setPath', (event, path) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.settingsManager.set('downloadPath', path)
   })
 
-  handle('history:add', (opts) => {
-    const inst = getInstance()
+  handle('history:add', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.historyManager.add(opts)
   })
 
-  handle('history:delete', (id) => {
-    const inst = getInstance()
+  handle('history:delete', (event, id) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.historyManager.delete(id)
   })
 
-  handle('history:search', (opts) => {
-    const inst = getInstance()
+  handle('history:search', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return []
     const { query = '', limit = 50, offset = 0 } = opts
     const results = inst.historyManager.search(query, limit, offset)
@@ -210,8 +219,8 @@ export function registerIpcHandlers(): void {
     }))
   })
 
-  handle('history:getList', (opts) => {
-    const inst = getInstance()
+  handle('history:getList', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return []
     const { limit = 50, offset = 0 } = opts ?? {}
     const results = inst.historyManager.getList(limit, offset)
@@ -225,63 +234,63 @@ export function registerIpcHandlers(): void {
     }))
   })
 
-  handle('history:clear', () => {
-    const inst = getInstance()
+  handle('history:clear', (event) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.historyManager.clear()
   })
 
-  handle('bookmark:add', (opts) => {
-    const inst = getInstance()
+  handle('bookmark:add', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return {} as ReturnType<IpcContract['bookmark:add']>
     return inst.bookmarkManager.create(opts)
   })
 
-  handle('bookmark:delete', (id) => {
-    const inst = getInstance()
+  handle('bookmark:delete', (event, id) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.bookmarkManager.delete(id)
   })
 
-  handle('bookmark:rename', (opts) => {
-    const inst = getInstance()
+  handle('bookmark:rename', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.bookmarkManager.rename(opts.id, opts.title)
   })
 
-  handle('bookmark:getList', (parentId) => {
-    const inst = getInstance()
+  handle('bookmark:getList', (event, parentId) => {
+    const inst = getInstance(event)
     if (!inst) return []
     return inst.bookmarkManager.getList(parentId)
   })
 
-  handle('bookmark:search', (opts) => {
-    const inst = getInstance()
+  handle('bookmark:search', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return []
     return inst.bookmarkManager.search(opts.query)
   })
 
-  handle('bookmark:import', (html) => {
-    const inst = getInstance()
+  handle('bookmark:import', (event, html) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.bookmarkManager.importHTML(html)
   })
 
-  handle('bookmark:export', () => {
-    const inst = getInstance()
+  handle('bookmark:export', (event) => {
+    const inst = getInstance(event)
     if (!inst) return { html: '' }
     return inst.bookmarkManager.exportHTML()
   })
 
-  handle('page:print', (opts) => {
-    const inst = getInstance()
+  handle('page:print', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return
     const wc = inst.tabManager.getWebContents(opts.tabId)
     if (wc) wc.print(opts.options)
   })
 
-  handle('page:printToPDF', async (opts) => {
-    const inst = getInstance()
+  handle('page:printToPDF', async (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return { path: '' }
     const wc = inst.tabManager.getWebContents(opts.tabId)
     if (!wc) return { path: '' }
@@ -289,35 +298,35 @@ export function registerIpcHandlers(): void {
     return { path: `data:application/pdf;base64,${buffer.toString('base64')}` }
   })
 
-  handle('page:setZoom', (opts) => {
-    const inst = getInstance()
+  handle('page:setZoom', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return
     const wc = inst.tabManager.getWebContents(opts.tabId)
     if (wc) wc.setZoomFactor(opts.factor)
   })
 
-  handle('page:getZoom', (tabId) => {
-    const inst = getInstance()
+  handle('page:getZoom', (event, tabId) => {
+    const inst = getInstance(event)
     if (!inst) return { factor: 1 }
     const wc = inst.tabManager.getWebContents(tabId)
     if (!wc) return { factor: 1 }
     return { factor: wc.getZoomFactor() }
   })
 
-  handle('settings:get', (key) => {
-    const inst = getInstance()
+  handle('settings:get', (event, key) => {
+    const inst = getInstance(event)
     if (!inst) return undefined
     return inst.settingsManager.get(key as never)
   })
 
-  handle('settings:set', (opts) => {
-    const inst = getInstance()
+  handle('settings:set', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.settingsManager.set(opts.key as never, opts.value as never)
   })
 
-  handle('settings:getAll', () => {
-    const inst = getInstance()
+  handle('settings:getAll', (event) => {
+    const inst = getInstance(event)
     if (!inst) return {}
     return inst.settingsManager.getAll()
   })
@@ -326,28 +335,28 @@ export function registerIpcHandlers(): void {
     return nativeTheme.themeSource as ThemeMode
   })
 
-  handle('theme:set', (theme) => {
+  handle('theme:set', (event, theme) => {
     nativeTheme.themeSource = theme
-    const inst = getInstance()
+    const inst = getInstance(event)
     if (inst) inst.settingsManager.set('theme' as never, theme as never)
   })
 
   // QuickLinks
-  handle('settings:getQuickLinks', () => {
-    const inst = getInstance()
+  handle('settings:getQuickLinks', (event) => {
+    const inst = getInstance(event)
     if (!inst) return []
     return inst.settingsManager.get('quickLinks') as QuickLink[]
   })
 
-  handle('settings:setQuickLinks', (links) => {
-    const inst = getInstance()
+  handle('settings:setQuickLinks', (event, links) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.settingsManager.set('quickLinks' as never, links as never)
   })
 
   // Autocomplete
-  handle('autocomplete:suggestions', (opts) => {
-    const inst = getInstance()
+  handle('autocomplete:suggestions', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return []
     const { query = '', limit = 6 } = opts
     const historyResults = inst.historyManager.search(query, limit, 0).map((item) => ({
@@ -374,8 +383,8 @@ export function registerIpcHandlers(): void {
   })
 
   // Bookmark
-  handle('bookmark:isBookmarked', (url) => {
-    const inst = getInstance()
+  handle('bookmark:isBookmarked', (event, url) => {
+    const inst = getInstance(event)
     if (!inst) return { isBookmarked: false, id: null }
     return inst.bookmarkManager.isBookmarked(url)
   })
@@ -383,7 +392,7 @@ export function registerIpcHandlers(): void {
   // Find in Page — use ipcMain.on (not handle) because found-in-page is an async event
   // that must be broadcast back to the renderer
   ipcMain.on('page:startFind', (event, opts) => {
-    const inst = getInstance()
+    const inst = getInstance(event)
     if (!inst) return
     const wc = inst.tabManager.getWebContents(opts.tabId)
     if (!wc) return
@@ -404,8 +413,8 @@ export function registerIpcHandlers(): void {
     wc.findInPage(opts.searchText)
   })
 
-  handle('page:endFind', (tabId) => {
-    const inst = getInstance()
+  handle('page:endFind', (event, tabId) => {
+    const inst = getInstance(event)
     if (!inst) return
     const wc = inst.tabManager.getWebContents(tabId)
     if (wc) {
@@ -417,24 +426,42 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  handle('page:findNext', (opts) => {
-    const inst = getInstance()
+  handle('page:findNext', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return
     const wc = inst.tabManager.getWebContents(opts.tabId)
     if (wc) wc.findInPage('', { forward: opts.forward, findNext: true })
   })
 
-  handle('page:findPrevious', (opts) => {
-    const inst = getInstance()
+  handle('page:findPrevious', (event, opts) => {
+    const inst = getInstance(event)
     if (!inst) return
     const wc = inst.tabManager.getWebContents(opts.tabId)
     if (wc) wc.findInPage('', { forward: !opts.forward, findNext: true })
   })
 
   // Tab reorder
-  handle('tab:reorder', (ids) => {
-    const inst = getInstance()
+  handle('tab:reorder', (event, ids) => {
+    const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.reorder(ids)
+  })
+
+  // Window controls
+  handle('window:minimize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) win.minimize()
+  })
+
+  handle('window:maximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    if (win.isMaximized()) win.unmaximize()
+    else win.maximize()
+  })
+
+  handle('window:close', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) win.close()
   })
 }

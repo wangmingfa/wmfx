@@ -111,7 +111,7 @@ function onSearch(): void {
   let url = query
   if (!query.startsWith('http://') && !query.startsWith('https://')) {
     const engineUrl = {
-      google: 'https://www.google.com/search?q=',
+      google: 'https://www.baidu.com/s?wd=',
       baidu: 'https://www.baidu.com/s?wd=',
       bing: 'https://www.bing.com/search?q=',
     }[currentEngine.value]
@@ -140,8 +140,8 @@ onMounted(() => {
 
 <style scoped>
 .new-tab {
+  flex: 1;
   width: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;

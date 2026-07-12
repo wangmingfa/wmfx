@@ -81,7 +81,7 @@
       class="zoom-display"
       @click="cycleZoom"
     >
-      {{ currentZoomLevel }}%
+      {{ currentZoomLevel }}
     </button>
   </div>
 </template>
@@ -154,7 +154,7 @@ function stop(): void {
 }
 
 function goHome(): void {
-  window.browserAPI.loadURL(props.tabId, 'https://www.google.com')
+  window.browserAPI.loadURL(props.tabId, 'https://www.baidu.com')
 }
 
 function navigate(): void {

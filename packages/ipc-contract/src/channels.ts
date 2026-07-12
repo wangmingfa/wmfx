@@ -261,6 +261,10 @@ export interface IpcContract {
   'page:findPrevious': (opts: FindInPageDirection) => void
   // Tab reorder
   'tab:reorder': (ids: string[]) => void
+  // Window controls
+  'window:minimize': () => void
+  'window:maximize': () => void
+  'window:close': () => void
 }
 
 export type IpcChannel = keyof IpcContract
@@ -327,6 +331,10 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'page:findPrevious',
   // Tab reorder
   'tab:reorder',
+  // Window controls
+  'window:minimize',
+  'window:maximize',
+  'window:close',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {

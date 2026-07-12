@@ -18,6 +18,7 @@ body,
 #app {
   height: 100%;
   width: 100%;
+  overflow: hidden;
   background: #ffffff;
   color: #333333;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

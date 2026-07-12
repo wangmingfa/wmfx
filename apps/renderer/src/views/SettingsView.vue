@@ -82,7 +82,7 @@
             id="new-tab-url"
             v-model="newTabUrl"
             type="text"
-            placeholder="e.g. https://www.google.com"
+            placeholder="e.g. https://www.baidu.com"
             @change="saveSetting('newTabUrl', newTabUrl)"
           >
         </div>

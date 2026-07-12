@@ -2,6 +2,7 @@
   <div
     ref="tabBarRef"
     class="tab-bar"
+    :class="{ 'mac-os': isMacOS }"
     @contextmenu="onContextMenu"
   >
     <div
@@ -88,6 +89,41 @@
       @click="toggleSidebar"
     />
     <div
+      v-if="!isMacOS"
+      class="window-controls"
+    >
+      <div
+        class="window-btn"
+        @click="minimizeWindow"
+      >
+        <Icon
+          icon="mdi:window-minimize"
+          width="22"
+          height="22"
+        />
+      </div>
+      <div
+        class="window-btn"
+        @click="maximizeWindow"
+      >
+        <Icon
+          :icon="isMaximized ? 'mdi:window-restore' : 'mdi:window-maximize'"
+          width="22"
+          height="22"
+        />
+      </div>
+      <div
+        class="window-btn close-btn"
+        @click="closeWindow"
+      >
+        <Icon
+          icon="mdi:window-close"
+          width="22"
+          height="22"
+        />
+      </div>
+    </div>
+    <div
       v-if="contextMenu.tab"
       class="tab-context-menu"
       :style="`top:${contextMenu.y}px; left:${contextMenu.x}px`"
@@ -111,6 +147,7 @@
 import type { TabState } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { isMacOS } from '../utils/os'
 
 defineProps<{
   isSidebarOpen: boolean
@@ -123,6 +160,7 @@ const emit = defineEmits<{
 const tabs = ref<TabState[]>([])
 const tabBarRef = ref<HTMLElement>()
 const tabBarWidth = ref(0)
+const isMaximized = ref(false)
 
 const TAB_MIN = 30
 const TAB_MAX = 240
@@ -131,6 +169,7 @@ const PADDING_LEFT = 80
 const PADDING_RIGHT = 8
 const NEW_BTN_WIDTH = 32
 const SIDEBAR_BTN_WIDTH = 32
+const WINDOW_CONTROLS_WIDTH = 112
 const iconSize = 14
 const plusIconSize = 16
 const tabItemBorderRadius = 5
@@ -155,7 +194,7 @@ const tabWidth = computed(() => {
   if (count === 0) {
     return TAB_MAX
   }
-  const available = tabBarWidth.value - PADDING_LEFT - PADDING_RIGHT - NEW_BTN_WIDTH - SIDEBAR_BTN_WIDTH - (count - 1) * TAB_GAP
+  const available = tabBarWidth.value - PADDING_LEFT - PADDING_RIGHT - NEW_BTN_WIDTH - SIDEBAR_BTN_WIDTH - WINDOW_CONTROLS_WIDTH - (count - 1) * TAB_GAP
   const equal = Math.floor(available / count)
   return Math.max(TAB_MIN, Math.min(TAB_MAX, equal))
 })
@@ -175,16 +214,28 @@ function closeTab(tabId: string): void {
 }
 
 function createTab(): void {
-  window.browserAPI.createTab({ url: 'https://www.google.com' })
+  window.browserAPI.createTab({ url: 'about:blank' })
 }
 
 function createIncognitoTab(): void {
-  window.browserAPI.createTab({ url: 'https://www.google.com', sessionId: 'incognito' })
+  window.browserAPI.createTab({ url: 'https://www.baidu.com', sessionId: 'incognito' })
   hideContextMenu()
 }
 
 function toggleSidebar(): void {
   emit('toggleSidebar')
+}
+
+function minimizeWindow(): void {
+  window.browserAPI.minimizeWindow()
+}
+
+function maximizeWindow(): void {
+  window.browserAPI.maximizeWindow()
+}
+
+function closeWindow(): void {
+  window.browserAPI.closeWindow()
 }
 
 function onTabContextMenu(event: MouseEvent, tab: TabState): void {
@@ -319,9 +370,13 @@ onUnmounted(() => {
   gap: @gap;
   height: @tabBarHeight;
   background: var(--bg-tertiary);
-  padding: 0 8px 0 80px;
+  padding: 0;
   position: relative;
   -webkit-app-region: drag;
+
+  &.mac-os {
+    padding-left: 80px;
+  }
 }
 
 .tab-item {
@@ -500,6 +555,37 @@ onUnmounted(() => {
 
   &:hover {
     color: var(--accent-color);
+  }
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 0;
+  margin-left: 8px;
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+}
+
+.window-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: @tabBarHeight;
+  height: 100%;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+
+  &:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  &.close-btn:hover {
+    background: var(--danger-color);
+    color: white;
   }
 }
 </style>

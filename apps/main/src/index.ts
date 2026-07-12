@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeTheme } from 'electron'
+import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
 import { registerIpcHandlers } from './ipc/register'
 import { registerAppShortcut, toggleDevTools } from './shortcut'
 import type { BrowserWindowInstance } from './window-manager'
@@ -10,6 +10,10 @@ declare global {
 globalThis.browserInstances = new Map()
 
 app.whenReady().then(() => {
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null)
+  }
+
   registerIpcHandlers()
 
   const mainWindow = createMainWindow()

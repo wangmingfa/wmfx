@@ -15,7 +15,7 @@ const defaultSettings: SettingsSchema = {
   theme: 'dark',
   downloadPath: '',
   defaultSearch: 'google',
-  newTabUrl: 'https://www.google.com',
+  newTabUrl: 'https://www.baidu.com',
   zoomFactor: 1,
   quickLinks: [],
   tabOrder: [],
