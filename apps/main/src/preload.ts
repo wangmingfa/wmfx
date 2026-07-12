@@ -124,6 +124,7 @@ const api: {
       id: string
       name: string
       url: string
+      active: number
       last_update: number
       expire: number
       upload: number
@@ -134,6 +135,8 @@ const api: {
   addSubscription: (url: string, name: string) => Promise<{ id: string }>
   removeSubscription: (id: string) => Promise<void>
   updateSubscription: (id: string) => Promise<void>
+  activateSubscription: (id: string) => Promise<void>
+  deactivateSubscription: (id: string) => Promise<void>
   // Broadcast
   onFoundInPage: (
     cb: (data: {
@@ -236,6 +239,8 @@ const api: {
   addSubscription: (url, name) => ipcRenderer.invoke('proxy:addSubscription', url, name),
   removeSubscription: (id) => ipcRenderer.invoke('proxy:removeSubscription', id),
   updateSubscription: (id) => ipcRenderer.invoke('proxy:updateSubscription', id),
+  activateSubscription: (id) => ipcRenderer.invoke('proxy:activateSubscription', id),
+  deactivateSubscription: (id) => ipcRenderer.invoke('proxy:deactivateSubscription', id),
   // Broadcast
   onFoundInPage: (cb) =>
     ipcRenderer.on('page:foundInPage', (_e, data) =>

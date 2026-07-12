@@ -62,6 +62,7 @@ class DatabaseManager {
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         url TEXT NOT NULL,
+        active INTEGER DEFAULT 0,
         last_update INTEGER DEFAULT 0,
         expire INTEGER DEFAULT 0,
         upload INTEGER DEFAULT 0,
@@ -69,6 +70,13 @@ class DatabaseManager {
         total INTEGER DEFAULT 0
       );
     `)
+
+    // Migration: add 'active' column to subscriptions if missing
+    try {
+      this.db.prepare('SELECT active FROM subscriptions LIMIT 1').get()
+    } catch {
+      this.db.exec('ALTER TABLE subscriptions ADD COLUMN active INTEGER DEFAULT 0')
+    }
   }
 
   destroy(): void {

@@ -18,13 +18,30 @@
       >
         {{ adding ? 'Adding...' : 'Add' }}
       </button>
+      <div
+        v-if="addError"
+        class="add-error"
+      >
+        {{ addError }}
+      </div>
     </div>
 
     <div
       v-if="subscriptions.length === 0"
       class="empty"
     >
-      No subscriptions yet
+      <Icon
+        icon="carbon:network-4"
+        width="32"
+        height="32"
+        class="empty-icon"
+      />
+      <div class="empty-title">
+        No subscriptions yet
+      </div>
+      <div class="empty-desc">
+        Add a proxy subscription link to get started. You can get a subscription URL from your proxy service provider.
+      </div>
     </div>
 
     <div
@@ -35,10 +52,15 @@
         v-for="sub in subscriptions"
         :key="sub.id"
         class="sub-item"
+        :class="{ active: sub.active }"
       >
         <div class="sub-info">
           <div class="sub-name">
             {{ sub.name }}
+            <span
+              v-if="sub.active"
+              class="active-badge"
+            >Active</span>
           </div>
           <div class="sub-meta">
             <span>Used: {{ formatBytes(sub.download) }}</span>
@@ -49,6 +71,13 @@
           </div>
         </div>
         <div class="sub-actions">
+          <button
+            class="sub-action-btn"
+            :class="{ activate: !sub.active }"
+            @click="sub.active ? deactivateSubscription(sub.id) : activateSubscription(sub.id)"
+          >
+            {{ sub.active ? 'Deactivate' : 'Activate' }}
+          </button>
           <button
             class="sub-action-btn"
             @click="updateSubscription(sub.id)"
@@ -68,12 +97,14 @@
 </template>
 
 <script setup lang="ts">
+import { Icon } from '@iconify/vue'
 import { onMounted, ref } from 'vue'
 
 interface Subscription {
   id: string
   name: string
   url: string
+  active: number
   last_update: number
   expire: number
   upload: number
@@ -85,6 +116,7 @@ const subscriptions = ref<Subscription[]>([])
 const newSubUrl = ref('')
 const newSubName = ref('')
 const adding = ref(false)
+const addError = ref('')
 
 async function loadSubscriptions(): Promise<void> {
   subscriptions.value = await window.browserAPI.getSubscriptions()
@@ -94,11 +126,15 @@ async function addSubscription(): Promise<void> {
   if (!newSubUrl.value || !newSubName.value)
     return
   adding.value = true
+  addError.value = ''
   try {
     await window.browserAPI.addSubscription(newSubUrl.value, newSubName.value)
     newSubUrl.value = ''
     newSubName.value = ''
     await loadSubscriptions()
+  }
+  catch (e) {
+    addError.value = String(e)
   }
   finally {
     adding.value = false
@@ -112,6 +148,16 @@ async function removeSubscription(id: string): Promise<void> {
 
 async function updateSubscription(id: string): Promise<void> {
   await window.browserAPI.updateSubscription(id)
+  await loadSubscriptions()
+}
+
+async function activateSubscription(id: string): Promise<void> {
+  await window.browserAPI.activateSubscription(id)
+  await loadSubscriptions()
+}
+
+async function deactivateSubscription(id: string): Promise<void> {
+  await window.browserAPI.deactivateSubscription(id)
   await loadSubscriptions()
 }
 
@@ -175,6 +221,15 @@ onMounted(loadSubscriptions)
   cursor: not-allowed;
 }
 
+.add-error {
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--danger-color);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .sub-list {
   display: flex;
   flex-direction: column;
@@ -190,6 +245,10 @@ onMounted(loadSubscriptions)
   border-radius: 6px;
 }
 
+.sub-item.active {
+  border-color: var(--accent-color);
+}
+
 .sub-info {
   display: flex;
   flex-direction: column;
@@ -200,6 +259,18 @@ onMounted(loadSubscriptions)
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.active-badge {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--accent-color);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 500;
 }
 
 .sub-meta {
@@ -227,6 +298,11 @@ onMounted(loadSubscriptions)
   color: #fff;
 }
 
+.sub-action-btn.activate:hover {
+  background: #2e7d32;
+  color: #fff;
+}
+
 .sub-action-btn.danger:hover {
   background: var(--danger-color);
 }
@@ -236,5 +312,23 @@ onMounted(loadSubscriptions)
   color: var(--text-secondary);
   padding: 20px;
   font-size: 13px;
+}
+
+.empty-icon {
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.empty-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
 </style>

@@ -5,6 +5,7 @@ export interface SubscriptionRecord {
   id: string
   name: string
   url: string
+  active: number
   last_update: number
   expire: number
   upload: number
@@ -18,7 +19,7 @@ export class SubscriptionRepository {
   findAll(): SubscriptionRecord[] {
     return this.db
       .prepare(
-        'SELECT id, name, url, last_update, expire, upload, download, total FROM subscriptions ORDER BY last_update DESC'
+        'SELECT id, name, url, active, last_update, expire, upload, download, total FROM subscriptions ORDER BY last_update DESC'
       )
       .all() as SubscriptionRecord[]
   }
@@ -26,7 +27,7 @@ export class SubscriptionRepository {
   findById(id: string): SubscriptionRecord | undefined {
     return this.db
       .prepare(
-        'SELECT id, name, url, last_update, expire, upload, download, total FROM subscriptions WHERE id = ?'
+        'SELECT id, name, url, active, last_update, expire, upload, download, total FROM subscriptions WHERE id = ?'
       )
       .get(id) as SubscriptionRecord | undefined
   }
@@ -34,18 +35,40 @@ export class SubscriptionRepository {
   findByUrl(url: string): SubscriptionRecord | undefined {
     return this.db
       .prepare(
-        'SELECT id, name, url, last_update, expire, upload, download, total FROM subscriptions WHERE url = ?'
+        'SELECT id, name, url, active, last_update, expire, upload, download, total FROM subscriptions WHERE url = ?'
       )
       .get(url) as SubscriptionRecord | undefined
+  }
+
+  findActive(): SubscriptionRecord | undefined {
+    return this.db
+      .prepare(
+        'SELECT id, name, url, active, last_update, expire, upload, download, total FROM subscriptions WHERE active = 1 LIMIT 1'
+      )
+      .get() as SubscriptionRecord | undefined
+  }
+
+  deactivateAll(): void {
+    this.db.prepare('UPDATE subscriptions SET active = 0').run()
   }
 
   create(sub: Omit<SubscriptionRecord, 'id'>): string {
     const id = crypto.randomUUID()
     this.db
       .prepare(
-        'INSERT INTO subscriptions (id, name, url, last_update, expire, upload, download, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO subscriptions (id, name, url, active, last_update, expire, upload, download, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
       )
-      .run(id, sub.name, sub.url, sub.last_update, sub.expire, sub.upload, sub.download, sub.total)
+      .run(
+        id,
+        sub.name,
+        sub.url,
+        sub.active ?? 0,
+        sub.last_update,
+        sub.expire,
+        sub.upload,
+        sub.download,
+        sub.total
+      )
     return id
   }
 

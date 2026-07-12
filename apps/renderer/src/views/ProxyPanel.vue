@@ -1,18 +1,27 @@
 <template>
   <div class="proxy-panel">
-    <div class="proxy-tabs">
+    <div class="proxy-header">
+      <div class="proxy-tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          class="proxy-tab"
+          :class="{ active: activeTab === tab.key }"
+          @click="activeTab = tab.key"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
       <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        class="proxy-tab"
-        :class="{ active: activeTab === tab.key }"
-        @click="activeTab = tab.key"
+        class="proxy-toggle"
+        :class="{ on: proxyRunning }"
+        @click="toggleProxy"
       >
-        {{ tab.label }}
+        {{ proxyRunning ? 'ON' : 'OFF' }}
       </button>
     </div>
     <div class="proxy-content">
-      <NodeView v-show="activeTab === 'nodes'" />
+      <NodeView @go-subscriptions="activeTab = 'subscriptions'" />
       <SubscriptionView v-show="activeTab === 'subscriptions'" />
       <TrafficView v-show="activeTab === 'traffic'" />
       <LogView v-show="activeTab === 'logs'" />
@@ -21,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import LogView from './proxy/LogView.vue'
 import NodeView from './proxy/NodeView.vue'
 import SubscriptionView from './proxy/SubscriptionView.vue'
@@ -34,6 +43,24 @@ const tabs = [
   { key: 'logs', label: 'Logs' },
 ]
 const activeTab = ref('nodes')
+const proxyRunning = ref(false)
+
+async function toggleProxy(): Promise<void> {
+  if (proxyRunning.value) {
+    await window.browserAPI.stopProxy()
+  }
+  else {
+    await window.browserAPI.startProxy()
+  }
+  await checkStatus()
+}
+
+async function checkStatus(): Promise<void> {
+  const status = await window.browserAPI.getProxyStatus()
+  proxyRunning.value = status.running
+}
+
+onMounted(checkStatus)
 </script>
 
 <style scoped>
@@ -43,12 +70,19 @@ const activeTab = ref('nodes')
   height: 100%;
 }
 
-.proxy-tabs {
+.proxy-header {
   display: flex;
-  gap: 2px;
+  align-items: center;
+  gap: 8px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border-color);
   margin-bottom: 8px;
+}
+
+.proxy-tabs {
+  display: flex;
+  flex: 1;
+  gap: 2px;
 }
 
 .proxy-tab {
@@ -75,5 +109,23 @@ const activeTab = ref('nodes')
 .proxy-content {
   flex: 1;
   overflow-y: auto;
+}
+
+.proxy-toggle {
+  padding: 4px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.proxy-toggle.on {
+  background: #2e7d32;
+  border-color: #2e7d32;
+  color: #fff;
 }
 </style>

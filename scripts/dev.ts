@@ -94,6 +94,19 @@ function watchMainDist(): void {
 }
 
 async function main(): Promise<void> {
+  console.log(`${CYAN}[dev]${RESET} 🔍 检查 better-sqlite3 原生模块...`)
+  try {
+    execaCommandSync('bun run scripts/check-native.ts', { cwd: ROOT, stdio: 'inherit' })
+  } catch {
+    console.log(`${CYAN}[dev]${RESET} 🔧 需要重建原生模块...`)
+    try {
+      execaCommandSync('bun run rebuild', { cwd: ROOT, stdio: 'inherit' })
+    } catch {
+      console.log(`${RED}✗${RESET} 原生模块重建失败`)
+      process.exit(1)
+    }
+  }
+
   console.log(`${CYAN}[dev]${RESET} 🚀 启动渲染进程 Vite dev server...`)
   const vite = execaCommand('bun run --filter @browser/renderer dev', {
     cwd: ROOT,
@@ -124,19 +137,6 @@ async function main(): Promise<void> {
   console.log(`${CYAN}[dev]${RESET} 📦 启动 shared / ipc-contract 实时构建 (tsup --watch)`)
   run('bun x tsup --watch', path.join(ROOT, 'packages/shared'))
   run('bun x tsup --watch', path.join(ROOT, 'packages/ipc-contract'))
-
-  console.log(`${CYAN}[dev]${RESET} 🔍 检查 better-sqlite3 原生模块...`)
-  try {
-    execaCommandSync('bun run scripts/check-native.ts', { cwd: ROOT, stdio: 'inherit' })
-  } catch {
-    console.log(`${CYAN}[dev]${RESET} 🔧 需要重建原生模块...`)
-    try {
-      execaCommandSync('bun run rebuild', { cwd: ROOT, stdio: 'inherit' })
-    } catch {
-      console.log(`${RED}✗${RESET} 原生模块重建失败`)
-      process.exit(1)
-    }
-  }
 
   console.log(`${CYAN}[dev]${RESET} 🔨 构建主进程 (初次)`)
   try {

@@ -282,6 +282,7 @@ export interface IpcContract {
     id: string
     name: string
     url: string
+    active: number
     last_update: number
     expire: number
     upload: number
@@ -291,6 +292,8 @@ export interface IpcContract {
   'proxy:addSubscription': (url: string, name: string) => { id: string }
   'proxy:removeSubscription': (id: string) => void
   'proxy:updateSubscription': (id: string) => void
+  'proxy:activateSubscription': (id: string) => void
+  'proxy:deactivateSubscription': (id: string) => void
 }
 
 export type IpcChannel = keyof IpcContract
@@ -375,6 +378,8 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'proxy:addSubscription',
   'proxy:removeSubscription',
   'proxy:updateSubscription',
+  'proxy:activateSubscription',
+  'proxy:deactivateSubscription',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {

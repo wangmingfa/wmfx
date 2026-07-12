@@ -205,7 +205,7 @@ const sidebarTabs = [
   { key: 'history', label: 'History', icon: 'carbon:time' },
   { key: 'bookmarks', label: 'Bookmarks', icon: 'carbon:bookmark-filled' },
   { key: 'downloads', label: 'Downloads', icon: 'carbon:download' },
-  { key: 'proxy', label: 'Proxy', icon: 'carbon:network-proxy' },
+  { key: 'proxy', label: 'Proxy', icon: 'carbon:network-4' },
   { key: 'settings', label: 'Settings', icon: 'carbon:settings' },
 ]
 

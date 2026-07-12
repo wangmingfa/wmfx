@@ -13,10 +13,13 @@ function getPlatformArchDir(): string {
 }
 
 function getBaseResourcePath(): string {
-  // In Electron main process, process.resourcesPath points to the app's resources directory.
-  // In development/Node.js, fall back to process.cwd().
   const rp = (process as unknown as Record<string, unknown>).resourcesPath
-  return typeof rp === 'string' ? rp : process.cwd()
+  const base = typeof rp === 'string' ? rp : process.cwd()
+  const mihomoDir = join(base, 'mihomo', getPlatformArchDir())
+  if (existsSync(mihomoDir)) return base
+  const projectRoot = join(process.cwd())
+  if (existsSync(join(projectRoot, 'mihomo', getPlatformArchDir()))) return projectRoot
+  return base
 }
 
 export function getMihomoBinaryPath(): string {

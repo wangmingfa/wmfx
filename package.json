@@ -18,7 +18,7 @@
     "build:renderer": "bun run --filter @browser/renderer build",
     "build": "bun run build:shared && bun run build:ipc && bun run build:database && bun run build:renderer && bun run build:main",
     "clean": "rm -rf node_modules apps/*/dist packages/*/dist .vitest node_modules/.vite test-results playwright-report apps/main/node_modules apps/renderer/node_modules",
-    "dev": "bun run scripts/check-deps.ts && bun run scripts/dev.ts",
+    "dev": "bun run download:cores && bun run scripts/check-deps.ts && bun run scripts/dev.ts",
     "download:cores": "bun scripts/download-cores.ts",
     "postinstall": "electron-rebuild -f -w better-sqlite3",
     "prepare": "husky",

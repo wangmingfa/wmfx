@@ -66,6 +66,24 @@ export class ProxyManager {
     return this.healthChecker.checkGroup(groupName)
   }
 
+  async injectProxies(
+    proxies: Record<string, unknown>[],
+    proxyGroups: { name: string; type: string; proxies: string[] }[],
+    rules: string[]
+  ): Promise<void> {
+    this.configManager.setSubscriptionData(proxies, proxyGroups, rules)
+    this.configManager.writeConfig()
+    this.stop()
+    this.start()
+  }
+
+  async resetConfig(): Promise<void> {
+    this.configManager.clearSubscriptionData()
+    this.configManager.writeConfig()
+    this.stop()
+    this.start()
+  }
+
   onData(cb: (data: TrafficData) => void): () => void {
     return this.trafficMonitor.onData(cb)
   }

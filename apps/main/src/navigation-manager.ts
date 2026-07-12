@@ -5,15 +5,15 @@ export class NavigationManager {
 
   goBack(tabId: string): void {
     const webContents = this.tabManager.getWebContents(tabId)
-    if (webContents?.canGoBack()) {
-      webContents.goBack()
+    if (webContents?.navigationHistory.canGoBack()) {
+      webContents.navigationHistory.goBack()
     }
   }
 
   goForward(tabId: string): void {
     const webContents = this.tabManager.getWebContents(tabId)
-    if (webContents?.canGoForward()) {
-      webContents.goForward()
+    if (webContents?.navigationHistory.canGoForward()) {
+      webContents.navigationHistory.goForward()
     }
   }
 

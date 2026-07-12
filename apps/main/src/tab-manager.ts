@@ -199,8 +199,8 @@ export class TabManager {
     wc.on('did-navigate', () => {
       const url = wc.getURL()
       tab.state.url = url
-      tab.state.canGoBack = wc.canGoBack()
-      tab.state.canGoForward = wc.canGoForward()
+      tab.state.canGoBack = wc.navigationHistory.canGoBack()
+      tab.state.canGoForward = wc.navigationHistory.canGoForward()
       this.broadcastState(tab)
 
       if (url && !url.startsWith('about:') && !url.startsWith('chrome:')) {
@@ -214,8 +214,8 @@ export class TabManager {
 
     wc.on('did-navigate-in-page', () => {
       tab.state.url = wc.getURL()
-      tab.state.canGoBack = wc.canGoBack()
-      tab.state.canGoForward = wc.canGoForward()
+      tab.state.canGoBack = wc.navigationHistory.canGoBack()
+      tab.state.canGoForward = wc.navigationHistory.canGoForward()
       this.broadcastState(tab)
     })
 

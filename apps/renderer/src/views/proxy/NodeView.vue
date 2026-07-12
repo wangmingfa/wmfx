@@ -6,18 +6,54 @@
         @click="setMode('rule')"
       >
         Rule
+        <Tooltip :delay-duration="100">
+          <span class="mode-tip">
+            <Icon
+              icon="carbon:help"
+              width="14"
+              height="14"
+            />
+          </span>
+          <template #content>
+            根据规则决定走代理还是直连（如国内直连、国外走代理）
+          </template>
+        </Tooltip>
       </button>
       <button
         :class="{ active: mode === 'global' }"
         @click="setMode('global')"
       >
         Global
+        <Tooltip :delay-duration="100">
+          <span class="mode-tip">
+            <Icon
+              icon="carbon:help"
+              width="14"
+              height="14"
+            />
+          </span>
+          <template #content>
+            所有流量都走代理节点
+          </template>
+        </Tooltip>
       </button>
       <button
         :class="{ active: mode === 'direct' }"
         @click="setMode('direct')"
       >
         Direct
+        <Tooltip :delay-duration="100">
+          <span class="mode-tip">
+            <Icon
+              icon="carbon:help"
+              width="14"
+              height="14"
+            />
+          </span>
+          <template #content>
+            所有流量直连，不走代理
+          </template>
+        </Tooltip>
       </button>
     </div>
 
@@ -57,13 +93,25 @@
       v-else
       class="empty"
     >
-      No proxy groups available
+      <div class="empty-title">
+        No proxy nodes available
+      </div>
+      <div class="empty-desc">
+        Please add a subscription in the <span
+          class="link"
+          @click="$emit('goSubscriptions')"
+        >Subscriptions</span> tab first, then come back to select nodes.
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Icon } from '@iconify/vue'
 import { onMounted, ref } from 'vue'
+import Tooltip from '@/components/ui/tooltip/Tooltip.vue'
+
+defineEmits<{ goSubscriptions: [] }>()
 
 interface ProxyGroup {
   name: string
@@ -144,6 +192,9 @@ onMounted(async () => {
 
 .proxy-mode button {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 6px 8px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
@@ -157,6 +208,19 @@ onMounted(async () => {
   background: var(--accent-color);
   color: #fff;
   border-color: var(--accent-color);
+}
+
+.mode-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  color: inherit;
+  opacity: 0.5;
+}
+
+.mode-tip:hover {
+  opacity: 1;
 }
 
 .group-header {
@@ -227,5 +291,27 @@ onMounted(async () => {
   color: var(--text-secondary);
   padding: 20px;
   font-size: 13px;
+}
+
+.empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.empty-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.link {
+  color: var(--accent-color);
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
 }
 </style>

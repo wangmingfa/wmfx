@@ -483,28 +483,48 @@ export function registerIpcHandlers(): void {
   })
 
   handle('proxy:getProxies', async (event) => {
-    const inst = getInstance(event)
-    return (await inst?.proxyManager?.getProxies()) ?? {}
+    try {
+      const inst = getInstance(event)
+      return (await inst?.proxyManager?.getProxies()) ?? {}
+    } catch {
+      return {}
+    }
   })
 
   handle('proxy:switchNode', async (event, groupName, nodeName) => {
-    const inst = getInstance(event)
-    await inst?.proxyManager?.switchNode(groupName, nodeName)
+    try {
+      const inst = getInstance(event)
+      await inst?.proxyManager?.switchNode(groupName, nodeName)
+    } catch {
+      /* proxy not running */
+    }
   })
 
   handle('proxy:mode', async (event) => {
-    const inst = getInstance(event)
-    return (await inst?.proxyManager?.getMode()) ?? 'rule'
+    try {
+      const inst = getInstance(event)
+      return (await inst?.proxyManager?.getMode()) ?? 'rule'
+    } catch {
+      return 'rule'
+    }
   })
 
   handle('proxy:setMode', async (event, mode) => {
-    const inst = getInstance(event)
-    await inst?.proxyManager?.setMode(mode)
+    try {
+      const inst = getInstance(event)
+      await inst?.proxyManager?.setMode(mode)
+    } catch {
+      /* proxy not running */
+    }
   })
 
   handle('proxy:checkDelay', async (event, groupName) => {
-    const inst = getInstance(event)
-    return (await inst?.proxyManager?.checkDelay(groupName)) ?? []
+    try {
+      const inst = getInstance(event)
+      return (await inst?.proxyManager?.checkDelay(groupName)) ?? []
+    } catch {
+      return []
+    }
   })
 
   // Subscription
@@ -528,5 +548,33 @@ export function registerIpcHandlers(): void {
   handle('proxy:updateSubscription', async (event, id) => {
     const inst = getInstance(event)
     await inst?.subscriptionManager.updateSubscription(id)
+  })
+
+  handle('proxy:activateSubscription', async (event, id) => {
+    const inst = getInstance(event)
+    if (!inst) throw new Error('No window instance')
+    inst.subscriptionManager.activateSubscription(id)
+    const sub = inst.subscriptionManager.getActiveSubscription()
+    if (sub && inst.proxyManager) {
+      try {
+        const data = await inst.subscriptionManager.fetchSubscriptionData(sub.url)
+        await inst.proxyManager.injectProxies(data.proxies, data.proxyGroups, data.rules)
+      } catch {
+        /* proxy not running or fetch failed */
+      }
+    }
+  })
+
+  handle('proxy:deactivateSubscription', async (event, id) => {
+    const inst = getInstance(event)
+    if (!inst) throw new Error('No window instance')
+    inst.subscriptionManager.deactivateSubscription(id)
+    if (inst.proxyManager) {
+      try {
+        await inst.proxyManager.resetConfig()
+      } catch {
+        /* proxy not running */
+      }
+    }
   })
 }

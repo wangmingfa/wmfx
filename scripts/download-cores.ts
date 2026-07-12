@@ -3,6 +3,7 @@ import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
+const PROJECT_ROOT = join(import.meta.dir, '..')
 const MIHOMO_VERSION = 'v1.19.0'
 const BASE_URL = `https://github.com/MetaCubeX/mihomo/releases/download/${MIHOMO_VERSION}`
 
@@ -22,13 +23,16 @@ function getDownloadUrl(): string {
   const mapped = PLATFORM_MAP[key]
   if (!mapped) throw new Error(`Unsupported platform: ${key}`)
 
-  const archiveName = mapped.startsWith('windows') ? `mihomo-${mapped}.zip` : `mihomo-${mapped}.gz`
+  const ver = MIHOMO_VERSION
+  const archiveName = mapped.startsWith('windows')
+    ? `mihomo-${mapped}-${ver}.zip`
+    : `mihomo-${mapped}-${ver}.gz`
   return `${BASE_URL}/${archiveName}`
 }
 
 async function download() {
   const key = getPlatformKey()
-  const dir = join(process.cwd(), 'resources', 'mihomo', key)
+  const dir = join(PROJECT_ROOT, 'mihomo', key)
   mkdirSync(dir, { recursive: true })
 
   const binaryName = process.platform === 'win32' ? 'mihomo.exe' : 'mihomo'
