@@ -263,6 +263,11 @@ export class TabManager {
       tab.state.isLoading = false
       this.broadcastState(tab)
     })
+
+    wc.on('render-process-gone', () => {
+      const url = tab.state.url || 'about:blank'
+      tab.view.webContents.loadURL(url)
+    })
   }
 
   private buildTabState(tab: Tab): TabState {
