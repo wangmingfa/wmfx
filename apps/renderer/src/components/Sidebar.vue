@@ -170,6 +170,12 @@
           </div>
         </div>
       </div>
+      <div
+        v-show="activeTab === 'proxy'"
+        class="sidebar-panel proxy-panel-wrapper"
+      >
+        <ProxyPanel />
+      </div>
     </div>
   </div>
 </template>
@@ -178,6 +184,7 @@
 import type { BookmarkItem, DownloadItem, HistoryItem, ThemeMode } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
 import { onMounted, onUnmounted, ref } from 'vue'
+import ProxyPanel from '../views/ProxyPanel.vue'
 
 defineProps<{
   isOpen: boolean
@@ -198,6 +205,7 @@ const sidebarTabs = [
   { key: 'history', label: 'History', icon: 'carbon:time' },
   { key: 'bookmarks', label: 'Bookmarks', icon: 'carbon:bookmark-filled' },
   { key: 'downloads', label: 'Downloads', icon: 'carbon:download' },
+  { key: 'proxy', label: 'Proxy', icon: 'carbon:network-proxy' },
   { key: 'settings', label: 'Settings', icon: 'carbon:settings' },
 ]
 
@@ -417,5 +425,9 @@ onUnmounted(() => {
   padding: 4px 8px;
   font-size: 12px;
   outline: none;
+}
+
+.proxy-panel-wrapper {
+  padding: 8px;
 }
 </style>
