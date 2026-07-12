@@ -6,7 +6,7 @@ let page: Page
 
 test.beforeAll(() => {
   return electron
-    .launch({ args: ['apps/main/dist/index.cjs'] })
+    .launch({ args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'] })
     .then((electronApp) => {
       app = electronApp
       return app.firstWindow()
@@ -153,4 +153,23 @@ test('proxy mode can be queried via browserAPI', async () => {
     return await window.browserAPI.getProxyMode()
   })
   expect(['rule', 'global', 'direct']).toContain(mode)
+})
+
+test('session state is saved on quit and restored on restart', async () => {
+  // Create a second tab
+  await page.locator('.tab-new').click()
+  await expect(page.locator('.tab-item')).toHaveCount(2)
+
+  // Close the app (this triggers before-quit which saves state)
+  await app.close()
+
+  // Restart the app
+  app = await electron.launch({ args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'] })
+  page = await app.firstWindow()
+
+  // Wait for the app to load
+  await expect(page.locator('.tab-bar')).toBeVisible()
+
+  // Verify tabs were restored (2 tabs from previous session)
+  await expect(page.locator('.tab-item')).toHaveCount(2)
 })
