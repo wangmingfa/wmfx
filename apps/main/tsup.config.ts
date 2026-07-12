@@ -10,5 +10,5 @@ export default defineConfig({
   platform: 'node',
   target: 'node20',
   external: ['electron', 'better-sqlite3', '@wmfx/database'],
-  noExternal: ['@browser/ipc-contract', '@browser/shared'],
+  noExternal: ['@browser/ipc-contract', '@browser/shared', '@browser/proxy'],
 })
