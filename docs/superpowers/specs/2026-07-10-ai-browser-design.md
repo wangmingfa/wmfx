@@ -260,6 +260,12 @@ preload 用 `contextBridge` 暴露类型安全的 `window.browserAPI`。
 - 崩溃恢复、会话恢复
 - 性能优化、后台标签挂起
 
+**M5 — CI/CD 与分发（第 16-17 周）**
+- GitHub Actions 三平台构建矩阵（win/mac/linux × amd64/arm64）
+- 代码签名：macOS Apple Developer ID、Windows Authenticode
+- 自动更新：electron-updater + GitHub Releases
+- 测试覆盖扩展：Vitest 单元测试（packages/proxy 核心逻辑）、Playwright E2E 覆盖关键路径（标签操作、导航、代理切换、会话恢复）
+
 ### 测试策略
 - 单元测试：`packages/proxy`、`packages/storage`（Vitest）
 - 集成测试：IPC 通道契约、Mihomo 启停流程

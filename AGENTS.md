@@ -74,3 +74,23 @@
 - Tab drag & drop reordering (HTML5 DnD, persisted to SettingsManager)
 - 9 new IPC channels, 50 total handlers
 - 17 E2E tests (7 original + 5 M2 + 5 M3)
+
+**M3 proxy — Mihomo 代理模块** ✅ COMPLETED
+- packages/proxy: ProxyManager, MihomoProcess, ConfigManager, ApiClient, HealthChecker, TrafficMonitor, CoreDownloader
+- SubscriptionManager (moved to apps/main, depends on database)
+- 代理面板 UI: NodeView, SubscriptionView, TrafficView, LogView
+- 12 new IPC channels (proxy + subscription), 62 total handlers
+- 21 E2E tests
+
+**M4 — 打磨与打包** ✅ COMPLETED
+- electron-builder 三平台打包配置 (AppImage/deb/dmg/nsis)
+- 会话恢复: 关闭时保存标签页，重启时恢复
+- 窗口状态持久化 (位置/大小)
+- 崩溃恢复: render-process-gone 自动 reload
+- 后台标签挂起: 5分钟不活跃释放 WebContentsView
+
+**M5 — CI/CD 与分发** ⏳ NEXT
+- GitHub Actions 三平台构建矩阵
+- 代码签名: macOS Apple Developer ID, Windows Authenticode
+- 自动更新: electron-updater + GitHub Releases
+- 测试覆盖扩展: Vitest 单元测试, Playwright E2E 扩展
