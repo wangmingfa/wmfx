@@ -97,6 +97,22 @@ declare global {
       getProxyMode: () => Promise<string>
       setProxyMode: (mode: 'rule' | 'global' | 'direct') => Promise<void>
       checkProxyDelay: (groupName: string) => Promise<{ nodeName: string; delay: number }[]>
+      // Subscription
+      getSubscriptions: () => Promise<
+        {
+          id: string
+          name: string
+          url: string
+          last_update: number
+          expire: number
+          upload: number
+          download: number
+          total: number
+        }[]
+      >
+      addSubscription: (url: string, name: string) => Promise<{ id: string }>
+      removeSubscription: (id: string) => Promise<void>
+      updateSubscription: (id: string) => Promise<void>
     }
   }
 }

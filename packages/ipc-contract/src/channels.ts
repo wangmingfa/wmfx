@@ -277,6 +277,20 @@ export interface IpcContract {
   'proxy:mode': () => string
   'proxy:setMode': (mode: 'rule' | 'global' | 'direct') => void
   'proxy:checkDelay': (groupName: string) => { nodeName: string; delay: number }[]
+  // Subscription
+  'proxy:getSubscriptions': () => {
+    id: string
+    name: string
+    url: string
+    last_update: number
+    expire: number
+    upload: number
+    download: number
+    total: number
+  }[]
+  'proxy:addSubscription': (url: string, name: string) => { id: string }
+  'proxy:removeSubscription': (id: string) => void
+  'proxy:updateSubscription': (id: string) => void
 }
 
 export type IpcChannel = keyof IpcContract
@@ -356,6 +370,11 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'proxy:mode',
   'proxy:setMode',
   'proxy:checkDelay',
+  // Subscription
+  'proxy:getSubscriptions',
+  'proxy:addSubscription',
+  'proxy:removeSubscription',
+  'proxy:updateSubscription',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {

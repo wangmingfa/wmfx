@@ -57,6 +57,17 @@ class DatabaseManager {
         created_at INTEGER NOT NULL,
         FOREIGN KEY (parent_id) REFERENCES bookmarks(id)
       );
+
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        url TEXT NOT NULL,
+        last_update INTEGER DEFAULT 0,
+        expire INTEGER DEFAULT 0,
+        upload INTEGER DEFAULT 0,
+        download INTEGER DEFAULT 0,
+        total INTEGER DEFAULT 0
+      );
     `)
   }
 

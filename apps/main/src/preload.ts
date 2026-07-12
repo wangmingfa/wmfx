@@ -118,6 +118,22 @@ const api: {
   getProxyMode: () => Promise<string>
   setProxyMode: (mode: 'rule' | 'global' | 'direct') => Promise<void>
   checkProxyDelay: (groupName: string) => Promise<{ nodeName: string; delay: number }[]>
+  // Subscription
+  getSubscriptions: () => Promise<
+    {
+      id: string
+      name: string
+      url: string
+      last_update: number
+      expire: number
+      upload: number
+      download: number
+      total: number
+    }[]
+  >
+  addSubscription: (url: string, name: string) => Promise<{ id: string }>
+  removeSubscription: (id: string) => Promise<void>
+  updateSubscription: (id: string) => Promise<void>
   // Broadcast
   onFoundInPage: (
     cb: (data: {
@@ -215,6 +231,11 @@ const api: {
   getProxyMode: () => ipcRenderer.invoke('proxy:mode'),
   setProxyMode: (mode) => ipcRenderer.invoke('proxy:setMode', mode),
   checkProxyDelay: (groupName) => ipcRenderer.invoke('proxy:checkDelay', groupName),
+  // Subscription
+  getSubscriptions: () => ipcRenderer.invoke('proxy:getSubscriptions'),
+  addSubscription: (url, name) => ipcRenderer.invoke('proxy:addSubscription', url, name),
+  removeSubscription: (id) => ipcRenderer.invoke('proxy:removeSubscription', id),
+  updateSubscription: (id) => ipcRenderer.invoke('proxy:updateSubscription', id),
   // Broadcast
   onFoundInPage: (cb) =>
     ipcRenderer.on('page:foundInPage', (_e, data) =>

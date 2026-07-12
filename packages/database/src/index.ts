@@ -5,3 +5,5 @@ export type { DownloadItem, DownloadState } from './repositories/download-reposi
 export { DownloadRepository } from './repositories/download-repository'
 export type { HistoryItem } from './repositories/history-repository'
 export { HistoryRepository } from './repositories/history-repository'
+export type { SubscriptionRecord } from './repositories/subscription-repository'
+export { SubscriptionRepository } from './repositories/subscription-repository'

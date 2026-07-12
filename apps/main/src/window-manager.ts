@@ -5,6 +5,7 @@ import {
   DatabaseManager,
   DownloadRepository,
   HistoryRepository,
+  SubscriptionRepository,
 } from '@wmfx/database'
 import { BrowserWindow } from 'electron'
 import { BookmarkManager } from './bookmark-manager'
@@ -14,6 +15,7 @@ import { NavigationManager } from './navigation-manager'
 import { getPreloadPath, getRendererDevServerUrl, getRendererIndexHtml } from './paths'
 import { SessionManager } from './session-manager'
 import { SettingsManager } from './settings-manager'
+import { SubscriptionManager } from './subscription-manager'
 import { TabManager } from './tab-manager'
 
 export interface BrowserWindowInstance {
@@ -25,6 +27,7 @@ export interface BrowserWindowInstance {
   historyManager: HistoryManager
   bookmarkManager: BookmarkManager
   proxyManager?: ProxyManager
+  subscriptionManager: SubscriptionManager
 }
 
 export function createMainWindow(): BrowserWindowInstance {
@@ -48,6 +51,7 @@ export function createMainWindow(): BrowserWindowInstance {
   const historyRepo = new HistoryRepository(database.db)
   const downloadRepo = new DownloadRepository(database.db)
   const bookmarkRepo = new BookmarkRepository(database.db)
+  const subscriptionRepo = new SubscriptionRepository(database.db)
 
   const historyManager = new HistoryManager(historyRepo)
   const tabManager = new TabManager(
@@ -60,6 +64,7 @@ export function createMainWindow(): BrowserWindowInstance {
   const navigationManager = new NavigationManager(tabManager)
   const downloadManager = new DownloadManager(win, downloadRepo, settingsManager)
   const bookmarkManager = new BookmarkManager(bookmarkRepo)
+  const subscriptionManager = new SubscriptionManager(subscriptionRepo)
 
   const proxyManager = new ProxyManager(
     join(
@@ -86,5 +91,6 @@ export function createMainWindow(): BrowserWindowInstance {
     historyManager,
     bookmarkManager,
     proxyManager,
+    subscriptionManager,
   }
 }

@@ -464,4 +464,69 @@ export function registerIpcHandlers(): void {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win) win.close()
   })
+
+  // Proxy
+  handle('proxy:start', async (event) => {
+    const inst = getInstance(event)
+    if (!inst?.proxyManager) return
+    await inst.proxyManager.start()
+  })
+
+  handle('proxy:stop', (event) => {
+    const inst = getInstance(event)
+    inst?.proxyManager?.stop()
+  })
+
+  handle('proxy:status', (event) => {
+    const inst = getInstance(event)
+    return inst?.proxyManager?.getStatus() ?? { running: false }
+  })
+
+  handle('proxy:getProxies', async (event) => {
+    const inst = getInstance(event)
+    return (await inst?.proxyManager?.getProxies()) ?? {}
+  })
+
+  handle('proxy:switchNode', async (event, groupName, nodeName) => {
+    const inst = getInstance(event)
+    await inst?.proxyManager?.switchNode(groupName, nodeName)
+  })
+
+  handle('proxy:mode', async (event) => {
+    const inst = getInstance(event)
+    return (await inst?.proxyManager?.getMode()) ?? 'rule'
+  })
+
+  handle('proxy:setMode', async (event, mode) => {
+    const inst = getInstance(event)
+    await inst?.proxyManager?.setMode(mode)
+  })
+
+  handle('proxy:checkDelay', async (event, groupName) => {
+    const inst = getInstance(event)
+    return (await inst?.proxyManager?.checkDelay(groupName)) ?? []
+  })
+
+  // Subscription
+  handle('proxy:getSubscriptions', (event) => {
+    const inst = getInstance(event)
+    return inst?.subscriptionManager.getSubscriptions() ?? []
+  })
+
+  handle('proxy:addSubscription', async (event, url, name) => {
+    const inst = getInstance(event)
+    if (!inst) throw new Error('No window instance')
+    const id = await inst.subscriptionManager.addSubscription(url, name)
+    return { id }
+  })
+
+  handle('proxy:removeSubscription', async (event, id) => {
+    const inst = getInstance(event)
+    await inst?.subscriptionManager.removeSubscription(id)
+  })
+
+  handle('proxy:updateSubscription', async (event, id) => {
+    const inst = getInstance(event)
+    await inst?.subscriptionManager.updateSubscription(id)
+  })
 }
