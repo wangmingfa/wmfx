@@ -13,9 +13,10 @@
   "scripts": {
     "build:shared": "bun run --filter @browser/shared build",
     "build:ipc": "bun run --filter @browser/ipc-contract build",
+    "build:database": "bun run --filter @wmfx/database build",
     "build:main": "bun run --filter @browser/main build",
     "build:renderer": "bun run --filter @browser/renderer build",
-    "build": "bun run build:shared && bun run build:ipc && bun run build:renderer && bun run build:main",
+    "build": "bun run build:shared && bun run build:ipc && bun run build:database && bun run build:renderer && bun run build:main",
     "clean": "rm -rf node_modules apps/*/dist packages/*/dist .vitest node_modules/.vite test-results playwright-report apps/main/node_modules apps/renderer/node_modules",
     "dev": "bun run scripts/check-deps.ts && bun run scripts/dev.ts",
     "postinstall": "electron-rebuild -f -w better-sqlite3",

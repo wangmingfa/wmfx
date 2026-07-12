@@ -9,7 +9,7 @@ export default defineConfig({
   outExtension: () => ({ js: '.cjs' }),
   platform: 'node',
   target: 'node20',
-  external: ['electron', 'better-sqlite3'],
+  external: ['electron', 'better-sqlite3', '@wmfx/database'],
   noExternal: ['@browser/ipc-contract', '@browser/shared'],
   clean: true,
 })
