@@ -12,7 +12,7 @@ const DEFAULT_CONFIG: ProxyConfig = {
 }
 
 export class ConfigManager {
-  private configDir: string
+  readonly configDir: string
   private config: ProxyConfig
 
   constructor(configDir: string, overrides?: Partial<ProxyConfig>) {

@@ -130,5 +130,27 @@ test('bookmark star button exists', async () => {
 test('tab reorder via drag', async () => {
   await page.locator('.tab-new').click()
   await expect(page.locator('.tab-item')).toHaveCount(2)
-  await page.locator('.tab-item').first().dragTo(page.locator('.tab-item').last())
+  await page.locator('.tab-item').first().dragTo(page.locator().last())
+})
+
+test('proxy panel is accessible from sidebar', async () => {
+  await page.locator('.sidebar-button').click()
+  await expect(page.locator('.sidebar')).toHaveClass(/open/)
+  await page.locator('.sidebar-tab', { hasText: 'Proxy' }).click()
+  await expect(page.locator('.proxy-panel')).toBeVisible()
+})
+
+test('proxy status can be queried via browserAPI', async () => {
+  const status = await page.evaluate(async () => {
+    return await window.browserAPI.getProxyStatus()
+  })
+  expect(status).toBeDefined()
+  expect(typeof status.running).toBe('boolean')
+})
+
+test('proxy mode can be queried via browserAPI', async () => {
+  const mode = await page.evaluate(async () => {
+    return await window.browserAPI.getProxyMode()
+  })
+  expect(['rule', 'global', 'direct']).toContain(mode)
 })

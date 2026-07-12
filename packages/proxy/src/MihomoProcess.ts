@@ -34,7 +34,7 @@ export class MihomoProcess {
       throw new Error(`Mihomo binary not found at ${binaryPath}`)
     }
 
-    this.process = spawn(binaryPath, ['-d', this.configManager['configDir']], {
+    this.process = spawn(binaryPath, ['-d', this.configManager.configDir], {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
