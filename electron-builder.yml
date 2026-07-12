@@ -1,0 +1,38 @@
+appId: com.wmfx.browser
+productName: WMFX
+directories:
+  output: dist-pack
+
+files:
+  - apps/main/dist/**/*
+  - apps/renderer/dist/**/*
+  - node_modules/better-sqlite3/**/*
+  - node_modules/@better-sqlite3/**/*
+
+extraResources:
+  - from: mihomo/
+    to: mihomo/
+    filter:
+      - "**/*"
+
+linux:
+  target:
+    - AppImage
+    - deb
+  icon: resources/icons
+  category: Network
+
+mac:
+  target:
+    - dmg
+  icon: resources/icons/logo.png
+  category: public.app-category.browsers
+
+win:
+  target:
+    - nsis
+  icon: resources/icons/logo.png
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

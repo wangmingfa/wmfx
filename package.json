@@ -30,7 +30,11 @@
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "test": "bun x vitest run",
     "test:e2e": "bun run build && bun x playwright test",
-    "typecheck": "bun run --filter '*' typecheck"
+    "typecheck": "bun run --filter '*' typecheck",
+    "package": "bun run build && electron-builder",
+    "package:linux": "bun run build && electron-builder --linux",
+    "package:mac": "bun run build && electron-builder --mac",
+    "package:win": "bun run build && electron-builder --win"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.1.0",
@@ -45,6 +49,7 @@
     "@types/node-abi": "^3.0.3",
     "@types/semver": "^7.7.1",
     "electron": "^43.1.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^10.7.0",
     "execa": "^9.6.1",
     "husky": "^9.1.7",
