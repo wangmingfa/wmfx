@@ -86,6 +86,17 @@ declare global {
         }) => void
       ) => void
       removeListener: (event: string, handler: (...args: unknown[]) => void) => void
+      // Proxy
+      startProxy: () => Promise<void>
+      stopProxy: () => Promise<void>
+      getProxyStatus: () => Promise<{ running: boolean; pid?: number; port?: number }>
+      getProxies: () => Promise<
+        Record<string, { name: string; type: string; now?: string; all?: string[] }>
+      >
+      switchProxyNode: (groupName: string, nodeName: string) => Promise<void>
+      getProxyMode: () => Promise<string>
+      setProxyMode: (mode: 'rule' | 'global' | 'direct') => Promise<void>
+      checkProxyDelay: (groupName: string) => Promise<{ nodeName: string; delay: number }[]>
     }
   }
 }

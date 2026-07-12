@@ -9,7 +9,7 @@ declare global {
 }
 globalThis.browserInstances = new Map()
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (process.platform !== 'darwin') {
     Menu.setApplicationMenu(null)
   }
@@ -27,6 +27,13 @@ app.whenReady().then(() => {
   }
 
   mainWindow.tabManager.create({ url: 'about:blank' })
+
+  // Start mihomo proxy
+  try {
+    await mainWindow.proxyManager?.start()
+  } catch (e) {
+    console.warn('Mihomo proxy failed to start:', e)
+  }
   // F12 打开/关闭当前标签页 DevTools
   registerAppShortcut(mainWindow.window, 'F12', () => {
     const focused = BrowserWindow.getFocusedWindow()
@@ -64,5 +71,11 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
+  }
+})
+
+app.on('will-quit', () => {
+  for (const instance of globalThis.browserInstances.values()) {
+    instance.proxyManager?.stop()
   }
 })

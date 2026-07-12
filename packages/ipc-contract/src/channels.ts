@@ -265,6 +265,18 @@ export interface IpcContract {
   'window:minimize': () => void
   'window:maximize': () => void
   'window:close': () => void
+  // Proxy
+  'proxy:start': () => void
+  'proxy:stop': () => void
+  'proxy:status': () => { running: boolean; pid?: number; port?: number }
+  'proxy:getProxies': () => Record<
+    string,
+    { name: string; type: string; now?: string; all?: string[] }
+  >
+  'proxy:switchNode': (groupName: string, nodeName: string) => void
+  'proxy:mode': () => string
+  'proxy:setMode': (mode: 'rule' | 'global' | 'direct') => void
+  'proxy:checkDelay': (groupName: string) => { nodeName: string; delay: number }[]
 }
 
 export type IpcChannel = keyof IpcContract
@@ -335,6 +347,15 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'window:minimize',
   'window:maximize',
   'window:close',
+  // Proxy
+  'proxy:start',
+  'proxy:stop',
+  'proxy:status',
+  'proxy:getProxies',
+  'proxy:switchNode',
+  'proxy:mode',
+  'proxy:setMode',
+  'proxy:checkDelay',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {

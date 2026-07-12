@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@browser/ipc-contract": "workspace:*",
+    "@browser/proxy": "workspace:*",
     "@browser/shared": "workspace:*",
     "@wmfx/database": "workspace:*"
   },

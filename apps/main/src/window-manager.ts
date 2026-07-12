@@ -1,3 +1,5 @@
+import { join } from 'node:path'
+import { ProxyManager } from '@browser/proxy'
 import {
   BookmarkRepository,
   DatabaseManager,
@@ -22,6 +24,7 @@ export interface BrowserWindowInstance {
   downloadManager: DownloadManager
   historyManager: HistoryManager
   bookmarkManager: BookmarkManager
+  proxyManager?: ProxyManager
 }
 
 export function createMainWindow(): BrowserWindowInstance {
@@ -58,6 +61,13 @@ export function createMainWindow(): BrowserWindowInstance {
   const downloadManager = new DownloadManager(win, downloadRepo, settingsManager)
   const bookmarkManager = new BookmarkManager(bookmarkRepo)
 
+  const proxyManager = new ProxyManager(
+    join(
+      String((process as unknown as Record<string, unknown>).resourcesPath || process.cwd()),
+      'proxy'
+    )
+  )
+
   win.once('ready-to-show', () => win.show())
 
   const devUrl = getRendererDevServerUrl()
@@ -75,5 +85,6 @@ export function createMainWindow(): BrowserWindowInstance {
     downloadManager,
     historyManager,
     bookmarkManager,
+    proxyManager,
   }
 }

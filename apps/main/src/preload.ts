@@ -107,6 +107,17 @@ const api: {
   minimizeWindow: () => Promise<void>
   maximizeWindow: () => Promise<void>
   closeWindow: () => Promise<void>
+  // Proxy
+  startProxy: () => Promise<void>
+  stopProxy: () => Promise<void>
+  getProxyStatus: () => Promise<{ running: boolean; pid?: number; port?: number }>
+  getProxies: () => Promise<
+    Record<string, { name: string; type: string; now?: string; all?: string[] }>
+  >
+  switchProxyNode: (groupName: string, nodeName: string) => Promise<void>
+  getProxyMode: () => Promise<string>
+  setProxyMode: (mode: 'rule' | 'global' | 'direct') => Promise<void>
+  checkProxyDelay: (groupName: string) => Promise<{ nodeName: string; delay: number }[]>
   // Broadcast
   onFoundInPage: (
     cb: (data: {
@@ -194,6 +205,16 @@ const api: {
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
+  // Proxy
+  startProxy: () => ipcRenderer.invoke('proxy:start'),
+  stopProxy: () => ipcRenderer.invoke('proxy:stop'),
+  getProxyStatus: () => ipcRenderer.invoke('proxy:status'),
+  getProxies: () => ipcRenderer.invoke('proxy:getProxies'),
+  switchProxyNode: (groupName, nodeName) =>
+    ipcRenderer.invoke('proxy:switchNode', groupName, nodeName),
+  getProxyMode: () => ipcRenderer.invoke('proxy:mode'),
+  setProxyMode: (mode) => ipcRenderer.invoke('proxy:setMode', mode),
+  checkProxyDelay: (groupName) => ipcRenderer.invoke('proxy:checkDelay', groupName),
   // Broadcast
   onFoundInPage: (cb) =>
     ipcRenderer.on('page:foundInPage', (_e, data) =>
