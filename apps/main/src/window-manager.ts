@@ -7,12 +7,17 @@ import {
   HistoryRepository,
   SubscriptionRepository,
 } from '@wmfx/database'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, nativeImage } from 'electron'
 import { BookmarkManager } from './bookmark-manager'
 import { DownloadManager } from './download-manager'
 import { HistoryManager } from './history-manager'
 import { NavigationManager } from './navigation-manager'
-import { getPreloadPath, getRendererDevServerUrl, getRendererIndexHtml } from './paths'
+import {
+  getPreloadPath,
+  getRendererDevServerUrl,
+  getRendererIndexHtml,
+  resolveFromRoot,
+} from './paths'
 import { SessionManager } from './session-manager'
 import { SettingsManager } from './settings-manager'
 import { SubscriptionManager } from './subscription-manager'
@@ -30,7 +35,26 @@ export interface BrowserWindowInstance {
   subscriptionManager: SubscriptionManager
 }
 
+/** 解析应用图标路径：按平台选择对应图标，统一走 resolveFromRoot 相对项目根定位 */
+function resolveAppIcon(): string {
+  const relative =
+    process.platform === 'darwin'
+      ? 'resources/icons/macos/icon.png'
+      : process.platform === 'win32'
+        ? 'resources/icons/windows/icon.ico'
+        : 'resources/icons/linux/512x512.png'
+  return resolveFromRoot(relative)
+}
+
 export function createMainWindow(): BrowserWindowInstance {
+  // macOS 的 Dock 图标由 app.dock.setIcon 控制，BrowserWindow 的 icon 选项在 macOS 上不生效
+  if (process.platform === 'darwin') {
+    const appIconPath = resolveAppIcon()
+    console.log('设置Dock栏图标', appIconPath)
+    const dockIcon = nativeImage.createFromPath(appIconPath)
+    app.dock?.setIcon(dockIcon)
+  }
+
   const settingsManager = new SettingsManager()
   const savedBounds = settingsManager.get('windowBounds')
 
@@ -38,6 +62,7 @@ export function createMainWindow(): BrowserWindowInstance {
     ...(savedBounds
       ? { x: savedBounds.x, y: savedBounds.y, width: savedBounds.width, height: savedBounds.height }
       : { width: 1280, height: 800 }),
+    icon: resolveAppIcon(),
     show: false,
     titleBarStyle: process.platform === 'win32' ? undefined : 'hidden',
     trafficLightPosition: { x: 12, y: 11 },
