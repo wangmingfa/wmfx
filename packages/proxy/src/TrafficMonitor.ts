@@ -6,6 +6,7 @@ export class TrafficMonitor {
   private ws: WebSocket | null = null
   private configManager: ConfigManager
   private listeners: Set<(data: TrafficData) => void> = new Set()
+  /** 断线重连定时器引用，断开后 3 秒自动重连；显式停止时用于清理避免重复重连 */
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(configManager: ConfigManager) {

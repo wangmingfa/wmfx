@@ -44,6 +44,58 @@
 - `bun run build:main` → only main process (CJS)
 - `bun run build:renderer` → only renderer (Vite)
 
+## 代理模块架构约定（packages/proxy）
+
+整体架构：Electron 负责 UI 和管理，Mihomo 作为**独立进程**运行，二者通过 **REST API** 和本地文件通信。
+
+### 核心原则
+- **独立进程**：Mihomo 通过 `spawn(binary, ['-d', configDir])` 启动，不嵌入 Electron
+- **REST API**：通过 `external-controller` (127.0.0.1:9090) 控制核心，所有请求带 `Authorization: Bearer <secret>` 头
+- **内部模型 → 配置文件**：代码维护 `ProxyConfig` TS 接口，UI 修改的是该模型；保存时由 ConfigManager 通过 `yaml` 库生成 `config.yaml`，**禁止直接读写 YAML 字符串或文件**
+- **配置目录**：使用 `app.getPath('userData')/proxy`，不使用 `resourcesPath`（只读）
+- **应用内代理**：通过 `SessionManager.setProxyRules()` + `session.fromPartition(opts)` 将 WebContents 流量路由到 `127.0.0.1:7890`，**不改系统代理**
+- **ProxyProvider 抽象**：`ProxyManager implements ProxyProvider`，未来换 Sing-box 等核心只需新增 Provider 实现，UI 代码无需改动
+- **优雅关闭**：先 `POST /stop` 调 API 让 Mihomo 清理连接，再 `SIGTERM` 兜底 kill
+
+### 代码注释规范
+- **类级 JSDoc**：每个模块/类文件顶部写一段 `/** */` 说明职责、设计原则和与整体的关系
+- **方法 JSDoc**：关键方法（`start`/`stop`/`generateConfig`/`request` 等）写一句话说明功能；多步骤操作（如启动流程）用 `// 1. ... 2. ...` 标注步骤
+- **字段注释**：关键私有字段（如 `stopRequested`）写一句话说明用途
+- **架构关键路径**：涉及数据流、通信协议、配置转换等核心逻辑处，必须注释说明"为什么这么做"
+- **不要写**：显而易见的操作（如 `return x`、简单 getter）不需要注释；注释应解释意图而非重复代码
+
+### 二进制打包
+- 各平台二进制放在 `resources/mihomo/{platform}-{arch}/mihomo`（Windows 后缀 `.exe`）
+- electron-builder `extraResources` 将其打包到 `{resourcesPath}/mihomo/`
+- 运行时路径：`process.resourcesPath` → `mihomo/{platform}-{arch}/mihomo`
+
+### 目录结构
+```
+packages/proxy/src/
+├── ProxyProvider.ts     # 抽象接口（多核心扩展点）
+├── ProxyManager.ts      # 主入口，implements ProxyProvider
+├── MihomoProcess.ts     # 进程管理（spawn、启动/停止、自动重启）
+├── ConfigManager.ts     # 配置管理（TS 模型 → YAML 文件）
+├── ApiClient.ts         # REST API 客户端（Bearer 认证）
+├── HealthChecker.ts     # 节点延迟检测
+├── TrafficMonitor.ts    # WebSocket 流量监控
+├── CoreDownloader.ts    # 二进制路径解析
+├── types.ts             # 类型定义
+└── index.ts             # 统一导出
+```
+
+### 配置数据流
+```
+SubscriptionManager（解析订阅内容）
+  ↓
+ProxyManager.injectProxies(proxies, groups, rules)
+  ↓
+ConfigManager.setSubscriptionData() → 更新 TS 模型
+ConfigManager.writeConfig() → YAML.stringify() → config.yaml
+  ↓
+MihomoProcess 读取 config.yaml 启动
+```
+
 ## Current Milestone
 **M1 — 基础浏览（Phase 1）** ✅ COMPLETED
 - TabManager: WebContentsView lifecycle with event listeners

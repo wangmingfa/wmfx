@@ -8,6 +8,7 @@ interface DelayResult {
 
 export class HealthChecker {
   private apiClient: ApiClient
+  /** 并发测速请求数量，控制同一时间最多同时检测的节点数 */
   private concurrency: number
 
   constructor(apiClient: ApiClient, concurrency = 5) {

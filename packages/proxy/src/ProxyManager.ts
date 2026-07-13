@@ -1,11 +1,19 @@
+/**
+ * 代理管理器 — ProxyProvider 的 Mihomo 实现
+ *
+ * 聚合所有子模块（进程管理、API、健康检测、流量监控），
+ * 对外提供统一接口。上层 UI 只调用 ProxyManager，
+ * 无需关心底层是 Mihomo 还是其他核心。
+ */
 import { ApiClient } from './ApiClient'
 import { ConfigManager } from './ConfigManager'
 import { HealthChecker } from './HealthChecker'
 import { MihomoProcess } from './MihomoProcess'
+import type { ProxyProvider } from './ProxyProvider'
 import { TrafficMonitor } from './TrafficMonitor'
 import type { MihomoStatus, ProxyConfig, ProxyGroup, TrafficData } from './types'
 
-export class ProxyManager {
+export class ProxyManager implements ProxyProvider {
   private process: MihomoProcess
   private configManager: ConfigManager
   private apiClient: ApiClient
@@ -20,6 +28,13 @@ export class ProxyManager {
     this.trafficMonitor = new TrafficMonitor(this.configManager)
   }
 
+  /**
+   * 启动代理核心
+   * 1. 写入 config.yaml
+   * 2. 启动 Mihomo 进程
+   * 3. 轮询等待 API 就绪
+   * 4. 连接流量监控 WebSocket
+   */
   async start(): Promise<void> {
     this.configManager.writeConfig()
     this.process.start()
@@ -30,6 +45,7 @@ export class ProxyManager {
     this.trafficMonitor.connect()
   }
 
+  /** 停止代理核心：断开 WebSocket → 优雅关闭进程 */
   stop(): void {
     this.trafficMonitor.disconnect()
     this.process.stop()
@@ -66,6 +82,12 @@ export class ProxyManager {
     return this.healthChecker.checkGroup(groupName)
   }
 
+  /**
+   * 注入订阅解析后的数据并重启核心
+   * @param proxies 订阅中的节点列表
+   * @param proxyGroups 代理组定义
+   * @param rules 路由规则
+   */
   async injectProxies(
     proxies: Record<string, unknown>[],
     proxyGroups: { name: string; type: string; proxies: string[] }[],
@@ -77,6 +99,7 @@ export class ProxyManager {
     this.start()
   }
 
+  /** 清除订阅数据，恢复默认配置并重启 */
   async resetConfig(): Promise<void> {
     this.configManager.clearSubscriptionData()
     this.configManager.writeConfig()

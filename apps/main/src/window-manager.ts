@@ -7,7 +7,7 @@ import {
   HistoryRepository,
   SubscriptionRepository,
 } from '@wmfx/database'
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { BookmarkManager } from './bookmark-manager'
 import { DownloadManager } from './download-manager'
 import { HistoryManager } from './history-manager'
@@ -70,11 +70,16 @@ export function createMainWindow(): BrowserWindowInstance {
   const subscriptionManager = new SubscriptionManager(subscriptionRepo)
 
   const proxyManager = new ProxyManager(
-    join(
-      String((process as unknown as Record<string, unknown>).resourcesPath || process.cwd()),
-      'proxy'
-    )
+    /** 配置目录放在用户数据目录，而非应用包内，避免只读限制 */
+    join(app.getPath('userData'), 'proxy')
   )
+
+  /**
+   * 配置 Electron session 代理
+   * 所有 WebContents 的流量通过 getProxyRules() 路由到本地 Mihomo (127.0.0.1:7890)
+   * 这是"应用内代理"方案，不改系统代理，只有本浏览器走代理
+   */
+  sessionManager.setProxyRules(proxyManager.getProxyRules())
 
   win.once('ready-to-show', () => win.show())
 
