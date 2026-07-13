@@ -1,8 +1,13 @@
 import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
 import { registerIpcHandlers } from './ipc/register'
+import { initLogger, startLogRotation } from './logger'
 import { registerAppShortcut, toggleDevTools } from './shortcut'
+import { updater } from './updater'
 import type { BrowserWindowInstance } from './window-manager'
 import { createMainWindow } from './window-manager'
+
+// 尽早覆写 console，使后续日志统一走文件落盘
+initLogger()
 
 declare global {
   var browserInstances: Map<string, BrowserWindowInstance>
@@ -31,7 +36,12 @@ app.whenReady().then(async () => {
     Menu.setApplicationMenu(null)
   }
 
+  // 启动兜底归档 + 清理（删掉已归档旧行）完成后，应用才正式可用
+  await startLogRotation()
   registerIpcHandlers()
+
+  // 启动自动更新检查（仅打包后生效，开发模式跳过）
+  updater.init()
 
   const mainWindow = createMainWindow()
   globalThis.browserInstances.set(String(mainWindow.window.id), mainWindow)

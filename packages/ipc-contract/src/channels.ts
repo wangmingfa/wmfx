@@ -188,6 +188,30 @@ export interface FindInPageOptions {
   searchText: string
 }
 
+/** 渲染进程转发到主进程的日志条目 */
+export interface LogEntry {
+  level: 'log' | 'info' | 'warn' | 'error'
+  message: string
+}
+
+/** 自动更新状态（electron-updater + GitHub Releases） */
+export type UpdaterStatus =
+  | { state: 'idle' }
+  | { state: 'checking' }
+  | { state: 'available'; info: UpdateInfo }
+  | { state: 'not-available' }
+  | { state: 'downloading'; percent: number }
+  | { state: 'downloaded'; info: UpdateInfo }
+  | { state: 'error'; message: string }
+
+/** electron-updater 更新信息（版本号、发布说明等） */
+export interface UpdateInfo {
+  version: string
+  releaseDate: string
+  releaseName?: string | null
+  releaseNotes?: string | Array<{ version?: string; note?: string | null }> | null
+}
+
 /** 标签页查找翻页参数 */
 export interface FindInPageDirection {
   tabId: string
@@ -295,6 +319,11 @@ export interface IpcContract {
   'proxy:updateSubscription': (id: string) => void
   'proxy:activateSubscription': (id: string) => void
   'proxy:deactivateSubscription': (id: string) => void
+  // Log
+  'log:frontend': (entry: LogEntry) => void
+  // Updater
+  'updater:check': () => void
+  'updater:getStatus': () => UpdaterStatus
 }
 
 export type IpcChannel = keyof IpcContract
@@ -381,6 +410,11 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'proxy:updateSubscription',
   'proxy:activateSubscription',
   'proxy:deactivateSubscription',
+  // Log
+  'log:frontend',
+  // Updater
+  'updater:check',
+  'updater:getStatus',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {

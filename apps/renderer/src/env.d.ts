@@ -4,7 +4,9 @@ import type {
   CreateTabOptions,
   FindInPageOptions,
   IpcInvoke,
+  LogEntry,
   TabState,
+  UpdaterStatus,
 } from '@browser/ipc-contract'
 
 declare global {
@@ -119,6 +121,12 @@ declare global {
       updateSubscription: (id: string) => Promise<void>
       activateSubscription: (id: string) => Promise<void>
       deactivateSubscription: (id: string) => Promise<void>
+      // Log
+      log: (entry: LogEntry) => void
+      // Updater
+      checkForUpdates: IpcInvoke['updater:check']
+      getUpdaterStatus: IpcInvoke['updater:getStatus']
+      onUpdaterStatus: (handler: (status: UpdaterStatus) => void) => void
     }
   }
 }

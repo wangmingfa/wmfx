@@ -12,6 +12,7 @@ const config: Configuration = {
     'apps/renderer/dist/**/*',
     'node_modules/better-sqlite3/**/*',
     'node_modules/@better-sqlite3/**/*',
+    'node_modules/electron-updater/**/*',
   ],
 
   extraResources: [
@@ -43,6 +44,13 @@ const config: Configuration = {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
   },
+
+  publish: [
+    {
+      provider: 'github',
+      releaseType: 'draft',
+    },
+  ],
 }
 
 export default config

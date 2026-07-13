@@ -5,6 +5,8 @@ import type {
   ThemeMode,
 } from '@browser/ipc-contract'
 import { BrowserWindow, type Event, ipcMain, nativeTheme } from 'electron'
+import { handleFrontendLog } from '../logger'
+import { updater } from '../updater'
 import type { BrowserWindowInstance } from '../window-manager'
 
 /** Type for raw WebContents event methods (TS overloads don't cover 'found-in-page') */
@@ -574,6 +576,31 @@ export function registerIpcHandlers(): void {
         await inst.proxyManager.resetConfig()
       } catch {
         /* proxy not running */
+      }
+    }
+  })
+
+  // Log：渲染进程转发来的日志（fire-and-forget，无需返回值）
+  ipcMain.on('log:frontend', (_event, entry) => {
+    handleFrontendLog(entry)
+  })
+
+  // Updater：自动更新状态查询 / 手动检查
+  handle('updater:check', () => {
+    updater.checkForUpdates()
+  })
+
+  handle('updater:getStatus', () => {
+    return updater.getStatus()
+  })
+
+  // 更新状态变更时广播到所有渲染进程窗口
+  updater.onStatus((status) => {
+    for (const inst of globalThis.browserInstances.values()) {
+      try {
+        inst.window.webContents.send('updater:status', status)
+      } catch {
+        /* webContents 已销毁 */
       }
     }
   })

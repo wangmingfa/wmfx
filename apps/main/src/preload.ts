@@ -11,12 +11,14 @@ import type {
   FindInPageDirection,
   FindInPageOptions,
   HistoryItem,
+  LogEntry,
   QuickLink,
   TabPrintOptions,
   TabPrintToPdfOptions,
   TabState,
   TabZoomOptions,
   ThemeMode,
+  UpdaterStatus,
   ViewBounds,
 } from '@browser/ipc-contract'
 import { contextBridge, ipcRenderer } from 'electron'
@@ -147,6 +149,12 @@ const api: {
       selection: string
     }) => void
   ) => void
+  // Log
+  log: (entry: LogEntry) => void
+  // Updater
+  checkForUpdates: () => Promise<void>
+  getUpdaterStatus: () => Promise<UpdaterStatus>
+  onUpdaterStatus: (cb: (status: UpdaterStatus) => void) => void
 } = {
   ping: (message) => ipcRenderer.invoke('app:ping', message),
   createTab: (opts) => ipcRenderer.invoke('tab:create', opts),
@@ -254,6 +262,13 @@ const api: {
         }
       )
     ),
+  // Log
+  log: (entry) => ipcRenderer.send('log:frontend', entry),
+  // Updater
+  checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+  getUpdaterStatus: () => ipcRenderer.invoke('updater:getStatus'),
+  onUpdaterStatus: (cb) =>
+    ipcRenderer.on('updater:status', (_e, status) => cb(status as UpdaterStatus)),
 }
 
 contextBridge.exposeInMainWorld('browserAPI', api)
