@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 /**
  * 依赖检查（适配 bun）。
- * 移植自 meat-desktop/scripts/check-deps.ts，将 npm 指令替换为 bun。
  * 检查 node_modules 是否存在、package.json 声明的依赖版本是否满足 semver 范围，
  * 不匹配时自动执行 bun install 并重检。
  */
@@ -112,4 +111,7 @@ export async function checkDependencies(): Promise<boolean> {
     return false
   }
 }
-// test
+
+if (import.meta.main) {
+  await checkDependencies()
+}

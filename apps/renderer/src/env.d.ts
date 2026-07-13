@@ -97,6 +97,10 @@ declare global {
       getProxyMode: () => Promise<string>
       setProxyMode: (mode: 'rule' | 'global' | 'direct') => Promise<void>
       checkProxyDelay: (groupName: string) => Promise<{ nodeName: string; delay: number }[]>
+      // Window controls
+      minimizeWindow: IpcInvoke['window:minimize']
+      maximizeWindow: IpcInvoke['window:maximize']
+      closeWindow: IpcInvoke['window:close']
       // Subscription
       getSubscriptions: () => Promise<
         {
@@ -113,6 +117,8 @@ declare global {
       addSubscription: (url: string, name: string) => Promise<{ id: string }>
       removeSubscription: (id: string) => Promise<void>
       updateSubscription: (id: string) => Promise<void>
+      activateSubscription: (id: string) => Promise<void>
+      deactivateSubscription: (id: string) => Promise<void>
     }
   }
 }

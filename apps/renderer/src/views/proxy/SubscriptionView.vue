@@ -119,7 +119,8 @@ const adding = ref(false)
 const addError = ref('')
 
 async function loadSubscriptions(): Promise<void> {
-  subscriptions.value = await window.browserAPI.getSubscriptions()
+  const items = await window.browserAPI.getSubscriptions()
+  subscriptions.value = items.map(item => ({ ...item, active: 0 }))
 }
 
 async function addSubscription(): Promise<void> {

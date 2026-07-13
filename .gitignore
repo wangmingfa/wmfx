@@ -24,9 +24,6 @@ coverage/
 # Local config overrides
 *.local
 
-# Bun
-bun.lock
-
 # husky internal
 .husky/_
 mihomo/

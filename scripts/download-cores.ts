@@ -46,6 +46,15 @@ async function download() {
   const url = getDownloadUrl()
   console.log(`Downloading mihomo from ${url}...`)
 
+  if (process.platform === 'win32') {
+    // TODO(windows): 使用 PowerShell 实现跨平台下载与解压
+    //   zip:  curl -L "%url%" -o "%tmp%" && PowerShell -Command "Expand-Archive -Path '%tmp%' -DestinationPath '%dir%' -Force"
+    //   gz:   curl -L "%url%" | PowerShell -Command "$input | ...GzipStream..."
+    //   chmod 不需要（Windows 无执行位）
+    throw new Error('Windows 下 Mihomo 二进制下载尚未实现，详见 scripts/download-cores.ts TODO')
+  }
+
+  // macOS / Linux：使用系统自带 curl / gunzip / unzip / chmod
   const isZip = url.endsWith('.zip')
   if (isZip) {
     execSync(

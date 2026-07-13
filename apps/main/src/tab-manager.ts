@@ -58,6 +58,7 @@ export class TabManager {
         zoomFactor: 1,
         isMuted: false,
         isPinned: false,
+        isSuspended: false,
       },
       isSuspended: false,
     }

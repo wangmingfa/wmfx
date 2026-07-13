@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { getAbi } from 'node-abi'
@@ -22,25 +21,27 @@ function getBuiltAbi(pkg: string): number | null {
   return parts.length === 2 ? Number.parseInt(parts[1], 10) : null
 }
 
-function main(): void {
+export function needsRebuild(): boolean {
   const electronVer = getElectronVersion()
   const targetAbi = Number.parseInt(getAbi(electronVer, 'electron'), 10)
   const builtAbi = getBuiltAbi('better-sqlite3')
 
   if (builtAbi === null) {
-    console.log(`⚠️  better-sqlite3 未重建，需要执行 bun run rebuild`)
-    process.exit(1)
+    console.log('⚠️  better-sqlite3 未重建')
+    return true
   }
 
   if (builtAbi === targetAbi) {
     console.log(`✅ better-sqlite3 已适配 Electron ABI ${targetAbi}`)
-    process.exit(0)
+    return false
   }
 
-  console.log(
-    `⚠️  better-sqlite3 ABI ${builtAbi} ≠ Electron ABI ${targetAbi}，需要执行 bun run rebuild`
-  )
-  process.exit(1)
+  console.log(`⚠️  better-sqlite3 ABI ${builtAbi} ≠ Electron ABI ${targetAbi}`)
+  return true
 }
 
-main()
+// 直接执行时：bun run scripts/check-native.ts
+if (import.meta.path === Bun.main) {
+  const result = needsRebuild()
+  process.exit(result ? 1 : 0)
+}

@@ -24,7 +24,7 @@ declare global {
 function handle<K extends keyof IpcContract>(
   channel: K,
   handler: (
-    event: Electron.IpcMainEvent,
+    event: Electron.IpcMainInvokeEvent,
     ...args: Parameters<IpcContract[K]>
   ) => ReturnType<IpcContract[K]> | Promise<ReturnType<IpcContract[K]>>
 ): void {
@@ -34,7 +34,7 @@ function handle<K extends keyof IpcContract>(
 }
 
 /** 从 IPC 事件的 sender 获取对应的 BrowserWindowInstance。 */
-function getInstance(event?: Electron.IpcMainEvent): BrowserWindowInstance | null {
+function getInstance(event?: Electron.IpcMainInvokeEvent): BrowserWindowInstance | null {
   if (event) {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win) {

@@ -551,7 +551,7 @@ onUnmounted(() => {
   cursor: pointer;
   -webkit-app-region: no-drag;
   flex-shrink: 0;
-  margin-left: auto;
+  margin: 0 12px 0 auto;
 
   &:hover {
     color: var(--accent-color);

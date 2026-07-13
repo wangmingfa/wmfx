@@ -109,7 +109,7 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { onMounted, ref } from 'vue'
-import Tooltip from '@/components/ui/tooltip/Tooltip.vue'
+import Tooltip from '../../components/ui/tooltip/Tooltip.vue'
 
 defineEmits<{ goSubscriptions: [] }>()
 

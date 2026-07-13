@@ -129,7 +129,15 @@ export function buildMenu(): void {
       label: 'Window',
       submenu: [
         { role: 'minimize' },
-        { role: 'togglewindow' },
+        {
+          label: 'Toggle Window',
+          click: () => {
+            const win = BrowserWindow.getFocusedWindow()
+            if (!win) return
+            if (win.isMaximized()) win.unmaximize()
+            else win.maximize()
+          },
+        },
         ...(isMac ? [{ type: 'separator' as const }, { role: 'front' as const }] : []),
       ],
     },
