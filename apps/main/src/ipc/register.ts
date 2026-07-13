@@ -4,7 +4,7 @@ import type {
   QuickLink,
   ThemeMode,
 } from '@browser/ipc-contract'
-import { BrowserWindow, type Event, ipcMain, nativeTheme } from 'electron'
+import { app, BrowserWindow, type Event, ipcMain, nativeTheme } from 'electron'
 import { handleFrontendLog } from '../logger'
 import { updater } from '../updater'
 import type { BrowserWindowInstance } from '../window-manager'
@@ -62,6 +62,10 @@ export function registerIpcHandlers(): void {
     const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.close(tabId)
+    // 关闭最后一个标签页时退出应用
+    if (inst.tabManager.getList().length === 0) {
+      app.quit()
+    }
   })
 
   handle('tab:activate', (event, tabId) => {

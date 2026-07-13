@@ -24,7 +24,7 @@
     </button>
     <button
       class="nav-btn"
-      @click="isLoading ? stop : reload"
+      @click="isLoading ? stop() : reload()"
     >
       <Icon
         :icon="isLoading ? 'ic:round-close' : 'ic:round-refresh'"
@@ -253,7 +253,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   height: 40px;
-  background: var(--bg-primary);
+  background: var(--chrome-bg);
   border-bottom: 1px solid var(--border-color);
   padding: 0 8px;
   gap: 4px;
@@ -272,8 +272,8 @@ onMounted(async () => {
 }
 
 .nav-btn:disabled {
-  color: var(--text-muted, #999);
-  cursor: default;
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
 
 .nav-btn:not(:disabled):hover {

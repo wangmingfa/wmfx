@@ -17,11 +17,11 @@
           :is-loading="activeTab.isLoading"
         />
         <Viewport
-          v-if="activeTab && activeTab.url !== 'about:blank'"
+          v-if="activeTab && activeTab.url && activeTab.url !== 'about:blank'"
           :tab-id="activeTab.id"
         />
         <NewTab
-          v-if="activeTab && activeTab.url === 'about:blank'"
+          v-if="activeTab && (!activeTab.url || activeTab.url === 'about:blank')"
           :tab-id="activeTab.id"
         />
       </div>
@@ -93,8 +93,10 @@ onUnmounted(() => {
   --bg-primary: #1e1e1e;
   --bg-secondary: #2d2d2d;
   --bg-tertiary: #3d3d3d;
+  --chrome-bg: #2a2a2a;
   --text-primary: #e0e0e0;
   --text-secondary: #888;
+  --text-muted: #555;
   --border-color: #1a1a1a;
   --accent-color: #4fc3f7;
   --danger-color: #ff5555;
@@ -104,8 +106,10 @@ onUnmounted(() => {
   --bg-primary: #ffffff;
   --bg-secondary: #f5f5f5;
   --bg-tertiary: #e8e8e8;
+  --chrome-bg: #ffffff;
   --text-primary: #1a1a1a;
   --text-secondary: #666;
+  --text-muted: #bbb;
   --border-color: #e0e0e0;
   --accent-color: #1976d2;
   --danger-color: #d32f2f;

@@ -32,6 +32,7 @@ export interface CreateTabOptions {
   url?: string
   sessionId?: string
   activate?: boolean
+  title?: string
 }
 
 /** 下载状态 */

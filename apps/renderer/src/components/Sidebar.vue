@@ -59,12 +59,10 @@
               :src="item.favicon"
               alt=""
             >
-            <Icon
+            <DefaultFavicon
               v-else
               class="sidebar-item-favicon"
-              icon="carbon:earth-filled"
-              width="16"
-              height="16"
+              :size="16"
             />
             <span class="sidebar-item-title">{{ item.title || item.url }}</span>
           </div>
@@ -185,6 +183,7 @@ import type { BookmarkItem, DownloadItem, HistoryItem, ThemeMode } from '@browse
 import { Icon } from '@iconify/vue'
 import { onMounted, onUnmounted, ref } from 'vue'
 import ProxyPanel from '../views/ProxyPanel.vue'
+import DefaultFavicon from './DefaultFavicon.vue'
 
 defineProps<{
   isOpen: boolean
@@ -232,13 +231,16 @@ async function loadTheme(): Promise<void> {
 
 function applyTheme(mode: ThemeMode): void {
   const el = document.documentElement
+  let theme: string
   if (mode === 'system') {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    el.setAttribute('data-theme', prefersDark ? 'dark' : 'light')
+    theme = prefersDark ? 'dark' : 'light'
   }
   else {
-    el.setAttribute('data-theme', mode)
+    theme = mode
   }
+  el.setAttribute('data-theme', theme)
+  el.classList.toggle('dark', theme === 'dark')
 }
 
 async function onThemeChange(event: Event): Promise<void> {

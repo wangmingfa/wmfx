@@ -31,6 +31,22 @@ function saveAllSessionStates(): void {
   }
 }
 
+function bootstrapWindow(instance: BrowserWindowInstance): void {
+  globalThis.browserInstances.set(String(instance.window.id), instance)
+
+  const savedTabs = instance.settingsManager.get('openTabs')
+  const savedActiveIndex = instance.settingsManager.get('activeTabIndex')
+
+  // 关窗即保存（macOS 关窗不等于退出，需在此落盘以便下次恢复）
+  instance.window.on('close', () => saveSessionState(instance))
+
+  if (savedTabs && savedTabs.length > 0) {
+    instance.tabManager.restoreTabs(savedTabs, savedActiveIndex ?? 0)
+  } else {
+    instance.tabManager.create({ url: 'about:blank' })
+  }
+}
+
 app.whenReady().then(async () => {
   if (process.platform !== 'darwin') {
     Menu.setApplicationMenu(null)
@@ -44,7 +60,6 @@ app.whenReady().then(async () => {
   updater.init()
 
   const mainWindow = createMainWindow()
-  globalThis.browserInstances.set(String(mainWindow.window.id), mainWindow)
 
   const theme = mainWindow.settingsManager.get('theme')
   if (theme === 'dark') {
@@ -53,14 +68,7 @@ app.whenReady().then(async () => {
     nativeTheme.themeSource = 'light'
   }
 
-  const savedTabs = mainWindow.settingsManager.get('openTabs')
-  const savedActiveIndex = mainWindow.settingsManager.get('activeTabIndex')
-
-  if (savedTabs && savedTabs.length > 0) {
-    mainWindow.tabManager.restoreTabs(savedTabs, savedActiveIndex ?? 0)
-  } else {
-    mainWindow.tabManager.create({ url: 'about:blank' })
-  }
+  bootstrapWindow(mainWindow)
 
   // Start mihomo proxy
   try {
@@ -93,11 +101,23 @@ app.whenReady().then(async () => {
     toggleDevTools(mainWindow.window)
   })
 
+  // Cmd/Ctrl+W 关闭当前标签页（最后一个标签则关闭窗口）
+  registerAppShortcut(mainWindow.window, 'CmdOrCtrl+W', () => {
+    const focused = BrowserWindow.getFocusedWindow()
+    if (!focused) return
+    const inst = globalThis.browserInstances.get(String(focused.id))
+    if (!inst) return
+    const activeTabId = inst.tabManager.getActiveTabId()
+    if (!activeTabId) return
+    inst.tabManager.close(activeTabId)
+    if (inst.tabManager.getList().length === 0) {
+      app.quit()
+    }
+  })
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      const win = createMainWindow()
-      globalThis.browserInstances.set(String(win.window.id), win)
-      win.tabManager.create({ url: 'about:blank' })
+      bootstrapWindow(createMainWindow())
     }
   })
 })

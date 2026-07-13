@@ -1,60 +1,68 @@
 <template>
   <div class="node-view">
     <div class="proxy-mode">
-      <button
-        :class="{ active: mode === 'rule' }"
-        @click="setMode('rule')"
-      >
-        Rule
-        <Tooltip :delay-duration="100">
-          <span class="mode-tip">
-            <Icon
-              icon="carbon:help"
-              width="14"
-              height="14"
-            />
-          </span>
-          <template #content>
-            根据规则决定走代理还是直连（如国内直连、国外走代理）
-          </template>
-        </Tooltip>
-      </button>
-      <button
-        :class="{ active: mode === 'global' }"
-        @click="setMode('global')"
-      >
-        Global
-        <Tooltip :delay-duration="100">
-          <span class="mode-tip">
-            <Icon
-              icon="carbon:help"
-              width="14"
-              height="14"
-            />
-          </span>
-          <template #content>
-            所有流量都走代理节点
-          </template>
-        </Tooltip>
-      </button>
-      <button
-        :class="{ active: mode === 'direct' }"
-        @click="setMode('direct')"
-      >
-        Direct
-        <Tooltip :delay-duration="100">
-          <span class="mode-tip">
-            <Icon
-              icon="carbon:help"
-              width="14"
-              height="14"
-            />
-          </span>
-          <template #content>
-            所有流量直连，不走代理
-          </template>
-        </Tooltip>
-      </button>
+      <TooltipProvider>
+        <button
+          :class="{ active: mode === 'rule' }"
+          @click="setMode('rule')"
+        >
+          Rule
+          <Tooltip :delay-duration="100">
+            <TooltipTrigger as-child>
+              <span class="mode-tip">
+                <Icon
+                  icon="carbon:help"
+                  width="14"
+                  height="14"
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              根据规则决定走代理还是直连（如国内直连、国外走代理）
+            </TooltipContent>
+          </Tooltip>
+        </button>
+        <button
+          :class="{ active: mode === 'global' }"
+          @click="setMode('global')"
+        >
+          Global
+          <Tooltip :delay-duration="100">
+            <TooltipTrigger as-child>
+              <span class="mode-tip">
+                <Icon
+                  icon="carbon:help"
+                  width="14"
+                  height="14"
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              所有流量都走代理节点
+            </TooltipContent>
+          </Tooltip>
+        </button>
+        <button
+          :class="{ active: mode === 'direct' }"
+          @click="setMode('direct')"
+        >
+          Direct
+          <Tooltip :delay-duration="100">
+            <TooltipTrigger as-child>
+              <span class="mode-tip">
+                <Icon
+                  icon="carbon:help"
+                  width="14"
+                  height="14"
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              所有流量直连，不走代理
+            </TooltipContent>
+          </Tooltip>
+        </button>
+      </TooltipProvider>
     </div>
 
     <div
@@ -109,7 +117,12 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { onMounted, ref } from 'vue'
-import Tooltip from '../../components/ui/tooltip/Tooltip.vue'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../components/ui/tooltip'
 
 defineEmits<{ goSubscriptions: [] }>()
 

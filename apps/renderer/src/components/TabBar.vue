@@ -57,12 +57,10 @@
           :src="tab.favicon"
           :alt="tab.title"
         >
-        <Icon
+        <DefaultFavicon
           v-else
-          class="favicon default-favicon"
-          icon="carbon:earth-filled"
-          width="14"
-          height="14"
+          class="favicon"
+          :size="14"
         />
       </span>
       <span class="tab-title">{{ tab.title || 'New Tab' }}</span>
@@ -148,6 +146,7 @@ import type { TabState } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { isMacOS } from '../utils/os'
+import DefaultFavicon from './DefaultFavicon.vue'
 
 defineProps<{
   isSidebarOpen: boolean
@@ -402,7 +401,7 @@ onUnmounted(() => {
     @translateY: @gap;
 
     path {
-      fill: var(--bg-primary);
+      fill: var(--chrome-bg);
     }
 
     &.before {
@@ -417,7 +416,7 @@ onUnmounted(() => {
 }
 
 .tab-item.active {
-  background: var(--bg-primary);
+  background: var(--chrome-bg);
   border-radius: 8px 8px 0 0;
   z-index: 1;
 
@@ -428,7 +427,7 @@ onUnmounted(() => {
     bottom: 0;
     width: 100%;
     height: ((@tabBarHeight - @tabItemHeight) / 2);
-    background: var(--bg-primary);
+  background: var(--chrome-bg);
     transform: translateY(100%);
   }
 }
@@ -472,10 +471,6 @@ onUnmounted(() => {
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    color: var(--text-secondary);
-  }
-
-  .default-favicon {
     color: var(--text-secondary);
   }
 

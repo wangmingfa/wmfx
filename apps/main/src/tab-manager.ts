@@ -49,8 +49,8 @@ export class TabManager {
         id: tabId,
         windowId: this.windowId,
         sessionId,
-        url: '',
-        title: '',
+        url: opts?.url ?? '',
+        title: opts?.title ?? '',
         favicon: null,
         isLoading: false,
         canGoBack: false,
@@ -226,7 +226,7 @@ export class TabManager {
       return
     }
     for (let i = 0; i < tabs.length; i++) {
-      this.create({ url: tabs[i].url, activate: i === activeIndex })
+      this.create({ url: tabs[i].url, title: tabs[i].title, activate: i === activeIndex })
     }
   }
 
@@ -274,6 +274,11 @@ export class TabManager {
 
   private setupTabListeners(tab: Tab): void {
     const wc = tab.view.webContents
+
+    wc.setWindowOpenHandler(({ url, frameName }) => {
+      this.create({ url, sessionId: tab.sessionId, title: frameName || url })
+      return { action: 'deny' }
+    })
 
     wc.on('did-navigate', () => {
       const url = wc.getURL()

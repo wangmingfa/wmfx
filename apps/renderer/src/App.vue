@@ -9,7 +9,6 @@ import ChromeUI from './components/ChromeUI.vue'
 <style>
 * {
   margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
