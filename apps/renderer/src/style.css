@@ -134,7 +134,8 @@
   --bg-primary: #1e1e1e;
   --bg-secondary: #2d2d2d;
   --bg-tertiary: #3d3d3d;
-  --chrome-bg: #2a2a2a;
+  --tabbar-bg: #292929;
+  --chrome-bg: #353535;
   --text-primary: #e0e0e0;
   --text-secondary: #888;
   --text-muted: #555;
@@ -148,6 +149,7 @@
   --bg-primary: #ffffff;
   --bg-secondary: #f5f5f5;
   --bg-tertiary: #e8e8e8;
+  --tabbar-bg: #e8e8e8;
   --chrome-bg: #ffffff;
   --text-primary: #1a1a1a;
   --text-secondary: #666;

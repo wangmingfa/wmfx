@@ -626,7 +626,7 @@ onUnmounted(() => {
   align-items: center;
   gap: @gap;
   height: @tabBarHeight;
-  background: var(--bg-tertiary);
+  background: var(--tabbar-bg);
   padding: 0;
   position: relative;
   -webkit-app-region: drag;
