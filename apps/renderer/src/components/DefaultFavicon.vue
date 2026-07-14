@@ -1,7 +1,7 @@
 <template>
   <Icon
     class="default-favicon"
-    icon="carbon:earth-filled"
+    icon="mdi:earth"
     :width="size"
     :height="size"
   />

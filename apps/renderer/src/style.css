@@ -127,3 +127,172 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* 浏览器外壳与内部页共用的配色变量（原 ChromeUI.vue 内联，迁移为全局，
+   使 / 路由与所有 wmfx:// 内部路由共享同一套配色）。主题由 nativeTheme + data-theme 控制。 */
+:root {
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #3d3d3d;
+  --chrome-bg: #2a2a2a;
+  --text-primary: #e0e0e0;
+  --text-secondary: #888;
+  --text-muted: #555;
+  --border-color: #1a1a1a;
+  --accent-color: #4fc3f7;
+  --danger-color: #ff5555;
+  --url-input-bg: #242424;
+}
+
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #e8e8e8;
+  --chrome-bg: #ffffff;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666;
+  --text-muted: #bbb;
+  --border-color: #e0e0e0;
+  --accent-color: #1976d2;
+  --danger-color: #d32f2f;
+  --url-input-bg: #eaf0f9;
+}
+
+/* 设置页（/settings 各子视图 + 内部页通用表单样式） */
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow-y: auto;
+}
+
+.settings-page h3,
+.settings-section h3 {
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.settings-section {
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-section:last-child {
+  border-bottom: none;
+}
+
+.settings-group {
+  margin-bottom: 16px;
+}
+
+.settings-group:last-child {
+  margin-bottom: 0;
+}
+
+.settings-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.settings-page input[type="text"],
+.settings-page input[type="number"],
+.settings-page select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.settings-page input[type="text"]:focus,
+.settings-page input[type="number"]:focus,
+.settings-page select:focus {
+  border-color: var(--accent-color);
+}
+
+.settings-page input[type="text"]::placeholder {
+  color: var(--text-secondary);
+}
+
+.settings-radio-group {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.settings-radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.settings-radio input[type="radio"] {
+  accent-color: var(--accent-color);
+  width: 16px;
+  height: 16px;
+}
+
+.zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.zoom-control input[type="number"] {
+  width: 100px;
+}
+
+.zoom-value {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.settings-button {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+}
+
+.settings-button:hover:not(:disabled) {
+  border-color: var(--accent-color);
+}
+
+.settings-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.update-status {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.settings-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}

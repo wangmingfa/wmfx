@@ -6,6 +6,7 @@ import type {
 } from '@browser/ipc-contract'
 import { app, BrowserWindow, type Event, ipcMain, nativeTheme } from 'electron'
 import { handleFrontendLog } from '../logger'
+import { SettingsManager } from '../settings-manager'
 import { updater } from '../updater'
 import type { BrowserWindowInstance } from '../window-manager'
 
@@ -85,7 +86,13 @@ export function registerIpcHandlers(): void {
   handle('tab:getList', (event) => {
     const inst = getInstance(event)
     if (!inst) return []
-    return inst.tabManager.getList()
+    const list = inst.tabManager.getList()
+    // 向请求方（外壳渲染进程）重新广播全部标签，确保即便初始 tab:created
+    // 在监听器注册前已发出、被错过，外壳仍能通过 getList 拿到完整标签列表。
+    for (const state of list) {
+      event.sender.send('tab:created', state)
+    }
+    return list
   })
 
   ipcMain.on('tab:setViewportBounds', (event, tabId, bounds) => {
@@ -94,10 +101,17 @@ export function registerIpcHandlers(): void {
     inst.tabManager.setViewportBounds(tabId, bounds)
   })
 
-  handle('tab:setSidebarOpen', (event, open) => {
+  handle('tab:createNewTab', (event, sessionId) => {
+    const inst = getInstance(event)
+    if (!inst) return {} as ReturnType<IpcContract['tab:create']>
+    return inst.tabManager.createNewTab(sessionId)
+  })
+
+  handle('nav:loadURLCurrent', (event, url) => {
     const inst = getInstance(event)
     if (!inst) return
-    inst.tabManager.setSidebarOpen(open)
+    const tabId = inst.tabManager.getTabIdByWebContents(event.sender)
+    if (tabId) inst.navigationManager.loadURL(tabId, url)
   })
 
   handle('nav:goBack', (event, tabId) => {
@@ -331,10 +345,8 @@ export function registerIpcHandlers(): void {
     inst.settingsManager.set(opts.key as never, opts.value as never)
   })
 
-  handle('settings:getAll', (event) => {
-    const inst = getInstance(event)
-    if (!inst) return {}
-    return inst.settingsManager.getAll()
+  handle('settings:getAll', () => {
+    return new SettingsManager().getAll()
   })
 
   handle('theme:get', () => {
@@ -451,6 +463,29 @@ export function registerIpcHandlers(): void {
     const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.reorder(ids)
+  })
+
+  // Tab pin / mute / batch close
+  handle('tab:setPinned', (event, tabId, pinned) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    inst.tabManager.setPinned(tabId, pinned)
+  })
+
+  handle('tab:setMuted', (event, tabId, muted) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    inst.tabManager.setMuted(tabId, muted)
+  })
+
+  handle('tab:closeMany', (event, ids) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    inst.tabManager.closeMany(ids)
+    // 关闭后若无标签则退出应用（与 tab:close 一致）
+    if (inst.tabManager.getList().length === 0) {
+      app.quit()
+    }
   })
 
   // Window controls

@@ -80,6 +80,8 @@ export interface BookmarkItem {
 
 /** 主题模式 */
 export type ThemeMode = 'light' | 'dark' | 'system'
+/** 搜索引擎 */
+export type SearchEngine = 'google' | 'baidu' | 'bing'
 
 /** 下载创建参数 */
 export interface DownloadCreateOptions {
@@ -224,6 +226,22 @@ export interface QuickLinksListOptions {
   tabId?: string
 }
 
+/** 应用设置快照 */
+export interface SettingsSnapshot {
+  theme: ThemeMode
+  downloadPath: string
+  defaultSearch: SearchEngine
+  searchEngine: string
+  newTabUrl: string
+  defaultZoom: number
+  zoomFactor: number
+  quickLinks: QuickLink[]
+  tabOrder: string[]
+  openTabs: { url: string; title: string }[]
+  activeTabIndex: number
+  windowBounds: { x: number; y: number; width: number; height: number } | null
+}
+
 export interface IpcContract {
   'app:ping': (message: string) => string
   'tab:create': (opts: CreateTabOptions) => TabState
@@ -232,12 +250,13 @@ export interface IpcContract {
   'tab:getState': (tabId: string) => TabState
   'tab:getList': () => TabState[]
   'tab:setViewportBounds': (tabId: string, bounds: ViewBounds) => void
-  'tab:setSidebarOpen': (open: boolean) => void
+  'tab:createNewTab': (sessionId?: string) => TabState
   'nav:goBack': (tabId: string) => void
   'nav:goForward': (tabId: string) => void
   'nav:reload': (tabId: string) => void
   'nav:stop': (tabId: string) => void
   'nav:loadURL': (tabId: string, url: string) => void
+  'nav:loadURLCurrent': (url: string) => void
   'session:getPartitions': () => string[]
   // Download
   'download:create': (opts: DownloadCreateOptions) => { id: string }
@@ -269,7 +288,7 @@ export interface IpcContract {
   // Settings
   'settings:get': (key: string) => unknown
   'settings:set': ({ key, value }: { key: string; value: unknown }) => void
-  'settings:getAll': () => Record<string, unknown>
+  'settings:getAll': () => SettingsSnapshot
   // Theme
   'theme:get': () => ThemeMode
   'theme:set': (theme: ThemeMode) => void
@@ -287,6 +306,10 @@ export interface IpcContract {
   'page:findPrevious': (opts: FindInPageDirection) => void
   // Tab reorder
   'tab:reorder': (ids: string[]) => void
+  // Tab pin / mute / batch close
+  'tab:setPinned': (tabId: string, pinned: boolean) => void
+  'tab:setMuted': (tabId: string, muted: boolean) => void
+  'tab:closeMany': (ids: string[]) => void
   // Window controls
   'window:minimize': () => void
   'window:maximize': () => void
@@ -337,6 +360,8 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'tab:getState',
   'tab:getList',
   'tab:setViewportBounds',
+  'tab:createNewTab',
+  'nav:loadURLCurrent',
   'nav:goBack',
   'nav:goForward',
   'nav:reload',
@@ -391,6 +416,10 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'page:findPrevious',
   // Tab reorder
   'tab:reorder',
+  // Tab pin / mute / batch close
+  'tab:setPinned',
+  'tab:setMuted',
+  'tab:closeMany',
   // Window controls
   'window:minimize',
   'window:maximize',

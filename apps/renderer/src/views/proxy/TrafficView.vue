@@ -17,7 +17,7 @@
       </div>
     </div>
     <div class="traffic-hint">
-      Real-time traffic data will be available when mihomo is running.
+      {{ statusText }}
     </div>
   </div>
 </template>
@@ -27,33 +27,48 @@ import { onMounted, onUnmounted, ref } from 'vue'
 
 const trafficUp = ref(0)
 const trafficDown = ref(0)
-let cleanup: (() => void) | null = null
+
+const statusText = ref('Real-time traffic data will be available when mihomo is running.')
+
+const ZOOM_LEVELS = ['B/s', 'KB/s', 'MB/s', 'GB/s']
 
 function formatSpeed(bytesPerSec: number): string {
   if (bytesPerSec === 0)
     return '0 B/s'
   const k = 1024
-  const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s']
   const i = Math.floor(Math.log(bytesPerSec) / Math.log(k))
-  return `${(bytesPerSec / k ** i).toFixed(1)} ${sizes[i]}`
+  const idx = i < ZOOM_LEVELS.length ? i : ZOOM_LEVELS.length - 1
+  return `${(bytesPerSec / k ** idx).toFixed(1)} ${ZOOM_LEVELS[idx]}`
 }
 
+let unsubscribeTraffic: (() => void) | null = null
+let statusInterval: ReturnType<typeof setInterval> | null = null
+
 onMounted(() => {
-  // Traffic data will be received via broadcast
-  // For now, poll via status
-  const interval = setInterval(async () => {
+  unsubscribeTraffic = () => {
+    window.browserAPI.removeListener('proxy:traffic', null as never)
+  }
+  window.browserAPI.onProxyTraffic((data: { up: number, down: number }) => {
+    trafficUp.value = data.up
+    trafficDown.value = data.down
+    statusText.value = 'Mihomo is running — live traffic monitoring active.'
+  })
+
+  // 初始状态检查
+  statusInterval = setInterval(async () => {
     const status = await window.browserAPI.getProxyStatus()
     if (!status.running) {
       trafficUp.value = 0
       trafficDown.value = 0
+      statusText.value = 'Real-time traffic data will be available when mihomo is running.'
     }
-  }, 2000)
-
-  cleanup = () => clearInterval(interval)
+  }, 5000)
 })
 
 onUnmounted(() => {
-  cleanup?.()
+  unsubscribeTraffic?.()
+  if (statusInterval)
+    clearInterval(statusInterval)
 })
 </script>
 

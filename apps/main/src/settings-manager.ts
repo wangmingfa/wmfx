@@ -1,11 +1,13 @@
-import type { QuickLink } from '@browser/ipc-contract'
+import type { QuickLink, SearchEngine, SettingsSnapshot, ThemeMode } from '@browser/ipc-contract'
 import Store from 'electron-store'
 
 interface SettingsSchema {
-  theme: 'light' | 'dark' | 'system'
+  theme: ThemeMode
   downloadPath: string
-  defaultSearch: 'google' | 'baidu' | 'bing'
+  defaultSearch: SearchEngine
+  searchEngine: string
   newTabUrl: string
+  defaultZoom: number
   zoomFactor: number
   quickLinks: QuickLink[]
   tabOrder: string[]
@@ -18,13 +20,101 @@ const defaultSettings: SettingsSchema = {
   theme: 'dark',
   downloadPath: '',
   defaultSearch: 'google',
+  searchEngine: 'google',
   newTabUrl: 'https://www.baidu.com',
+  defaultZoom: 1,
   zoomFactor: 1,
   quickLinks: [],
   tabOrder: [],
   openTabs: [],
   activeTabIndex: 0,
   windowBounds: null,
+}
+
+/** 校验 theme 值 */
+function validateTheme(v: unknown): ThemeMode {
+  if (['light', 'dark', 'system'].includes(v as string)) return v as ThemeMode
+  return defaultSettings.theme
+}
+
+/** 校验 defaultSearch 值 */
+function validateDefaultSearch(v: unknown): SearchEngine {
+  if (['google', 'baidu', 'bing'].includes(v as string)) return v as SearchEngine
+  return defaultSettings.defaultSearch
+}
+
+/** 校验字符串非空，返回值 trim */
+function validateString(v: unknown, fallback: string): string {
+  if (typeof v === 'string' && v.trim() !== '') return v.trim()
+  return fallback
+}
+
+/** 校验数字范围 */
+function validateNumber(v: unknown, fallback: number, min?: number, max?: number): number {
+  if (typeof v !== 'number' || Number.isNaN(v)) return fallback
+  if (min !== undefined && v < min) return fallback
+  if (max !== undefined && v > max) return fallback
+  return v
+}
+
+/** 校验 QuickLink 数组 */
+function validateQuickLinks(v: unknown): QuickLink[] {
+  if (Array.isArray(v)) {
+    return v.filter(
+      (item): item is QuickLink =>
+        item != null &&
+        typeof item === 'object' &&
+        typeof (item as QuickLink).id === 'string' &&
+        (item as QuickLink).id.trim() !== '' &&
+        typeof (item as QuickLink).title === 'string' &&
+        (item as QuickLink).title.trim() !== '' &&
+        typeof (item as QuickLink).url === 'string' &&
+        (item as QuickLink).url.trim() !== ''
+    )
+  }
+  return []
+}
+
+/** 校验字符串数组 */
+function validateStringArray(v: unknown): string[] {
+  if (Array.isArray(v)) {
+    return v.filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+  }
+  return []
+}
+
+/** 校验 openTabs 数组 */
+function validateOpenTabs(v: unknown): { url: string; title: string }[] {
+  if (Array.isArray(v)) {
+    return v.filter(
+      (item): item is { url: string; title: string } =>
+        item != null &&
+        typeof item === 'object' &&
+        typeof (item as { url: string; title: string }).url === 'string' &&
+        (item as { url: string; title: string }).url.trim() !== '' &&
+        typeof (item as { url: string; title: string }).title === 'string' &&
+        (item as { url: string; title: string }).title.trim() !== ''
+    )
+  }
+  return []
+}
+
+/** 校验 windowBounds */
+function validateWindowBounds(
+  v: unknown
+): { x: number; y: number; width: number; height: number } | null {
+  if (v === null || v === undefined) return null
+  if (typeof v !== 'object') return null
+  const obj = v as Record<string, unknown>
+  if (
+    typeof obj.x === 'number' &&
+    typeof obj.y === 'number' &&
+    typeof obj.width === 'number' &&
+    typeof obj.height === 'number'
+  ) {
+    return obj as { x: number; y: number; width: number; height: number }
+  }
+  return null
 }
 
 export class SettingsManager {
@@ -42,10 +132,50 @@ export class SettingsManager {
   }
 
   set<K extends keyof SettingsSchema>(key: K, value: SettingsSchema[K]): void {
-    this.store.set(key, value)
+    const validated = this.validateValue(key, value)
+    this.store.set(key, validated)
   }
 
-  getAll(): SettingsSchema {
+  private validateValue<K extends keyof SettingsSchema>(
+    key: K,
+    value: SettingsSchema[K]
+  ): SettingsSchema[K] {
+    switch (key) {
+      case 'theme':
+        return validateTheme(value) as SettingsSchema[K]
+      case 'defaultSearch':
+        return validateDefaultSearch(value) as SettingsSchema[K]
+      case 'searchEngine':
+        return validateString(value, defaultSettings.searchEngine) as SettingsSchema[K]
+      case 'newTabUrl': {
+        const url = validateString(value, defaultSettings.newTabUrl)
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+          return url as SettingsSchema[K]
+        }
+        return defaultSettings.newTabUrl as SettingsSchema[K]
+      }
+      case 'defaultZoom':
+        return validateNumber(value, defaultSettings.defaultZoom, 0.5, 3) as SettingsSchema[K]
+      case 'zoomFactor':
+        return validateNumber(value, defaultSettings.zoomFactor, 0.1, 5) as SettingsSchema[K]
+      case 'quickLinks':
+        return validateQuickLinks(value) as SettingsSchema[K]
+      case 'tabOrder':
+        return validateStringArray(value) as SettingsSchema[K]
+      case 'openTabs':
+        return validateOpenTabs(value) as SettingsSchema[K]
+      case 'activeTabIndex':
+        return validateNumber(value, defaultSettings.activeTabIndex, 0) as SettingsSchema[K]
+      case 'windowBounds':
+        return validateWindowBounds(value) as SettingsSchema[K]
+      case 'downloadPath':
+        return validateString(value, defaultSettings.downloadPath) as SettingsSchema[K]
+      default:
+        return value
+    }
+  }
+
+  getAll(): SettingsSnapshot {
     return { ...defaultSettings, ...this.store.store }
   }
 }

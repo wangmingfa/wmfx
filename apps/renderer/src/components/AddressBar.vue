@@ -52,37 +52,41 @@
         :height="iconSize"
       />
     </button>
-    <input
-      ref="inputRef"
-      v-model="urlInput"
-      class="url-input"
-      placeholder="Enter URL"
-      @focus="onFocus"
-      @blur="onBlur"
-      @keydown.enter="navigate"
-    >
+    <div class="url-input-wrap">
+      <input
+        ref="inputRef"
+        v-model="urlInput"
+        class="url-input"
+        placeholder="Enter URL"
+        @focus="onFocus"
+        @blur="onBlur"
+        @keydown.enter="navigate"
+      >
+      <div class="url-input-actions">
+        <button
+          class="zoom-display"
+          @click="cycleZoom"
+        >
+          {{ currentZoomLevel }}
+        </button>
+        <button
+          class="bookmark-btn"
+          :class="{ bookmarked: isBookmarked }"
+          @click="toggleBookmark"
+        >
+          <Icon
+            :icon="isBookmarked ? 'ic:round-star' : 'ic:round-star-outline'"
+            :width="iconSize"
+            :height="iconSize"
+          />
+        </button>
+      </div>
+    </div>
     <Autocomplete
       :query="urlInput"
       @select="onAutocompleteSelect"
       @close="onAutocompleteClose"
     />
-    <button
-      class="bookmark-btn"
-      :class="{ bookmarked: isBookmarked }"
-      @click="toggleBookmark"
-    >
-      <Icon
-        :icon="isBookmarked ? 'ic:round-star' : 'ic:round-star-outline'"
-        :width="iconSize"
-        :height="iconSize"
-      />
-    </button>
-    <button
-      class="zoom-display"
-      @click="cycleZoom"
-    >
-      {{ currentZoomLevel }}
-    </button>
   </div>
 </template>
 
@@ -116,15 +120,12 @@ const currentZoomIndex = ref(2)
 const currentZoomLevel = ref('100%')
 
 function onFocus(): void {
-  console.warn('[AddressBar] focus')
   requestAnimationFrame(() => {
     inputRef.value?.select()
   })
-  console.warn('[AddressBar] focus select')
 }
 
 function onBlur(): void {
-  console.warn('[AddressBar] blur')
   // window.getSelection()?.removeAllRanges()
 }
 
@@ -153,8 +154,9 @@ function stop(): void {
   window.browserAPI.stop(props.tabId)
 }
 
-function goHome(): void {
-  window.browserAPI.loadURL(props.tabId, 'https://www.baidu.com')
+async function goHome(): Promise<void> {
+  const settings = await window.browserAPI.getAllSettings()
+  window.browserAPI.loadURL(props.tabId, settings.newTabUrl)
 }
 
 function navigate(): void {
@@ -280,41 +282,56 @@ onMounted(async () => {
   background: var(--bg-tertiary);
 }
 
+.url-input-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
 .url-input {
   flex: 1;
+  width: 100%;
   height: 28px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--url-input-bg);
+  border: none;
   border-radius: 14px;
-  padding: 0 12px;
+  padding: 0 76px 0 12px;
   color: var(--text-primary);
   font-size: 13px;
   outline: none;
-}
-
-.url-input:focus {
-  border-color: var(--accent-color);
 }
 
 .url-input::placeholder {
   color: var(--text-muted, #999);
 }
 
+.url-input-actions {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .zoom-display {
-  min-width: 48px;
-  height: 28px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 14px;
-  padding: 0 12px;
-  color: var(--text-primary);
-  font-size: 13px;
+  min-width: 44px;
+  height: 22px;
+  background: none;
+  border: none;
+  border-radius: 11px;
+  padding: 0 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
   cursor: pointer;
   outline: none;
 }
 
 .zoom-display:hover {
   background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .bookmark-btn {

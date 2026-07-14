@@ -13,6 +13,7 @@ import type {
   HistoryItem,
   LogEntry,
   QuickLink,
+  SettingsSnapshot,
   TabPrintOptions,
   TabPrintToPdfOptions,
   TabState,
@@ -31,7 +32,8 @@ const api: {
   getState: (tabId: string) => Promise<TabState>
   getList: () => Promise<TabState[]>
   setViewportBounds: (tabId: string, bounds: ViewBounds) => void
-  setSidebarOpen: (open: boolean) => void
+  createNewTab: (sessionId?: string) => Promise<TabState>
+  loadURLCurrent: (url: string) => Promise<void>
   goBack: (tabId: string) => Promise<void>
   goForward: (tabId: string) => Promise<void>
   reload: (tabId: string) => Promise<void>
@@ -83,7 +85,7 @@ const api: {
   // Settings
   getSetting: (key: string) => Promise<unknown>
   setSetting: ({ key, value }: { key: string; value: unknown }) => Promise<void>
-  getAllSettings: () => Promise<Record<string, unknown>>
+  getAllSettings: () => Promise<SettingsSnapshot>
   // Theme
   getTheme: () => Promise<ThemeMode>
   setTheme: (theme: ThemeMode) => Promise<void>
@@ -105,6 +107,10 @@ const api: {
   findPrevious: (opts: FindInPageDirection) => Promise<void>
   // Tab reorder
   reorderTabs: (ids: string[]) => Promise<void>
+  // Tab pin / mute / batch close
+  setPinned: (tabId: string, pinned: boolean) => Promise<void>
+  setMuted: (tabId: string, muted: boolean) => Promise<void>
+  closeTabs: (ids: string[]) => Promise<void>
   // Window controls
   minimizeWindow: () => Promise<void>
   maximizeWindow: () => Promise<void>
@@ -155,6 +161,8 @@ const api: {
   checkForUpdates: () => Promise<void>
   getUpdaterStatus: () => Promise<UpdaterStatus>
   onUpdaterStatus: (cb: (status: UpdaterStatus) => void) => void
+  // Proxy traffic broadcast
+  onProxyTraffic: (cb: (data: { up: number; down: number }) => void) => void
 } = {
   ping: (message) => ipcRenderer.invoke('app:ping', message),
   createTab: (opts) => ipcRenderer.invoke('tab:create', opts),
@@ -163,7 +171,8 @@ const api: {
   getState: (tabId) => ipcRenderer.invoke('tab:getState', tabId),
   getList: () => ipcRenderer.invoke('tab:getList'),
   setViewportBounds: (tabId, bounds) => ipcRenderer.send('tab:setViewportBounds', tabId, bounds),
-  setSidebarOpen: (open) => ipcRenderer.invoke('tab:setSidebarOpen', open),
+  createNewTab: (sessionId) => ipcRenderer.invoke('tab:createNewTab', sessionId),
+  loadURLCurrent: (url) => ipcRenderer.invoke('nav:loadURLCurrent', url),
   goBack: (tabId) => ipcRenderer.invoke('nav:goBack', tabId),
   goForward: (tabId) => ipcRenderer.invoke('nav:goForward', tabId),
   reload: (tabId) => ipcRenderer.invoke('nav:reload', tabId),
@@ -228,6 +237,10 @@ const api: {
   findPrevious: (opts) => ipcRenderer.invoke('page:findPrevious', opts),
   // Tab reorder
   reorderTabs: (ids) => ipcRenderer.invoke('tab:reorder', ids),
+  // Tab pin / mute / batch close
+  setPinned: (tabId, pinned) => ipcRenderer.invoke('tab:setPinned', tabId, pinned),
+  setMuted: (tabId, muted) => ipcRenderer.invoke('tab:setMuted', tabId, muted),
+  closeTabs: (ids) => ipcRenderer.invoke('tab:closeMany', ids),
   // Window controls
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
@@ -269,6 +282,8 @@ const api: {
   getUpdaterStatus: () => ipcRenderer.invoke('updater:getStatus'),
   onUpdaterStatus: (cb) =>
     ipcRenderer.on('updater:status', (_e, status) => cb(status as UpdaterStatus)),
+  onProxyTraffic: (cb) =>
+    ipcRenderer.on('proxy:traffic', (_e, data) => cb(data as { up: number; down: number })),
 }
 
 contextBridge.exposeInMainWorld('browserAPI', api)

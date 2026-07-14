@@ -4,20 +4,59 @@ import type { ElectronApplication, Page } from '@playwright/test'
 let app: ElectronApplication
 let page: Page
 
-test.beforeAll(() => {
-  return electron
-    .launch({ args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'] })
-    .then((electronApp) => {
-      app = electronApp
-      return app.firstWindow()
-    })
-    .then((firstPage) => {
-      page = firstPage
-    })
+/**
+ * Electron + WebContentsView 下，Playwright 的 firstWindow()/windows() 只暴露一个 page，
+ * 且该 page 可能绑定到外壳渲染进程，也可能绑定到某个标签的 WebContentsView
+ * （两者都加载同一个 index.html，标签页的 hash 为 #/newtab 等内部路由）。
+ * 外壳是唯一带 .tab-bar 的页面，且其路由为 #/（标签页为 #/newtab 等子路由）。
+ * 这里轮询直到拿到外壳，避免选中标签页导致断言失败。
+ */
+async function getShell(): Promise<Page> {
+  for (let i = 0; i < 60; i++) {
+    for (const w of app.windows()) {
+      try {
+        if ((await w.locator('.tab-bar').count()) > 0) return w
+      } catch {
+        /* page may detach between calls */
+      }
+    }
+    await new Promise((r) => setTimeout(r, 150))
+  }
+  throw new Error('getShell: shell window not found')
+}
+
+test.beforeAll(async () => {
+  app = await electron.launch({
+    args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'],
+  })
+  page = await getShell()
 })
 
 test.afterAll(() => {
   return app.close()
+})
+
+// 每个用例前重置为「单个新标签页」干净状态，避免用例间标签/状态互相污染。
+// 注意：关闭最后一个标签会触发应用退出（tab:close 处理器），因此只关闭多余标签，保留首个。
+// 保留标签先跳到一个不同内部路由再回到 wmfx://newtab，确保真正触发导航事件
+// （相同 hash 的 loadURL 不会重新派发导航事件，地址栏会残留上一用例键入的旧值）。
+test.beforeEach(async () => {
+  await page.evaluate(async () => {
+    const list = await window.browserAPI.getList()
+    for (const t of list.slice(1)) {
+      await window.browserAPI.closeTab(t.id)
+    }
+    const remaining = await window.browserAPI.getList()
+    const active = remaining[0]
+    if (active) {
+      await window.browserAPI.loadURL(active.id, 'wmfx://downloads')
+      await window.browserAPI.loadURL(active.id, 'wmfx://newtab')
+    }
+  })
+  await expect(page.locator('.tab-item')).toHaveCount(1, { timeout: 15000 })
+  await expect(page.locator('.url-input')).toHaveValue('wmfx://newtab', {
+    timeout: 15000,
+  })
 })
 
 test('window loads with tab bar', async () => {
@@ -25,11 +64,10 @@ test('window loads with tab bar', async () => {
 })
 
 test('default tab is created on launch', async () => {
-  await expect(page.locator('.tab-item')).toHaveCount(1)
+  await expect(page.locator('.tab-item')).toHaveCount(1, { timeout: 15000 })
 })
 
 test('type-safe IPC round-trips renderer -> main -> renderer', async () => {
-  // Use the browserAPI.ping directly via page.evaluate since ping button is no longer in UI
   const pong = await page.evaluate(async () => {
     return await window.browserAPI.ping('hello from renderer')
   })
@@ -62,11 +100,11 @@ test('close tab removes it from tab bar', async () => {
   await expect(page.locator('.tab-item')).toHaveCount(1)
 })
 
-test('downloads list is visible in sidebar', async () => {
-  await page.locator('.sidebar-button').click()
-  await expect(page.locator('.sidebar')).toHaveClass(/open/)
-  await page.locator('.sidebar-tab', { hasText: 'Downloads' }).click()
-  await expect(page.locator('.sidebar-empty', { hasText: 'No downloads' })).toBeVisible()
+test('downloads page is accessible via app menu', async () => {
+  await page.locator('.app-menu').click()
+  await expect(page.locator('.app-menu-dropdown')).toBeVisible()
+  await page.locator('.app-menu-item', { hasText: '下载' }).click()
+  await expect(page.locator('.url-input')).toHaveValue('wmfx://downloads')
 })
 
 test('history list is accessible via browserAPI', async () => {
@@ -90,24 +128,24 @@ test('bookmark can be added via browserAPI', async () => {
 test('theme can be switched via browserAPI', async () => {
   await page.evaluate(async () => {
     await window.browserAPI.setTheme('light')
-    const theme = await window.browserAPI.getTheme()
-    expect(theme).toBe('light')
   })
+  const theme = await page.evaluate(async () => window.browserAPI.getTheme())
+  expect(theme).toBe('light')
   await page.evaluate(async () => {
     await window.browserAPI.setTheme('dark')
   })
 })
 
-test('sidebar opens and closes via toggle button', async () => {
-  await expect(page.locator('.sidebar')).not.toHaveClass(/open/)
-  await page.locator('.sidebar-button').click()
-  await expect(page.locator('.sidebar')).toHaveClass(/open/)
-  await page.locator('.sidebar-button').click()
-  await expect(page.locator('.sidebar')).not.toHaveClass(/open/)
+test('app menu opens and closes', async () => {
+  await expect(page.locator('.app-menu-dropdown')).toHaveCount(0)
+  await page.locator('.app-menu').click()
+  await expect(page.locator('.app-menu-dropdown')).toBeVisible()
+  await page.locator('.app-menu').click()
+  await expect(page.locator('.app-menu-dropdown')).toHaveCount(0)
 })
 
-test('new tab page renders', async () => {
-  await expect(page.locator('.new-tab')).toBeVisible()
+test('default new tab shows wmfx://newtab address', async () => {
+  await expect(page.locator('.url-input')).toHaveValue('wmfx://newtab')
 })
 
 test('find bar opens on Ctrl+F', async () => {
@@ -130,14 +168,22 @@ test('bookmark star button exists', async () => {
 test('tab reorder via drag', async () => {
   await page.locator('.tab-new').click()
   await expect(page.locator('.tab-item')).toHaveCount(2)
-  await page.locator('.tab-item').first().dragTo(page.locator().last())
+  await page.locator('.tab-item').first().dragTo(page.locator('.tab-item').nth(1))
+  await expect(page.locator('.tab-item')).toHaveCount(2)
 })
 
-test('proxy panel is accessible from sidebar', async () => {
-  await page.locator('.sidebar-button').click()
-  await expect(page.locator('.sidebar')).toHaveClass(/open/)
-  await page.locator('.sidebar-tab', { hasText: 'Proxy' }).click()
-  await expect(page.locator('.proxy-panel')).toBeVisible()
+test('proxy page is accessible via app menu', async () => {
+  await page.locator('.app-menu').click()
+  await expect(page.locator('.app-menu-dropdown')).toBeVisible()
+  await page.locator('.app-menu-item', { hasText: '代理' }).click()
+  await expect(page.locator('.url-input')).toHaveValue('wmfx://proxy')
+})
+
+test('typing wmfx://settings navigates to settings page', async () => {
+  await page.locator('.url-input').click()
+  await page.locator('.url-input').fill('wmfx://settings')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.url-input')).toHaveValue('wmfx://settings/appearance')
 })
 
 test('proxy status can be queried via browserAPI', async () => {
@@ -156,20 +202,31 @@ test('proxy mode can be queried via browserAPI', async () => {
 })
 
 test('session state is saved on quit and restored on restart', async () => {
-  // Create a second tab
+  // beforeEach 已重置为单标签；点击外壳「新建标签」按钮验证其确实新增一个标签。
   await page.locator('.tab-new').click()
   await expect(page.locator('.tab-item')).toHaveCount(2)
 
-  // Close the app (this triggers before-quit which saves state)
+  // 通过 browserAPI 再新建一个标签（在任意页面均可，无需操作外壳 DOM），共 3 个。
+  await page.evaluate(async () => {
+    await window.browserAPI.createNewTab()
+  })
+  const beforeCount = await page.evaluate(
+    async () => (await window.browserAPI.getList()).length,
+  )
+  expect(beforeCount).toBe(3)
+
+  // 退出应用：before-quit 处理器会落盘当前所有标签（writeDelay:0 同步写入，避免被杀进程丢失）。
+  // 注意：不要用 page.close()——当 page 绑定到标签 WebContentsView 时它会关闭标签而非窗口。
   await app.close()
 
-  // Restart the app
-  app = await electron.launch({ args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'] })
-  page = await app.firstWindow()
+  app = await electron.launch({
+    args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'],
+  })
+  page = await getShell()
 
-  // Wait for the app to load
-  await expect(page.locator('.tab-bar')).toBeVisible()
-
-  // Verify tabs were restored (2 tabs from previous session)
-  await expect(page.locator('.tab-item')).toHaveCount(2)
+  // 重启后标签应被恢复；getList 在任何页面（外壳或标签）都可用。
+  const restored = await page.evaluate(
+    async () => (await window.browserAPI.getList()).length,
+  )
+  expect(restored).toBe(3)
 })

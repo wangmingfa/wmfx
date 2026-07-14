@@ -1,12 +1,7 @@
 <template>
   <div class="chrome-ui">
-    <TabBar
-      :is-sidebar-open="isSidebarOpen"
-      @toggle-sidebar="toggleSidebar"
-    />
-    <div
-      class="chrome-main"
-    >
+    <TabBar />
+    <div class="chrome-main">
       <div class="chrome-content">
         <AddressBar
           v-if="activeTab"
@@ -17,11 +12,7 @@
           :is-loading="activeTab.isLoading"
         />
         <Viewport
-          v-if="activeTab && activeTab.url && activeTab.url !== 'about:blank'"
-          :tab-id="activeTab.id"
-        />
-        <NewTab
-          v-if="activeTab && (!activeTab.url || activeTab.url === 'about:blank')"
+          v-if="activeTab"
           :tab-id="activeTab.id"
         />
       </div>
@@ -30,36 +21,18 @@
         :tab-id="activeTab.id"
       />
     </div>
-    <Sidebar
-      :is-open="isSidebarOpen"
-      @close="onCloseSidebar"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { TabState } from '@browser/ipc-contract'
 import { onMounted, onUnmounted, ref } from 'vue'
-import NewTab from '../views/NewTab.vue'
 import AddressBar from './AddressBar.vue'
 import FindBar from './FindBar.vue'
-import Sidebar from './Sidebar.vue'
 import TabBar from './TabBar.vue'
 import Viewport from './Viewport.vue'
 
 const activeTab = ref<TabState | null>(null)
-const isSidebarOpen = ref(false)
-
-function toggleSidebar(): void {
-  const next = !isSidebarOpen.value
-  isSidebarOpen.value = next
-  window.browserAPI.setSidebarOpen(next)
-}
-
-function onCloseSidebar(): void {
-  isSidebarOpen.value = false
-  window.browserAPI.setSidebarOpen(false)
-}
 
 async function syncActiveTab(): Promise<void> {
   const tabs = await window.browserAPI.getList()
@@ -87,34 +60,6 @@ onUnmounted(() => {
   window.browserAPI.removeListener('tab:state-change', stateChangeHandler as (...args: unknown[]) => void)
 })
 </script>
-
-<style>
-:root {
-  --bg-primary: #1e1e1e;
-  --bg-secondary: #2d2d2d;
-  --bg-tertiary: #3d3d3d;
-  --chrome-bg: #2a2a2a;
-  --text-primary: #e0e0e0;
-  --text-secondary: #888;
-  --text-muted: #555;
-  --border-color: #1a1a1a;
-  --accent-color: #4fc3f7;
-  --danger-color: #ff5555;
-}
-
-[data-theme="light"] {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f5;
-  --bg-tertiary: #e8e8e8;
-  --chrome-bg: #ffffff;
-  --text-primary: #1a1a1a;
-  --text-secondary: #666;
-  --text-muted: #bbb;
-  --border-color: #e0e0e0;
-  --accent-color: #1976d2;
-  --danger-color: #d32f2f;
-}
-</style>
 
 <style scoped>
 .chrome-ui {

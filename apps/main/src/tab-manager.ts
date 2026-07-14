@@ -1,7 +1,15 @@
 import type { CreateTabOptions, TabState, ViewBounds } from '@browser/ipc-contract'
+import {
+  internalTitleFromPath,
+  isWmfxUrl,
+  NEW_TAB_URL,
+  wmfxFromActualUrl,
+  wmfxPath,
+} from '@browser/shared'
 import { type BrowserWindow, type Session, WebContentsView } from 'electron'
-
 import type { HistoryManager } from './history-manager'
+import { loadInternalView } from './internal-url'
+import { getPreloadPath } from './paths'
 import type { SettingsManager } from './settings-manager'
 
 export interface TabManagerConfig {
@@ -12,9 +20,7 @@ export class TabManager {
   private tabs = new Map<string, Tab>()
   private activeTabId: string | null = null
   private windowId: string
-  private sidebarOpen = false
   private tabBounds = new Map<string, ViewBounds>()
-  private readonly SIDEBAR_WIDTH = 280
   private lastActiveTime = new Map<string, number>()
   private suspendTimer: ReturnType<typeof setInterval> | null = null
   private readonly SUSPEND_THRESHOLD = 5 * 60 * 1000 // 5 minutes
@@ -33,24 +39,24 @@ export class TabManager {
 
   create(opts?: CreateTabOptions): TabState {
     const sessionId = opts?.sessionId ?? this.defaultSessionName
-    const view = new WebContentsView({
-      webPreferences: {
-        session: this.getSession(sessionId),
-      },
-    })
+    // 空白/about:blank 统一当作新标签页（内部页），兼容旧会话恢复遗留的 about:blank
+    const rawUrl = opts?.url ?? ''
+    const resolvedUrl = !rawUrl || rawUrl === 'about:blank' ? NEW_TAB_URL : rawUrl
+    const wantInternal = isWmfxUrl(resolvedUrl)
 
     const tabId = crypto.randomUUID()
     const tab: Tab = {
       id: tabId,
       windowId: this.windowId,
-      view,
+      view: null as unknown as WebContentsView,
       sessionId,
+      isInternal: wantInternal,
       state: {
         id: tabId,
         windowId: this.windowId,
         sessionId,
-        url: opts?.url ?? '',
-        title: opts?.title ?? '',
+        url: resolvedUrl,
+        title: opts?.title ?? (wantInternal ? internalTitleFromPath(wmfxPath(resolvedUrl)) : ''),
         favicon: null,
         isLoading: false,
         canGoBack: false,
@@ -63,24 +69,57 @@ export class TabManager {
       isSuspended: false,
     }
 
-    this.setupTabListeners(tab)
-
     this.tabs.set(tabId, tab)
+    this.spawnView(tab, wantInternal)
 
     if (opts?.activate !== false) {
       this.activate(tabId)
     } else {
-      this.window.contentView.addChildView(view)
-      view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
+      this.window.contentView.addChildView(tab.view)
+      tab.view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
     }
 
-    if (opts?.url) {
-      view.webContents.loadURL(opts.url)
+    if (wantInternal) {
+      loadInternalView(tab.view, wmfxPath(resolvedUrl))
+    } else {
+      tab.view.webContents.loadURL(resolvedUrl)
     }
 
     this.window.webContents.send('tab:created', this.buildTabState(tab))
 
     return this.buildTabState(tab)
+  }
+
+  /**
+   * 销毁旧视图并按 internal/external 重建：内部页挂 preload + isPinned，外部页不挂 preload。
+   * 守卫：`tab.isInternal === wantInternal` 时直接返回原 view（didRelaunch=false），
+   * 防止 did-navigate 递归与重复加载。
+   */
+  relaunchView(tabId: string, url: string): { view: WebContentsView; didRelaunch: boolean } {
+    const tab = this.tabs.get(tabId)
+    if (!tab) {
+      throw new Error(`Tab not found: ${tabId}`)
+    }
+    const wantInternal = isWmfxUrl(url)
+    if (tab.isInternal === wantInternal) {
+      return { view: tab.view, didRelaunch: false }
+    }
+
+    this.window.contentView.removeChildView(tab.view)
+    tab.view.webContents.close()
+    tab.isInternal = wantInternal
+    this.spawnView(tab, wantInternal)
+
+    this.window.contentView.addChildView(tab.view)
+    this.applyBounds(tab)
+
+    if (wantInternal) {
+      loadInternalView(tab.view, wmfxPath(url))
+    } else {
+      tab.view.webContents.loadURL(url)
+    }
+
+    return { view: tab.view, didRelaunch: true }
   }
 
   close(tabId: string): void {
@@ -126,7 +165,9 @@ export class TabManager {
       this.resumeTab(tab)
     }
 
-    this.window.contentView.addChildView(tab.view)
+    if (!this.window.contentView.children.includes(tab.view)) {
+      this.window.contentView.addChildView(tab.view)
+    }
     tab.view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
 
     this.broadcastAllStates()
@@ -139,24 +180,10 @@ export class TabManager {
     this.applyBounds(tab)
   }
 
-  setSidebarOpen(open: boolean): void {
-    this.sidebarOpen = open
-    for (const tab of this.tabs.values()) {
-      this.applyBounds(tab)
-    }
-  }
-
   private applyBounds(tab: Tab): void {
     const bounds = this.tabBounds.get(tab.id)
     if (!bounds) return
-    if (this.sidebarOpen) {
-      tab.view.setBounds({
-        ...bounds,
-        width: Math.max(0, bounds.width - this.SIDEBAR_WIDTH),
-      })
-    } else {
-      tab.view.setBounds(bounds)
-    }
+    tab.view.setBounds(bounds)
   }
 
   getState(tabId: string): TabState | null {
@@ -183,6 +210,14 @@ export class TabManager {
     return tab.view.webContents
   }
 
+  /** 由 WebContents 反查所属 tabId（nav:loadURLCurrent 用）。 */
+  getTabIdByWebContents(wc: Electron.WebContents): string | null {
+    for (const tab of this.tabs.values()) {
+      if (tab.view.webContents === wc) return tab.id
+    }
+    return null
+  }
+
   setNavigating(tabId: string, url: string): void {
     const tab = this.tabs.get(tabId)
     if (!tab) return
@@ -194,6 +229,16 @@ export class TabManager {
   }
 
   destroy(): void {
+    // 先持久化会话状态，再清理视图：window 'close' 时若先清空 tabs 再 save，
+    // openTabs 会被写成空数组，导致重启后无法恢复标签。
+    if (this.settingsManager) {
+      this.settingsManager.set('openTabs', this.serializeTabs())
+      this.settingsManager.set('activeTabIndex', this.getActiveTabIndex())
+      this.settingsManager.set(
+        'windowBounds',
+        this.window.isMaximized() ? null : this.window.getBounds()
+      )
+    }
     if (this.suspendTimer) {
       clearInterval(this.suspendTimer)
       this.suspendTimer = null
@@ -222,7 +267,7 @@ export class TabManager {
 
   restoreTabs(tabs: { url: string; title: string }[], activeIndex: number): void {
     if (tabs.length === 0) {
-      this.create({ url: 'about:blank' })
+      this.createNewTab()
       return
     }
     for (let i = 0; i < tabs.length; i++) {
@@ -230,7 +275,33 @@ export class TabManager {
     }
   }
 
+  /** 新建标签页（默认使用新标签页内部页 wmfx://newtab）。 */
+  createNewTab(sessionId?: string): TabState {
+    return this.create({ url: NEW_TAB_URL, sessionId, activate: true })
+  }
+
   // --- Private helpers ---
+
+  /**
+   * 创建并接入一个 WebContentsView。内部页挂 preload 并标记 isPinned；外部页不挂 preload。
+   */
+  private spawnView(tab: Tab, wantInternal: boolean): void {
+    const webPreferences: Electron.WebPreferences = {
+      session: this.getSession(tab.sessionId),
+    }
+    if (wantInternal) {
+      webPreferences.preload = getPreloadPath()
+    }
+
+    const view = new WebContentsView({ webPreferences })
+    tab.view = view
+    if (wantInternal) {
+      tab.state.isPinned = true
+    }
+
+    this.setupTabListeners(tab)
+    this.applyBounds(tab)
+  }
 
   private checkSuspendTabs(): void {
     const now = Date.now()
@@ -257,18 +328,16 @@ export class TabManager {
   private resumeTab(tab: Tab): void {
     if (!tab.isSuspended) return
 
-    const view = new WebContentsView({
-      webPreferences: {
-        session: this.getSession(tab.sessionId),
-      },
-    })
-
-    tab.view = view
+    this.spawnView(tab, tab.isInternal)
     tab.isSuspended = false
-    this.setupTabListeners(tab)
 
-    if (tab.state.url && tab.state.url !== 'about:blank') {
-      view.webContents.loadURL(tab.state.url)
+    const url = tab.state.url
+    if (url && url !== 'about:blank') {
+      if (tab.isInternal) {
+        loadInternalView(tab.view, wmfxPath(url))
+      } else {
+        tab.view.webContents.loadURL(url)
+      }
     }
   }
 
@@ -281,13 +350,26 @@ export class TabManager {
     })
 
     wc.on('did-navigate', () => {
-      const url = wc.getURL()
+      const actual = wc.getURL()
+      const url = wmfxFromActualUrl(actual) ?? actual
       tab.state.url = url
       tab.state.canGoBack = wc.navigationHistory.canGoBack()
       tab.state.canGoForward = wc.navigationHistory.canGoForward()
       this.broadcastState(tab)
 
-      if (url && !url.startsWith('about:') && !url.startsWith('chrome:')) {
+      // 内部页跳转到外部站点：异步重建为普通标签，避免在处理旧 webContents 事件时销毁自身
+      if (tab.isInternal && !isWmfxUrl(url)) {
+        setTimeout(() => {
+          try {
+            this.relaunchView(tab.id, url)
+          } catch {
+            /* tab 已被关闭 */
+          }
+        }, 0)
+        return
+      }
+
+      if (url && !url.startsWith('about:') && !url.startsWith('chrome:') && !isWmfxUrl(url)) {
         this.historyManager.add({
           url,
           title: tab.state.title || null,
@@ -297,7 +379,9 @@ export class TabManager {
     })
 
     wc.on('did-navigate-in-page', () => {
-      tab.state.url = wc.getURL()
+      const actual = wc.getURL()
+      const url = wmfxFromActualUrl(actual) ?? actual
+      tab.state.url = url
       tab.state.canGoBack = wc.navigationHistory.canGoBack()
       tab.state.canGoForward = wc.navigationHistory.canGoForward()
       this.broadcastState(tab)
@@ -309,6 +393,11 @@ export class TabManager {
     })
 
     wc.on('page-favicon-updated', (_, favicons) => {
+      // 内部页（wmfx://）没有真实 favicon，浏览器会回退到页面所在源的 /favicon.ico
+      // （如开发态的 http://localhost:5173/favicon.ico），渲染即成破图。内部页由外壳按路由展示图标。
+      if (tab.isInternal) {
+        return
+      }
       // Use the first icon if available
       tab.state.favicon = favicons.length > 0 ? favicons[0] : null
       this.broadcastState(tab)
@@ -325,8 +414,12 @@ export class TabManager {
     })
 
     wc.on('render-process-gone', () => {
-      const url = tab.state.url || 'about:blank'
-      tab.view.webContents.loadURL(url)
+      const url = tab.state.url || NEW_TAB_URL
+      if (tab.isInternal) {
+        loadInternalView(tab.view, wmfxPath(url))
+      } else {
+        tab.view.webContents.loadURL(url)
+      }
     })
   }
 
@@ -346,6 +439,30 @@ export class TabManager {
   private broadcastAllStates(): void {
     for (const tab of this.tabs.values()) {
       this.broadcastState(tab)
+    }
+  }
+
+  /** 切换固定状态：仅更新模型标志并广播，排序与窄宽由渲染进程负责。 */
+  setPinned(tabId: string, pinned: boolean): void {
+    const tab = this.tabs.get(tabId)
+    if (!tab) return
+    tab.state.isPinned = pinned
+    this.broadcastState(tab)
+  }
+
+  /** 静音/取消静音：直接作用于 WebContents 音频，并同步模型标志后广播。 */
+  setMuted(tabId: string, muted: boolean): void {
+    const tab = this.tabs.get(tabId)
+    if (!tab) return
+    tab.view.webContents.setAudioMuted(muted)
+    tab.state.isMuted = muted
+    this.broadcastState(tab)
+  }
+
+  /** 批量关闭一组标签（逐个调用 close）。空窗口退出由 IPC 层与单次关闭保持一致。 */
+  closeMany(ids: string[]): void {
+    for (const id of ids) {
+      this.close(id)
     }
   }
 
@@ -393,6 +510,8 @@ interface Tab {
   windowId: string
   view: WebContentsView
   sessionId: string
+  /** 是否为内部页标签：决定是否挂 preload 以及在 did-navigate 中的分类逻辑。 */
+  isInternal: boolean
   state: Omit<TabState, 'active'>
   isSuspended: boolean
 }

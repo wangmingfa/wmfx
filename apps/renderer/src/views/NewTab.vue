@@ -1,16 +1,5 @@
 <template>
   <div class="new-tab">
-    <button
-      class="newtab-settings"
-      aria-label="设置"
-      @click="settingsOpen = true"
-    >
-      <Icon
-        icon="ic:round-settings"
-        :width="20"
-        :height="20"
-      />
-    </button>
     <div class="search-box">
       <input
         v-model="searchQuery"
@@ -49,7 +38,7 @@
       >
         <Icon
           class="quick-link-icon"
-          icon="carbon:earth-filled"
+          icon="mdi:earth"
           width="20"
           height="20"
         />
@@ -77,43 +66,18 @@
         <span class="recent-title">{{ item.title || item.url }}</span>
       </div>
     </div>
-
-    <Sheet v-model:open="settingsOpen">
-      <SheetContent
-        side="right"
-        :top-offset="78"
-      >
-        <SheetHeader>
-          <SheetTitle>设置</SheetTitle>
-        </SheetHeader>
-        <div class="setting-row px-4">
-          <span class="setting-label">在新标签页打开链接</span>
-          <Switch v-model:checked="openInNewTab" />
-        </div>
-      </SheetContent>
-    </Sheet>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { QuickLink } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref } from 'vue'
 import DefaultFavicon from '../components/DefaultFavicon.vue'
-import Sheet from '../components/ui/sheet/Sheet.vue'
-import SheetContent from '../components/ui/sheet/SheetContent.vue'
-import SheetHeader from '../components/ui/sheet/SheetHeader.vue'
-import SheetTitle from '../components/ui/sheet/SheetTitle.vue'
-import Switch from '../components/ui/switch/Switch.vue'
-
-const props = defineProps<{
-  tabId: string
-}>()
 
 const searchQuery = ref('')
 const showEngine = ref(false)
 const currentEngine = ref('google')
-const settingsOpen = ref(false)
 const openInNewTab = ref(true)
 
 const engines = [
@@ -157,7 +121,7 @@ function openLink(url: string): void {
     window.browserAPI.createTab({ url })
   }
   else {
-    window.browserAPI.loadURL(props.tabId, url)
+    window.browserAPI.loadURLCurrent(url)
   }
 }
 
@@ -175,10 +139,6 @@ async function loadSettings(): Promise<void> {
     openInNewTab.value = saved
   }
 }
-
-watch(openInNewTab, (value) => {
-  window.browserAPI.setSetting({ key: 'newTabOpenInNewTab', value })
-})
 
 onMounted(() => {
   loadSettings()
@@ -201,39 +161,6 @@ onMounted(() => {
   background: var(--bg-primary);
   color: var(--text-primary);
   overflow: hidden;
-}
-
-.newtab-settings {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  color: var(--text-secondary);
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-.newtab-settings:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.setting-label {
-  font-size: 13px;
-  color: var(--text-primary);
 }
 
 .search-box {
@@ -320,6 +247,7 @@ onMounted(() => {
 .quick-link-favicon {
   width: 24px;
   height: 24px;
+  color: var(--text-secondary);
 }
 
 .quick-link-title {

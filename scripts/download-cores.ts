@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { execSync } from 'node:child_process'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const PROJECT_ROOT = join(import.meta.dir, '..')
@@ -47,11 +47,33 @@ async function download() {
   console.log(`Downloading mihomo from ${url}...`)
 
   if (process.platform === 'win32') {
-    // TODO(windows): 使用 PowerShell 实现跨平台下载与解压
-    //   zip:  curl -L "%url%" -o "%tmp%" && PowerShell -Command "Expand-Archive -Path '%tmp%' -DestinationPath '%dir%' -Force"
-    //   gz:   curl -L "%url%" | PowerShell -Command "$input | ...GzipStream..."
-    //   chmod 不需要（Windows 无执行位）
-    throw new Error('Windows 下 Mihomo 二进制下载尚未实现，详见 scripts/download-cores.ts TODO')
+    const tmpZip = join('/tmp', 'mihomo.zip')
+    execSync(`curl -L "${url}" -o "${tmpZip}"`, { stdio: 'inherit' })
+    execSync(
+      `powershell -Command "Expand-Archive -Path '${tmpZip.replace(/\//g, '\\')}' -DestinationPath '${dir.replace(/\//g, '\\')}' -Force"`,
+      { stdio: 'inherit' }
+    )
+    // 递归查找目录下第一个 .exe 文件
+    function findExe(d: string): string | null {
+      const entries = readdirSync(d)
+      for (const entry of entries) {
+        const fullPath = join(d, entry)
+        const st = statSync(fullPath)
+        if (st.isDirectory()) {
+          const found = findExe(fullPath)
+          if (found) return found
+        }
+        if (entry.endsWith('.exe')) return fullPath
+      }
+      return null
+    }
+    const exe = findExe(dir)
+    if (exe) {
+      execSync(`copy /Y "${exe.replace(/\//g, '\\')}" "${targetPath.replace(/\//g, '\\')}"`, {
+        stdio: 'inherit',
+      })
+    }
+    return
   }
 
   // macOS / Linux：使用系统自带 curl / gunzip / unzip / chmod

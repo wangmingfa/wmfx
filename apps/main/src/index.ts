@@ -37,8 +37,7 @@ function bootstrapWindow(instance: BrowserWindowInstance): void {
   const savedTabs = instance.settingsManager.get('openTabs')
   const savedActiveIndex = instance.settingsManager.get('activeTabIndex')
 
-  // 关窗即保存（macOS 关窗不等于退出，需在此落盘以便下次恢复）
-  instance.window.on('close', () => saveSessionState(instance))
+  // 关窗时由 TabManager.destroy() 落盘会话（必须在清空 tabs 之前），此处不再重复注册。
 
   if (savedTabs && savedTabs.length > 0) {
     instance.tabManager.restoreTabs(savedTabs, savedActiveIndex ?? 0)
@@ -76,6 +75,11 @@ app.whenReady().then(async () => {
   } catch (e) {
     console.warn('Mihomo proxy failed to start:', e)
   }
+
+  // 广播代理流量数据到渲染进程
+  mainWindow.proxyManager?.onData((data) => {
+    mainWindow.window.webContents.send('proxy:traffic', data)
+  })
   // F12 打开/关闭当前标签页 DevTools
   registerAppShortcut(mainWindow.window, 'F12', () => {
     const focused = BrowserWindow.getFocusedWindow()

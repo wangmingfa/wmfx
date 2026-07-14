@@ -14,11 +14,12 @@ declare global {
     browserAPI: {
       ping: IpcInvoke['app:ping']
       setViewportBounds: IpcInvoke['tab:setViewportBounds']
-      setSidebarOpen: IpcInvoke['tab:setSidebarOpen']
       getList: IpcInvoke['tab:getList']
       activateTab: IpcInvoke['tab:activate']
       closeTab: IpcInvoke['tab:close']
-      createTab: (opts: CreateTabOptions) => Promise<void>
+      createTab: (opts: CreateTabOptions) => Promise<TabState>
+      createNewTab: (sessionId?: string) => Promise<TabState>
+      loadURLCurrent: (url: string) => Promise<void>
       goBack: IpcInvoke['nav:goBack']
       goForward: IpcInvoke['nav:goForward']
       reload: IpcInvoke['nav:reload']
@@ -72,6 +73,10 @@ declare global {
       ) => void
       // Tab reorder
       reorderTabs: IpcInvoke['tab:reorder']
+      // Tab pin / mute / batch close
+      setPinned: IpcInvoke['tab:setPinned']
+      setMuted: IpcInvoke['tab:setMuted']
+      closeTabs: IpcInvoke['tab:closeMany']
       // Theme
       getTheme: IpcInvoke['theme:get']
       setTheme: IpcInvoke['theme:set']
@@ -127,6 +132,8 @@ declare global {
       checkForUpdates: IpcInvoke['updater:check']
       getUpdaterStatus: IpcInvoke['updater:getStatus']
       onUpdaterStatus: (handler: (status: UpdaterStatus) => void) => void
+      // Proxy traffic broadcast
+      onProxyTraffic: (handler: (data: { up: number; down: number }) => void) => void
     }
   }
 }

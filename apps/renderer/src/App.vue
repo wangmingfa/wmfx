@@ -1,9 +1,11 @@
 <template>
-  <ChromeUI />
+  <RouterView v-slot="{ Component }">
+    <component :is="Component" />
+  </RouterView>
 </template>
 
 <script setup lang="ts">
-import ChromeUI from './components/ChromeUI.vue'
+import { RouterView } from 'vue-router'
 </script>
 
 <style>
@@ -17,6 +19,8 @@ body,
 #app {
   height: 100%;
   width: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: #ffffff;
   color: #333333;
