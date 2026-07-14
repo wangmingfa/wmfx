@@ -633,6 +633,17 @@ export function registerIpcHandlers(): void {
     return updater.getStatus()
   })
 
+  // Popover
+  handle('popover:open', (event, popoverId, anchor, descriptor) => {
+    getInstance(event)?.popoverManager.open(popoverId, anchor, descriptor)
+  })
+  handle('popover:close', (event, popoverId) => {
+    getInstance(event)?.popoverManager.close(popoverId)
+  })
+  handle('popover:select', (event, popoverId, itemId) => {
+    getInstance(event)?.popoverManager.select(popoverId, itemId)
+  })
+
   // 更新状态变更时广播到所有渲染进程窗口
   updater.onStatus((status) => {
     for (const inst of globalThis.browserInstances.values()) {

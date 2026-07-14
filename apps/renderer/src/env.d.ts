@@ -5,6 +5,9 @@ import type {
   FindInPageOptions,
   IpcInvoke,
   LogEntry,
+  MenuItem,
+  PopoverAnchor,
+  PopoverDescriptor,
   TabState,
   UpdaterStatus,
 } from '@browser/ipc-contract'
@@ -132,6 +135,15 @@ declare global {
       checkForUpdates: IpcInvoke['updater:check']
       getUpdaterStatus: IpcInvoke['updater:getStatus']
       onUpdaterStatus: (handler: (status: UpdaterStatus) => void) => void
+      // Popover
+      popoverOpen: IpcInvoke['popover:open']
+      popoverClose: IpcInvoke['popover:close']
+      popoverSelect: IpcInvoke['popover:select']
+      onPopoverRender: (
+        handler: (popoverId: string, descriptor: PopoverDescriptor, anchor: PopoverAnchor) => void
+      ) => void
+      onPopoverDismiss: (handler: (popoverId: string) => void) => void
+      onPopoverAction: (handler: (payload: { popoverId: string; menu: MenuItem }) => void) => void
       // Proxy traffic broadcast
       onProxyTraffic: (handler: (data: { up: number; down: number }) => void) => void
     }

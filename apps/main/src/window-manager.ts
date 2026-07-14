@@ -18,6 +18,7 @@ import {
   getRendererIndexHtml,
   resolveFromRoot,
 } from './paths'
+import { PopoverManager } from './popover-manager'
 import { SessionManager } from './session-manager'
 import { SettingsManager } from './settings-manager'
 import { SubscriptionManager } from './subscription-manager'
@@ -33,6 +34,7 @@ export interface BrowserWindowInstance {
   bookmarkManager: BookmarkManager
   proxyManager?: ProxyManager
   subscriptionManager: SubscriptionManager
+  popoverManager: PopoverManager
 }
 
 /** 解析应用图标路径：按平台选择对应图标，统一走 resolveFromRoot 相对项目根定位 */
@@ -93,6 +95,7 @@ export function createMainWindow(): BrowserWindowInstance {
   const downloadManager = new DownloadManager(win, downloadRepo, settingsManager)
   const bookmarkManager = new BookmarkManager(bookmarkRepo)
   const subscriptionManager = new SubscriptionManager(subscriptionRepo)
+  const popoverManager = new PopoverManager(win)
 
   const proxyManager = new ProxyManager(
     /** 配置目录放在用户数据目录，而非应用包内，避免只读限制 */
@@ -137,5 +140,6 @@ export function createMainWindow(): BrowserWindowInstance {
     bookmarkManager,
     proxyManager,
     subscriptionManager,
+    popoverManager,
   }
 }

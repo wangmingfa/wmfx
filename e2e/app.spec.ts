@@ -25,6 +25,24 @@ async function getShell(): Promise<Page> {
   throw new Error('getShell: shell window not found')
 }
 
+/**
+ * popover 菜单渲染在独立 popoverView 的 /panel 路由中，会被枚举进 app.windows() 但未必是默认
+ * page。轮询找到含目标文案的面板 page 并与之交互。
+ */
+async function findPopoverPage(text: string): Promise<Page> {
+  for (let i = 0; i < 50; i++) {
+    for (const w of app.windows()) {
+      try {
+        if ((await w.getByText(text, { exact: true }).count()) > 0) return w
+      } catch {
+        /* page may detach between calls */
+      }
+    }
+    await new Promise(r => setTimeout(r, 100))
+  }
+  throw new Error(`findPopoverPage: "${text}" not found in any webContents`)
+}
+
 test.beforeAll(async () => {
   app = await electron.launch({
     args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'],
@@ -102,8 +120,9 @@ test('close tab removes it from tab bar', async () => {
 
 test('downloads page is accessible via app menu', async () => {
   await page.locator('.app-menu').click()
-  await expect(page.locator('.app-menu-dropdown')).toBeVisible()
-  await page.locator('.app-menu-item', { hasText: '下载' }).click()
+  const panel = await findPopoverPage('下载')
+  await expect(panel.getByText('下载', { exact: true })).toBeVisible()
+  await panel.getByText('下载', { exact: true }).click()
   await expect(page.locator('.url-input')).toHaveValue('wmfx://downloads')
 })
 
@@ -139,8 +158,9 @@ test('theme can be switched via browserAPI', async () => {
 test('app menu opens and closes', async () => {
   await expect(page.locator('.app-menu-dropdown')).toHaveCount(0)
   await page.locator('.app-menu').click()
-  await expect(page.locator('.app-menu-dropdown')).toBeVisible()
-  await page.locator('.app-menu').click()
+  const panel = await findPopoverPage('书签')
+  await expect(panel.getByText('书签', { exact: true })).toBeVisible()
+  await panel.keyboard.press('Escape')
   await expect(page.locator('.app-menu-dropdown')).toHaveCount(0)
 })
 
@@ -174,8 +194,9 @@ test('tab reorder via drag', async () => {
 
 test('proxy page is accessible via app menu', async () => {
   await page.locator('.app-menu').click()
-  await expect(page.locator('.app-menu-dropdown')).toBeVisible()
-  await page.locator('.app-menu-item', { hasText: '代理' }).click()
+  const panel = await findPopoverPage('代理')
+  await expect(panel.getByText('代理', { exact: true })).toBeVisible()
+  await panel.getByText('代理', { exact: true }).click()
   await expect(page.locator('.url-input')).toHaveValue('wmfx://proxy')
 })
 

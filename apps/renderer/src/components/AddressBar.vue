@@ -1,57 +1,27 @@
 <template>
   <div class="address-bar">
-    <button
-      class="nav-btn"
+    <IconButton
+      icon="ic:round-arrow-back"
       :disabled="!canGoBack"
       @click="goBack"
-    >
-      <Icon
-        icon="ic:round-arrow-back"
-        :width="iconSize"
-        :height="iconSize"
-      />
-    </button>
-    <button
-      class="nav-btn"
+    />
+    <IconButton
+      icon="ic:round-arrow-forward"
       :disabled="!canGoForward"
       @click="goForward"
-    >
-      <Icon
-        icon="ic:round-arrow-forward"
-        :width="iconSize"
-        :height="iconSize"
-      />
-    </button>
-    <button
-      class="nav-btn"
+    />
+    <IconButton
+      :icon="isLoading ? 'ic:round-close' : 'ic:round-refresh'"
       @click="isLoading ? stop() : reload()"
-    >
-      <Icon
-        :icon="isLoading ? 'ic:round-close' : 'ic:round-refresh'"
-        :width="iconSize"
-        :height="iconSize"
-      />
-    </button>
-    <button
-      class="nav-btn"
+    />
+    <IconButton
+      icon="ic:round-home"
       @click="goHome"
-    >
-      <Icon
-        icon="ic:round-home"
-        :width="iconSize"
-        :height="iconSize"
-      />
-    </button>
-    <button
-      class="nav-btn"
+    />
+    <IconButton
+      icon="ic:round-print"
       @click="printPage"
-    >
-      <Icon
-        icon="ic:round-print"
-        :width="iconSize"
-        :height="iconSize"
-      />
-    </button>
+    />
     <div class="url-input-wrap">
       <input
         ref="inputRef"
@@ -95,6 +65,7 @@ import { Icon } from '@iconify/vue'
 import { onMounted, ref, watch } from 'vue'
 
 import Autocomplete from './Autocomplete.vue'
+import IconButton from './ui/IconButton.vue'
 
 const props = defineProps<{
   tabId: string
@@ -259,27 +230,6 @@ onMounted(async () => {
   border-bottom: 1px solid var(--border-color);
   padding: 0 8px;
   gap: 4px;
-}
-
-.nav-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  border-radius: 50%;
-}
-
-.nav-btn:disabled {
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
-
-.nav-btn:not(:disabled):hover {
-  background: var(--bg-tertiary);
 }
 
 .url-input-wrap {

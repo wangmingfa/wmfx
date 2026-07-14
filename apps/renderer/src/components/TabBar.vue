@@ -3,13 +3,12 @@
     ref="tabBarRef"
     class="tab-bar"
     :class="{ 'mac-os': isMacOS }"
-    @contextmenu="onContextMenu"
   >
     <div
       v-for="(tab, index) in tabs"
       :key="tab.id"
       class="tab-item"
-      :class="{ 'active': tab.active, 'incognito': tab.sessionId === 'incognito', 'dragging': draggingIndex === index, 'drag-over': dragOverIndex === index, 'pinned': tab.isPinned }"
+      :class="{ 'active': tab.active, 'incognito': tab.sessionId === 'incognito', 'dragging': draggingIndex === index, 'drag-over': dragOverIndex === index, 'pinned': tab.isPinned, 'menu-open': tab.id === activeMenuTabId }"
       :style="`width:${tabWidthFor(tab)}px;min-width:${tabWidthFor(tab)}px;max-width:${tabWidthFor(tab)}px`"
       :draggable="true"
       @click="activateTab(tab.id)"
@@ -44,8 +43,9 @@
           width="14"
           height="14"
         />
+        <!-- 内部页面不显示loading -->
         <Icon
-          v-if="tab.isLoading"
+          v-if="tab.isLoading && !isInternalUrl(tab.url)"
           class="tab-loading-icon"
           icon="line-md:loading-loop"
           width="22"
@@ -93,33 +93,14 @@
       :height="plusIconSize"
       @click="createNewTab"
     />
-    <div class="app-menu-wrap">
-      <Icon
-        class="app-menu"
-        icon="carbon:overflow-menu-vertical"
-        width="18"
-        height="18"
-        @click.stop="toggleAppMenu"
-      />
-      <div
-        v-if="appMenuOpen"
-        class="app-menu-dropdown"
-      >
-        <div
-          v-for="item in menuItems"
-          :key="item.label"
-          class="app-menu-item"
-          @click="onAppMenuItem(item)"
-        >
-          <Icon
-            :icon="item.icon"
-            width="16"
-            height="16"
-          />
-          <span>{{ item.label }}</span>
-        </div>
-      </div>
-    </div>
+    <IconButton
+      class="app-menu"
+      icon="carbon:overflow-menu-vertical"
+      :size="18"
+      :active="appMenuOpen"
+      title="菜单"
+      @click.stop="openAppMenu"
+    />
     <div
       v-if="!isMacOS"
       class="window-controls"
@@ -155,127 +136,24 @@
         />
       </div>
     </div>
-    <div
-      v-if="contextMenu.tab"
-      class="tab-context-menu"
-      :style="`top:${contextMenu.y}px; left:${contextMenu.x}px`"
-    >
-      <div
-        class="tab-context-menu-item"
-        @click="newTabToRight(contextMenu.tab!)"
-      >
-        <Icon
-          icon="mdi:plus"
-          width="16"
-          height="16"
-        />
-        <span>在右侧新增标签页</span>
-      </div>
-      <div class="tab-context-menu-divider" />
-      <div
-        class="tab-context-menu-item"
-        @click="reloadTab(contextMenu.tab!)"
-      >
-        <Icon
-          icon="mdi:refresh"
-          width="16"
-          height="16"
-        />
-        <span>重新加载</span>
-      </div>
-      <div
-        class="tab-context-menu-item"
-        @click="duplicateTab(contextMenu.tab!)"
-      >
-        <Icon
-          icon="mdi:content-copy"
-          width="16"
-          height="16"
-        />
-        <span>复制</span>
-      </div>
-      <div
-        class="tab-context-menu-item"
-        @click="togglePin(contextMenu.tab!)"
-      >
-        <Icon
-          icon="mdi:pin"
-          width="16"
-          height="16"
-        />
-        <span>{{ contextMenu.tab!.isPinned ? '取消固定' : '固定' }}</span>
-      </div>
-      <div
-        class="tab-context-menu-item"
-        @click="toggleMute(contextMenu.tab!)"
-      >
-        <Icon
-          :icon="contextMenu.tab!.isMuted ? 'mdi:volume-off' : 'mdi:volume-high'"
-          width="16"
-          height="16"
-        />
-        <span>{{ contextMenu.tab!.isMuted ? '取消静音' : '将这个网站静音' }}</span>
-      </div>
-      <div class="tab-context-menu-divider" />
-      <div
-        class="tab-context-menu-item"
-        @click="closeTab(contextMenu.tab!.id)"
-      >
-        <Icon
-          icon="mdi:close"
-          width="16"
-          height="16"
-        />
-        <span>关闭</span>
-      </div>
-      <div
-        class="tab-context-menu-item"
-        @click="closeOthers(contextMenu.tab!)"
-      >
-        <Icon
-          icon="mdi:close-box-multiple"
-          width="16"
-          height="16"
-        />
-        <span>关闭其它标签页</span>
-      </div>
-      <div
-        class="tab-context-menu-item"
-        @click="closeRight(contextMenu.tab!)"
-      >
-        <Icon
-          icon="mdi:arrow-right-bold-box-outline"
-          width="16"
-          height="16"
-        />
-        <span>关闭右侧标签页</span>
-      </div>
-      <div
-        class="tab-context-menu-item"
-        @click="closeLeft(contextMenu.tab!)"
-      >
-        <Icon
-          icon="mdi:arrow-left-bold-box-outline"
-          width="16"
-          height="16"
-        />
-        <span>关闭左侧标签页</span>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { TabState } from '@browser/ipc-contract'
+import type { MenuItem, PopoverAnchor, PopoverDescriptor, TabState } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
 import { onMounted, onUnmounted, ref } from 'vue'
+import { Popover } from '../lib/popover'
 import { isMacOS } from '../utils/os'
 import DefaultFavicon from './DefaultFavicon.vue'
+import IconButton from './ui/IconButton.vue'
 
 const tabs = ref<TabState[]>([])
 const tabBarRef = ref<HTMLElement>()
 const tabBarWidth = ref(0)
 const isMaximized = ref(false)
+// 当前因右键/三点菜单而高亮的触发元素（popover 关闭时由 onPopoverDismiss 清空）
+const activeMenuTabId = ref<string | null>(null)
 const appMenuOpen = ref(false)
 
 const TAB_MIN = 30
@@ -293,28 +171,109 @@ const tabItemBorderRadius = 5
 const tabItemBorderRadiusWithPx = `${tabItemBorderRadius}px`
 const tabItemBackgroundBorderRadius = tabItemBorderRadius * 1.2
 
-interface AppMenuItem {
-  label: string
-  icon: string
-  url?: string
-  action?: string
-}
-
-const menuItems: AppMenuItem[] = [
-  { label: '新建隐身标签页', icon: 'mdi:account-off', action: 'incognito' },
-  { label: '书签', url: 'wmfx://bookmarks', icon: 'mdi:bookmark' },
-  { label: '历史', url: 'wmfx://history', icon: 'mdi:history' },
-  { label: '下载', url: 'wmfx://downloads', icon: 'mdi:download' },
-  { label: '代理', url: 'wmfx://proxy', icon: 'mdi:network' },
-  { label: '设置', url: 'wmfx://settings', icon: 'mdi:cog' },
+const appMenuItems: MenuItem[] = [
+  { id: 'incognito', label: '新建隐身标签页', icon: 'mdi:account-off' },
+  { id: 'wmfx://bookmarks', label: '书签', icon: 'mdi:bookmark' },
+  { id: 'wmfx://history', label: '历史', icon: 'mdi:history' },
+  { id: 'wmfx://downloads', label: '下载', icon: 'mdi:download' },
+  { id: 'wmfx://proxy', label: '代理', icon: 'mdi:network' },
+  { id: 'wmfx://settings', label: '设置', icon: 'mdi:cog' },
 ]
 
-const contextMenu = ref({
-  visible: false,
-  x: 0,
-  y: 0,
-  tab: null as TabState | null,
-})
+function openAppMenu(event: MouseEvent): void {
+  event.stopPropagation()
+  appMenuOpen.value = true
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const descriptor: PopoverDescriptor = { id: 'app-menu', kind: 'menu', items: appMenuItems }
+  void new Popover({
+    anchor: { type: 'rect', rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height }, placement: 'bottom-end' },
+    descriptor,
+    onAction: ({ menu, context }) => {
+      void runAppMenuItem(menu.id)
+      context.close()
+    },
+  })
+}
+
+async function runAppMenuItem(id: string): Promise<void> {
+  if (id === 'incognito') {
+    window.browserAPI.createNewTab('incognito')
+    return
+  }
+  const list = await window.browserAPI.getList()
+  const existing = list.find(t => t.url === id || t.url.startsWith(`${id}/`))
+  if (existing) {
+    window.browserAPI.activateTab(existing.id)
+  }
+  else {
+    window.browserAPI.createTab({ url: id })
+  }
+}
+
+function openTabContextMenu(event: MouseEvent, tab: TabState): void {
+  event.preventDefault()
+  event.stopPropagation()
+  // 按鼠标实际位置定位（contextmenu 事件携带 clientX/clientY），而非标签元素矩形
+  const anchor: PopoverAnchor = { type: 'point', x: event.clientX, y: event.clientY, placement: 'bottom-start' }
+  activeMenuTabId.value = tab.id
+  const descriptor: PopoverDescriptor = {
+    id: 'tab-context',
+    kind: 'menu',
+    items: [
+      { id: 'new-tab-right', label: '在右侧新增标签页', icon: 'mdi:plus' },
+      { id: 'sep-1', type: 'separator' },
+      { id: 'reload', label: '重新加载', icon: 'mdi:refresh' },
+      { id: 'duplicate', label: '复制', icon: 'mdi:content-copy' },
+      { id: 'pin', label: tab.isPinned ? '取消固定' : '固定', icon: 'mdi:pin' },
+      { id: 'mute', label: tab.isMuted ? '取消静音' : '将这个网站静音', icon: tab.isMuted ? 'mdi:volume-off' : 'mdi:volume-high' },
+      { id: 'sep-2', type: 'separator' },
+      { id: 'close', label: '关闭', icon: 'mdi:close', danger: true },
+      { id: 'close-others', label: '关闭其它标签页', icon: 'mdi:close-box-multiple' },
+      { id: 'close-left', label: '关闭左侧标签页', icon: 'mdi:arrow-left-bold-box-outline' },
+      { id: 'close-right', label: '关闭右侧标签页', icon: 'mdi:arrow-right-bold-box-outline' },
+    ],
+  }
+  void new Popover({
+    anchor,
+    descriptor,
+    onAction: ({ menu, context }) => {
+      runTabAction(menu.id, tab)
+      context.close()
+    },
+  })
+}
+
+function runTabAction(id: string, tab: TabState): void {
+  switch (id) {
+    case 'new-tab-right':
+      void newTabToRight(tab)
+      break
+    case 'reload':
+      reloadTab(tab)
+      break
+    case 'duplicate':
+      void duplicateTab(tab)
+      break
+    case 'pin':
+      togglePin(tab)
+      break
+    case 'mute':
+      toggleMute(tab)
+      break
+    case 'close':
+      closeTab(tab.id)
+      break
+    case 'close-others':
+      closeOthers(tab)
+      break
+    case 'close-right':
+      closeRight(tab)
+      break
+    case 'close-left':
+      closeLeft(tab)
+      break
+  }
+}
 
 const draggingIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
@@ -359,24 +318,6 @@ function createNewTab(): void {
   window.browserAPI.createNewTab()
 }
 
-/** 应用菜单项：隐身项新建隐身标签，内部页项已存在则激活否则新建。 */
-async function onAppMenuItem(item: AppMenuItem): Promise<void> {
-  if (item.action === 'incognito') {
-    window.browserAPI.createNewTab('incognito')
-  }
-  else if (item.url) {
-    const list = await window.browserAPI.getList()
-    const existing = list.find(t => t.url === item.url || t.url.startsWith(`${item.url}/`))
-    if (existing) {
-      window.browserAPI.activateTab(existing.id)
-    }
-    else {
-      window.browserAPI.createTab({ url: item.url })
-    }
-  }
-  appMenuOpen.value = false
-}
-
 /** 固定标签永远排在最前（保持相对顺序），并同步到主进程层叠顺序。 */
 function applyOrder(): void {
   const pinned = tabs.value.filter(t => t.isPinned)
@@ -414,10 +355,6 @@ function internalIcon(url: string): string {
   return INTERNAL_ICONS[path] ?? 'mdi:web'
 }
 
-function toggleAppMenu(): void {
-  appMenuOpen.value = !appMenuOpen.value
-}
-
 function minimizeWindow(): void {
   window.browserAPI.minimizeWindow()
 }
@@ -431,35 +368,17 @@ function closeWindow(): void {
 }
 
 function onTabContextMenu(event: MouseEvent, tab: TabState): void {
-  event.preventDefault()
-  event.stopPropagation()
-  contextMenu.value = {
-    visible: true,
-    x: event.clientX,
-    y: event.clientY,
-    tab,
-  }
-}
-
-function onContextMenu(event: MouseEvent): void {
-  event.preventDefault()
-  hideContextMenu()
-}
-
-function hideContextMenu(): void {
-  contextMenu.value = { visible: false, x: 0, y: 0, tab: null }
+  openTabContextMenu(event, tab)
 }
 
 /** 在目标标签右侧新增空白标签页并激活。 */
 async function newTabToRight(tab: TabState): Promise<void> {
   const newTab = await window.browserAPI.createTab({ url: 'wmfx://newtab', activate: true })
   insertAfter(tab.id, newTab)
-  hideContextMenu()
 }
 
 function reloadTab(tab: TabState): void {
   window.browserAPI.reload(tab.id)
-  hideContextMenu()
 }
 
 /** 复制标签：以相同 url 与会话新建，并插入到原标签右侧。 */
@@ -470,37 +389,31 @@ async function duplicateTab(tab: TabState): Promise<void> {
     activate: true,
   })
   insertAfter(tab.id, newTab)
-  hideContextMenu()
 }
 
 function togglePin(tab: TabState): void {
   window.browserAPI.setPinned(tab.id, !tab.isPinned)
-  hideContextMenu()
 }
 
 function toggleMute(tab: TabState): void {
   window.browserAPI.setMuted(tab.id, !tab.isMuted)
-  hideContextMenu()
 }
 
 function closeOthers(tab: TabState): void {
   const ids = tabs.value.filter(t => t.id !== tab.id).map(t => t.id)
   window.browserAPI.closeTabs(ids)
-  hideContextMenu()
 }
 
 function closeRight(tab: TabState): void {
   const idx = tabs.value.findIndex(t => t.id === tab.id)
   const ids = tabs.value.slice(idx + 1).map(t => t.id)
   window.browserAPI.closeTabs(ids)
-  hideContextMenu()
 }
 
 function closeLeft(tab: TabState): void {
   const idx = tabs.value.findIndex(t => t.id === tab.id)
   const ids = tabs.value.slice(0, idx).map(t => t.id)
   window.browserAPI.closeTabs(ids)
-  hideContextMenu()
 }
 
 function onDragStart(event: DragEvent, index: number): void {
@@ -552,11 +465,7 @@ function onDragEnd(): void {
 let stateChangeHandler: (state: TabState) => void
 let createdHandler: (state: TabState) => void
 let removedHandler: (tabId: string) => void
-
-function onDocClick(): void {
-  appMenuOpen.value = false
-  hideContextMenu()
-}
+let dismissHandler: ((popoverId: string) => void) | null = null
 
 onMounted(() => {
   // 先注册 IPC 监听器，再拉取初始标签列表：避免主进程在两者间隙创建首个标签时，
@@ -590,9 +499,12 @@ onMounted(() => {
   window.browserAPI.onTabStateChange(stateChangeHandler)
   window.browserAPI.onTabCreated(createdHandler)
   window.browserAPI.onTabRemoved(removedHandler)
-
-  document.addEventListener('click', onDocClick)
-  document.addEventListener('contextmenu', onDocClick)
+  // popover 关闭（无论是点击菜单项还是背景/Esc）时，清除触发元素高亮
+  dismissHandler = () => {
+    activeMenuTabId.value = null
+    appMenuOpen.value = false
+  }
+  window.browserAPI.onPopoverDismiss(dismissHandler)
 
   if (tabBarRef.value) {
     tabBarWidth.value = tabBarRef.value.clientWidth
@@ -609,11 +521,11 @@ onUnmounted(() => {
   if (resizeObserver) {
     resizeObserver.disconnect()
   }
-  document.removeEventListener('click', onDocClick)
-  document.removeEventListener('contextmenu', onDocClick)
   window.browserAPI.removeListener('tab:state-change', stateChangeHandler as (...args: unknown[]) => void)
   window.browserAPI.removeListener('tab:created', createdHandler as (...args: unknown[]) => void)
   window.browserAPI.removeListener('tab:removed', removedHandler as (...args: unknown[]) => void)
+  if (dismissHandler)
+    window.browserAPI.removeListener('popover:dismiss', dismissHandler as (...args: unknown[]) => void)
 })
 </script>
 
@@ -711,6 +623,10 @@ onUnmounted(() => {
   border-left: 2px solid var(--accent-color);
 }
 
+.tab-item.menu-open {
+  background: var(--bg-secondary);
+}
+
 .tab-favicon {
   position: relative;
   display: flex;
@@ -790,78 +706,9 @@ onUnmounted(() => {
   }
 }
 
-.app-menu-wrap {
-  position: relative;
-  flex-shrink: 0;
+.app-menu {
   margin: 0 12px 0 auto;
   -webkit-app-region: no-drag;
-}
-
-.app-menu {
-  color: var(--text-secondary);
-  cursor: pointer;
-
-  &:hover {
-    color: var(--accent-color);
-  }
-}
-
-.app-menu-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 9999;
-  min-width: 160px;
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  padding: 4px 0;
-  pointer-events: auto;
-}
-
-.app-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
-  color: var(--text-primary);
-  font-size: 13px;
-  cursor: pointer;
-
-  &:hover {
-    background: var(--bg-tertiary);
-  }
-}
-
-.tab-context-menu {
-  position: fixed;
-  z-index: 9999;
-  min-width: 160px;
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  padding: 4px 0;
-  pointer-events: auto;
-}
-
-.tab-context-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
-  color: var(--text-primary);
-  font-size: 13px;
-  cursor: pointer;
-
-  &:hover {
-    background: var(--bg-tertiary);
-  }
-}
-
-.tab-context-menu-divider {
-  height: 1px;
-  margin: 4px 0;
-  background: var(--bg-tertiary);
 }
 
 .window-controls {

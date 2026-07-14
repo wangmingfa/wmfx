@@ -295,9 +295,6 @@ export class TabManager {
 
     const view = new WebContentsView({ webPreferences })
     tab.view = view
-    if (wantInternal) {
-      tab.state.isPinned = true
-    }
 
     this.setupTabListeners(tab)
     this.applyBounds(tab)

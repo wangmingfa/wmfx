@@ -12,6 +12,9 @@ import type {
   FindInPageOptions,
   HistoryItem,
   LogEntry,
+  MenuItem,
+  PopoverAnchor,
+  PopoverDescriptor,
   QuickLink,
   SettingsSnapshot,
   TabPrintOptions,
@@ -162,6 +165,20 @@ const api: {
   getUpdaterStatus: () => Promise<UpdaterStatus>
   onUpdaterStatus: (cb: (status: UpdaterStatus) => void) => void
   // Proxy traffic broadcast
+  // Popover
+  popoverOpen: (
+    popoverId: string,
+    anchor: PopoverAnchor,
+    descriptor: PopoverDescriptor
+  ) => Promise<void>
+  popoverClose: (popoverId: string) => Promise<void>
+  popoverSelect: (popoverId: string, itemId: string) => Promise<void>
+  onPopoverRender: (
+    cb: (popoverId: string, descriptor: PopoverDescriptor, anchor: PopoverAnchor) => void
+  ) => void
+  onPopoverDismiss: (cb: (popoverId: string) => void) => void
+  onPopoverAction: (cb: (payload: { popoverId: string; menu: MenuItem }) => void) => void
+  // Proxy traffic broadcast
   onProxyTraffic: (cb: (data: { up: number; down: number }) => void) => void
 } = {
   ping: (message) => ipcRenderer.invoke('app:ping', message),
@@ -282,6 +299,20 @@ const api: {
   getUpdaterStatus: () => ipcRenderer.invoke('updater:getStatus'),
   onUpdaterStatus: (cb) =>
     ipcRenderer.on('updater:status', (_e, status) => cb(status as UpdaterStatus)),
+  // Popover
+  popoverOpen: (popoverId, anchor, descriptor) =>
+    ipcRenderer.invoke('popover:open', popoverId, anchor, descriptor),
+  popoverClose: (popoverId) => ipcRenderer.invoke('popover:close', popoverId),
+  popoverSelect: (popoverId, itemId) => ipcRenderer.invoke('popover:select', popoverId, itemId),
+  onPopoverRender: (cb) =>
+    ipcRenderer.on('popover:render', (_e, id, descriptor, anchor) =>
+      cb(id, descriptor as PopoverDescriptor, anchor as PopoverAnchor)
+    ),
+  onPopoverDismiss: (cb) => ipcRenderer.on('popover:dismiss', (_e, id) => cb(id as string)),
+  onPopoverAction: (cb) =>
+    ipcRenderer.on('popover:action', (_e, payload) =>
+      cb(payload as { popoverId: string; menu: MenuItem })
+    ),
   onProxyTraffic: (cb) =>
     ipcRenderer.on('proxy:traffic', (_e, data) => cb(data as { up: number; down: number })),
 }

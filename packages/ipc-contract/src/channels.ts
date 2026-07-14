@@ -4,6 +4,49 @@
  * 后续里程碑在此扩展（tab:*, nav:*, proxy:* ...）。
  */
 
+export type PopoverKind = 'menu' // 后续扩展 'command-palette' | 'panel'
+
+export type PopoverPlacement =
+  | 'bottom-start'
+  | 'bottom-end'
+  | 'top-start'
+  | 'top-end'
+  | 'right-start'
+  | 'left-start'
+
+/** 锚点：触发元素的窗口局部坐标，getBoundingClientRect 直传 */
+export type PopoverAnchor =
+  | { type: 'rect'; rect: ViewBounds; placement?: PopoverPlacement }
+  | { type: 'point'; x: number; y: number; placement?: PopoverPlacement }
+  | { type: 'cursor'; placement?: PopoverPlacement } // 面板侧用最近指针位置解析
+
+export type MenuItemType = 'item' | 'separator' | 'submenu' // checkbox 后期扩展
+
+/** 菜单项：纯数据描述，动作靠 id 路由，不携带函数（IPC 不可序列化函数） */
+export interface MenuItem {
+  id: string
+  type?: MenuItemType // 默认 'item'
+  label?: string
+  icon?: string // 图标名，复用现有 Icon 组件
+  shortcut?: string // 纯展示文本（应用内全局快捷键提示）
+  accessKey?: string // 单字符助记符（如 'A'）；面板打开期间的临时触发键
+  disabled?: boolean
+  danger?: boolean // 危险操作红色样式（如关闭标签页）
+  children?: MenuItem[] // submenu -> 递归即多级菜单
+}
+
+export interface PopoverDescriptor {
+  id: string // 逻辑菜单 id，如 'tab-context' / 'app-menu'
+  kind: PopoverKind
+  items: MenuItem[]
+}
+
+/** 动作回调接收的参数 */
+export interface PopoverActionPayload {
+  menu: MenuItem
+  context: { close: () => void }
+}
+
 export interface TabState {
   id: string
   windowId: string
@@ -348,6 +391,17 @@ export interface IpcContract {
   // Updater
   'updater:check': () => void
   'updater:getStatus': () => UpdaterStatus
+  // Popover
+  'popover:open': (popoverId: string, anchor: PopoverAnchor, descriptor: PopoverDescriptor) => void
+  'popover:close': (popoverId: string) => void
+  'popover:select': (popoverId: string, itemId: string) => void
+  'popover:render': (
+    popoverId: string,
+    descriptor: PopoverDescriptor,
+    anchor: PopoverAnchor
+  ) => void
+  'popover:dismiss': (popoverId: string) => void
+  'popover:action': (payload: { popoverId: string; menu: MenuItem }) => void
 }
 
 export type IpcChannel = keyof IpcContract
@@ -445,6 +499,13 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   // Updater
   'updater:check',
   'updater:getStatus',
+  // Popover
+  'popover:open',
+  'popover:close',
+  'popover:select',
+  'popover:render',
+  'popover:dismiss',
+  'popover:action',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {

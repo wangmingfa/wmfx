@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 import ChromeUI from './components/ChromeUI.vue'
+import PanelRoot from './panel/PanelRoot.vue'
 import BookmarkView from './views/BookmarkView.vue'
 import DownloadsView from './views/DownloadsView.vue'
 import HistoryView from './views/HistoryView.vue'
@@ -32,6 +33,7 @@ export const router = createRouter({
     { path: '/downloads', component: DownloadsView },
     { path: '/proxy', component: ProxyPage },
     { path: '/newtab', component: NewTabView },
+    { path: '/panel', component: PanelRoot },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })
