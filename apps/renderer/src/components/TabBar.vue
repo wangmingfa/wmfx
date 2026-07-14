@@ -36,6 +36,7 @@
         </svg>
       </template>
       <span class="tab-favicon">
+        <!-- 无痕模式下的图标 -->
         <Icon
           v-if="tab.sessionId === 'incognito'"
           class="incognito-icon"
@@ -143,6 +144,7 @@
 import type { MenuItem, PopoverAnchor, PopoverDescriptor, TabState } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
 import { onMounted, onUnmounted, ref } from 'vue'
+import { requestAddressBarFocus } from '../composables/useAddressBarFocus'
 import { Popover } from '../lib/popover'
 import { isMacOS } from '../utils/os'
 import DefaultFavicon from './DefaultFavicon.vue'
@@ -197,7 +199,8 @@ function openAppMenu(event: MouseEvent): void {
 
 async function runAppMenuItem(id: string): Promise<void> {
   if (id === 'incognito') {
-    window.browserAPI.createNewTab('incognito')
+    await window.browserAPI.createNewTab('incognito')
+    requestAddressBarFocus()
     return
   }
   const list = await window.browserAPI.getList()
@@ -316,6 +319,7 @@ function closeTab(tabId: string): void {
 
 function createNewTab(): void {
   window.browserAPI.createNewTab()
+  requestAddressBarFocus()
 }
 
 /** 固定标签永远排在最前（保持相对顺序），并同步到主进程层叠顺序。 */
@@ -342,7 +346,7 @@ function isInternalUrl(url: string): boolean {
 }
 
 const INTERNAL_ICONS: Record<string, string> = {
-  newtab: 'mdi:home',
+  newtab: 'mdi:earth',
   bookmarks: 'mdi:bookmark',
   history: 'mdi:history',
   downloads: 'mdi:download',

@@ -1,5 +1,6 @@
 <template>
   <div class="new-tab">
+    <span class="page-title-text">{{ pageTitle }}</span>
     <div class="search-box">
       <input
         v-model="searchQuery"
@@ -57,6 +58,7 @@
           v-if="item.favicon"
           :src="item.favicon"
           class="recent-favicon"
+          alt=""
         >
         <DefaultFavicon
           v-else
@@ -73,7 +75,11 @@
 import type { QuickLink } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
 import { onMounted, ref } from 'vue'
+import { usePageTitle } from '@/composables/usePageTitle'
 import DefaultFavicon from '../components/DefaultFavicon.vue'
+
+// 网页标题（窗口标题）设为“新标签页”
+const [pageTitle] = usePageTitle('新标签页')
 
 const searchQuery = ref('')
 const showEngine = ref(false)
@@ -299,5 +305,14 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.page-title-text {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
 }
 </style>

@@ -40,12 +40,12 @@ export const INTERNAL_ROUTE_PREFIXES: readonly string[] = [
 
 /** 内部页标题：由 path 首段映射到菜单名（create() 设置 tab.title 用） */
 const INTERNAL_TITLE_MAP: Record<string, string> = {
-  settings: 'Settings',
-  history: 'History',
-  bookmarks: 'Bookmarks',
-  downloads: 'Downloads',
-  proxy: 'Proxy',
-  newtab: 'New Tab',
+  settings: '设置',
+  history: '历史',
+  bookmarks: '书签',
+  downloads: '下载',
+  proxy: '代理',
+  newtab: '新标签页',
 }
 
 /** 由 wmfx:// 之后的 path 推导展示标题，如 'settings/appearance' → 'Settings' */

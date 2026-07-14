@@ -64,6 +64,7 @@
 import { Icon } from '@iconify/vue'
 import { onMounted, ref, watch } from 'vue'
 
+import { useAddressBarFocus } from '../composables/useAddressBarFocus'
 import Autocomplete from './Autocomplete.vue'
 import IconButton from './ui/IconButton.vue'
 
@@ -81,8 +82,14 @@ const emit = defineEmits<{
 
 const iconSize = 18
 
-const urlInput = ref(props.url)
+const urlInput = ref('')
 const inputRef = ref<HTMLInputElement>()
+// 新开标签页时由创建方触发聚焦地址输入框
+const focusNonce = useAddressBarFocus()
+watch(focusNonce, () => {
+  // 需要延迟确保组件已挂载且 input 已渲染到 DOM
+  setTimeout(() => inputRef.value?.focus(), 50)
+})
 const isBookmarked = ref(false)
 
 const ZOOM_LEVELS = [50, 75, 100, 125, 150]
@@ -103,6 +110,9 @@ function onBlur(): void {
 watch(
   () => props.url,
   (newUrl) => {
+    // 内部页面（如 wmfx://newtab）地址栏不显示内容
+    if (newUrl.startsWith('wmfx://'))
+      return
     if (newUrl !== urlInput.value) {
       urlInput.value = newUrl
     }
