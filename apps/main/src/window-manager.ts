@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import type { ThemeMode } from '@browser/ipc-contract'
 import { ProxyManager } from '@browser/proxy'
 import {
   BookmarkRepository,
@@ -7,7 +8,7 @@ import {
   HistoryRepository,
   SubscriptionRepository,
 } from '@wmfx/database'
-import { app, BrowserWindow, nativeImage } from 'electron'
+import { app, BrowserWindow, nativeImage, nativeTheme } from 'electron'
 import { BookmarkManager } from './bookmark-manager'
 import { DownloadManager } from './download-manager'
 import { HistoryManager } from './history-manager'
@@ -48,6 +49,12 @@ function resolveAppIcon(): string {
   return resolveFromRoot(relative)
 }
 
+/** 根据主题设置解析实际背景色 */
+function resolveBackgroundColor(theme: ThemeMode): string {
+  const isDark = theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors)
+  return isDark ? '#353535' : '#ffffff'
+}
+
 export function createMainWindow(): BrowserWindowInstance {
   // macOS 的 Dock 图标由 app.dock.setIcon 控制，BrowserWindow 的 icon 选项在 macOS 上不生效
   if (process.platform === 'darwin') {
@@ -65,6 +72,7 @@ export function createMainWindow(): BrowserWindowInstance {
       ? { x: savedBounds.x, y: savedBounds.y, width: savedBounds.width, height: savedBounds.height }
       : { width: 1280, height: 800 }),
     icon: resolveAppIcon(),
+    backgroundColor: resolveBackgroundColor(settingsManager.get('theme')),
     show: false,
     titleBarStyle: process.platform === 'win32' ? undefined : 'hidden',
     trafficLightPosition: { x: 12, y: 11 },

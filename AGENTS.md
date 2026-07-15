@@ -109,6 +109,7 @@ import { NInput, NSelect, NSwitch } from 'naive-ui'
 - 全局主题色通过 `n-config-provider` 的 `themeOverrides` 配置
 - 主色定义在 `apps/renderer/src/style.css` 的 `:root` / `[data-theme]` 中（oklch 色彩空间）
 - Naive UI 组件会自动继承 CSS 变量，无需额外适配浅色/深色模式
+- **每个 CSS 变量必须有中文注释说明用途**，格式 `/* 说明 */` 放在变量上方或行尾
 
 ### 常用组件映射
 | 场景 | 组件 |

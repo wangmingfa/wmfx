@@ -4,6 +4,7 @@
     :class="{ 'is-active': active }"
     :disabled="disabled"
     :title="title"
+    :style="btnStyle"
     @click="onClick"
   >
     <Icon
@@ -16,11 +17,13 @@
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
+import { computed } from 'vue'
 
 const props = withDefaults(
   defineProps<{
     icon: string
     size?: number
+    btnSize?: number
     active?: boolean
     disabled?: boolean
     title?: string
@@ -35,6 +38,18 @@ const props = withDefaults(
 
 const emit = defineEmits<{ (e: 'click', ev: MouseEvent): void }>()
 
+const btnSize = computed(() => {
+  if (props.btnSize !== undefined)
+    return props.btnSize
+  const raw = Math.floor(props.size + props.size / 2)
+  return raw % 2 === 0 ? raw : raw - 1
+})
+
+const btnStyle = computed(() => ({
+  width: `${btnSize.value}px`,
+  height: `${btnSize.value}px`,
+}))
+
 function onClick(ev: MouseEvent): void {
   if (props.disabled)
     return
@@ -47,8 +62,6 @@ function onClick(ev: MouseEvent): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -62,17 +75,9 @@ function onClick(ev: MouseEvent): void {
     cursor: not-allowed;
   }
 
-  // 默认即深色模式（:root 为深色变量，[data-theme="light"] 才覆盖为浅色）：
-  // hover / 激活 背景用中性灰 74 74 74，图标颜色保持不变。
   &:hover:not(:disabled),
   &.is-active {
-    background: rgb(248, 248, 248);
-  }
-
-  // 浅色模式：保持原样（与旧 nav-btn 一致）
-  :global([data-theme="light"]) &:hover:not(:disabled),
-  :global([data-theme="light"]) &.is-active {
-    background: var(--bg-tertiary);
+    background: var(--bg-hover);
   }
 }
 </style>

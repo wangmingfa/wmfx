@@ -1,4 +1,5 @@
 import type { QuickLink, SearchEngine, SettingsSnapshot, ThemeMode } from '@browser/ipc-contract'
+import { nativeTheme } from 'electron'
 import Store from 'electron-store'
 
 interface SettingsSchema {
@@ -144,6 +145,9 @@ export class SettingsManager {
   set<K extends keyof SettingsSchema>(key: K, value: SettingsSchema[K]): void {
     const validated = this.validateValue(key, value)
     this.store.set(key, validated)
+    if (key === 'theme') {
+      this.setNativeTheme()
+    }
   }
 
   private validateValue<K extends keyof SettingsSchema>(
@@ -192,5 +196,9 @@ export class SettingsManager {
 
   getAll(): SettingsSnapshot {
     return { ...defaultSettings, ...this.store.store }
+  }
+
+  setNativeTheme() {
+    nativeTheme.themeSource = this.get('theme')
   }
 }

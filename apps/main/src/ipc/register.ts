@@ -347,16 +347,25 @@ export function registerIpcHandlers(): void {
     return SettingsManager.getInstance().get('theme')
   })
 
+  /** 根据主题设置解析实际背景色 */
+  function resolveBackgroundColor(t: ThemeMode): string {
+    const isDark = t === 'dark' || (t === 'system' && nativeTheme.shouldUseDarkColors)
+    return isDark ? '#1a1a1a' : '#ffffff'
+  }
+
   function notifyThemeChange(theme: ThemeMode) {
+    const bgColor = resolveBackgroundColor(theme)
     // 遍历所有窗口的所有 internal tabs
     for (const inst of globalThis.browserInstances.values()) {
       for (const tab of inst.tabManager.getInternalTabs()) {
         tab.webContents.send('theme:change', theme)
       }
     }
-    // 广播到所有窗口的渲染进程（shell 的 TabBar/AddressBar 在独立 WebContents 中）
+    // 广播到所有窗口的渲染进程，并同步窗口背景色
     for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) win.webContents.send('theme:change', theme)
+      if (win.isDestroyed()) continue
+      win.setBackgroundColor(bgColor)
+      win.webContents.send('theme:change', theme)
     }
   }
 

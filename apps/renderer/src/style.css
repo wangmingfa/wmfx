@@ -6,113 +6,211 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================
+ * Tailwind v4 主题映射：将 CSS 变量桥接到 Tailwind 工具类
+ * ============================================================ */
 @theme inline {
+  /* 页面背景色 */
   --color-background: var(--background);
+  /* 页面前景色（正文文字） */
   --color-foreground: var(--foreground);
+  /* 卡片背景色 */
   --color-card: var(--card);
+  /* 卡片内文字色 */
   --color-card-foreground: var(--card-foreground);
+  /* 弹出层（Popover/Dropdown）背景色 */
   --color-popover: var(--popover);
+  /* 弹出层文字色 */
   --color-popover-foreground: var(--popover-foreground);
+  /* 主色（按钮、链接、高亮等） */
   --color-primary: var(--primary);
+  /* 主色上的文字/图标色 */
   --color-primary-foreground: var(--primary-foreground);
+  /* 次要色（次级按钮、标签背景等） */
   --color-secondary: var(--secondary);
+  /* 次要色上的文字色 */
   --color-secondary-foreground: var(--secondary-foreground);
+  /* 弱化背景色（禁用态、占位符背景） */
   --color-muted: var(--muted);
+  /* 弱化文字色（次要说明文字） */
   --color-muted-foreground: var(--muted-foreground);
+  /* 强调色（hover 背景、选中态） */
   --color-accent: var(--accent);
+  /* 强调色上的文字色 */
   --color-accent-foreground: var(--accent-foreground);
+  /* 危险/破坏性操作色（删除、错误） */
   --color-destructive: var(--destructive);
+  /* 危险色上的文字色 */
   --color-destructive-foreground: var(--destructive-foreground);
+  /* 边框色 */
   --color-border: var(--border);
+  /* 输入框边框色 */
   --color-input: var(--input);
+  /* 焦点环颜色 */
   --color-ring: var(--ring);
+  /* 基础圆角 */
   --radius: 0.5rem;
+  /* 标题字体 */
   --font-heading: var(--font-sans);
+  /* 侧边栏：焦点环色 */
   --color-sidebar-ring: var(--sidebar-ring);
+  /* 侧边栏：边框色 */
   --color-sidebar-border: var(--sidebar-border);
+  /* 侧边栏：强调色上的文字色 */
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  /* 侧边栏：强调背景色（hover/选中态） */
   --color-sidebar-accent: var(--sidebar-accent);
+  /* 侧边栏：主色上的文字色 */
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  /* 侧边栏：主色（图标、活跃项） */
   --color-sidebar-primary: var(--sidebar-primary);
+  /* 侧边栏：前景文字色 */
   --color-sidebar-foreground: var(--sidebar-foreground);
+  /* 侧边栏：背景色 */
   --color-sidebar: var(--sidebar);
+  /* 图表色 1~5 */
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  /* 圆角变体：sm / md / lg / xl */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ============================================================
+ * 浅色主题（:root 默认浅色，oklch 色彩空间）
+ * ============================================================ */
 :root {
   --radius: 0.625rem;
+  /* 页面背景 */
   --background: oklch(1 0 0);
+  /* 正文文字 */
   --foreground: oklch(0.145 0 0);
+  /* 卡片背景 */
   --card: oklch(1 0 0);
+  /* 卡片文字 */
   --card-foreground: oklch(0.145 0 0);
+  /* 弹出层背景 */
   --popover: oklch(1 0 0);
+  /* 弹出层文字 */
   --popover-foreground: oklch(0.145 0 0);
+  /* 主色（#6366F1 indigo） */
   --primary: oklch(0.5854 0.2041 277.12);
+  /* 主色上的文字（白色） */
   --primary-foreground: oklch(0.985 0 0);
+  /* 次要背景（浅灰） */
   --secondary: oklch(0.97 0 0);
+  /* 次要文字 */
   --secondary-foreground: oklch(0.205 0 0);
+  /* 弱化背景 */
   --muted: oklch(0.97 0 0);
+  /* 弱化文字（灰色） */
   --muted-foreground: oklch(0.556 0 0);
+  /* 强调背景（hover） */
   --accent: oklch(0.97 0 0);
+  /* 强调文字 */
   --accent-foreground: oklch(0.205 0 0);
+  /* 危险色上的文字（白色） */
+  --destructive-foreground: oklch(0.985 0 0);
+  /* 危险色（红色） */
   --destructive: oklch(0.577 0.245 27.325);
+  /* 边框 */
   --border: oklch(0.922 0 0);
+  /* 输入框边框 */
   --input: oklch(0.922 0 0);
+  /* 焦点环（与主色一致） */
   --ring: oklch(0.5854 0.2041 277.12);
+  /* 图表色 1~5 */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
+  /* 侧边栏背景 */
   --sidebar: oklch(0.985 0 0);
+  /* 侧边栏文字 */
   --sidebar-foreground: oklch(0.145 0 0);
+  /* 侧边栏主色 */
   --sidebar-primary: oklch(0.5854 0.2041 277.12);
+  /* 侧边栏主色上的文字 */
   --sidebar-primary-foreground: oklch(0.985 0 0);
+  /* 侧边栏强调背景 */
   --sidebar-accent: oklch(0.97 0 0);
+  /* 侧边栏强调文字 */
   --sidebar-accent-foreground: oklch(0.205 0 0);
+  /* 侧边栏边框 */
   --sidebar-border: oklch(0.922 0 0);
+  /* 侧边栏焦点环 */
   --sidebar-ring: oklch(0.5854 0.2041 277.12);
 }
 
+/* ============================================================
+ * 深色主题（.dark class 或 [data-theme="dark"]）
+ * ============================================================ */
 .dark {
+  /* 页面背景（深灰） */
   --background: oklch(0.35 0 0);
+  /* 正文文字（白色） */
   --foreground: oklch(0.985 0 0);
+  /* 卡片背景 */
   --card: oklch(0.38 0 0);
+  /* 卡片文字 */
   --card-foreground: oklch(0.985 0 0);
+  /* 弹出层背景 */
   --popover: oklch(0.38 0 0);
+  /* 弹出层文字 */
   --popover-foreground: oklch(0.985 0 0);
+  /* 主色（浅靛蓝 #818CF8） */
   --primary: oklch(0.6801 0.1583 276.93);
+  /* 主色上的文字（白色） */
   --primary-foreground: oklch(0.985 0 0);
+  /* 次要背景（深色） */
   --secondary: oklch(0.269 0 0);
+  /* 次要文字 */
   --secondary-foreground: oklch(0.985 0 0);
+  /* 弱化背景 */
   --muted: oklch(0.269 0 0);
+  /* 弱化文字 */
   --muted-foreground: oklch(0.708 0 0);
+  /* 强调背景 */
   --accent: oklch(0.269 0 0);
+  /* 强调文字 */
   --accent-foreground: oklch(0.985 0 0);
+  /* 危险色上的文字（白色） */
+  --destructive-foreground: oklch(0.985 0 0);
+  /* 危险色（浅红） */
   --destructive: oklch(0.704 0.191 22.216);
+  /* 边框（白色 10% 透明度） */
   --border: oklch(1 0 0 / 10%);
+  /* 输入框边框（白色 15% 透明度） */
   --input: oklch(1 0 0 / 15%);
+  /* 焦点环 */
   --ring: oklch(0.6801 0.1583 276.93);
+  /* 图表色 1~5 */
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
+  /* 侧边栏背景（极深灰） */
   --sidebar: oklch(0.22 0 0);
+  /* 侧边栏文字 */
   --sidebar-foreground: oklch(0.985 0 0);
+  /* 侧边栏主色 */
   --sidebar-primary: oklch(0.6801 0.1583 276.93);
+  /* 侧边栏主色上的文字 */
   --sidebar-primary-foreground: oklch(0.985 0 0);
+  /* 侧边栏强调背景 */
   --sidebar-accent: oklch(0.269 0 0);
+  /* 侧边栏强调文字 */
   --sidebar-accent-foreground: oklch(0.985 0 0);
+  /* 侧边栏边框 */
   --sidebar-border: oklch(1 0 0 / 10%);
+  /* 侧边栏焦点环 */
   --sidebar-ring: oklch(0.6801 0.1583 276.93);
 }
 
@@ -128,36 +226,70 @@
   }
 }
 
-/* 浏览器外壳与内部页共用的配色变量（原 ChromeUI.vue 内联，迁移为全局，
-   使 / 路由与所有 wmfx:// 内部路由共享同一套配色）。主题由 nativeTheme + data-theme 控制。 */
+/* ============================================================
+ * 浏览器外壳配色变量（TabBar / AddressBar / 内部页共用）
+ * 由 nativeTheme + data-theme 属性控制切换
+ * ============================================================ */
 :root {
-  --bg-primary: #1e1e1e;
+  /* 主背景色（标签栏、地址栏区域） */
+  --bg-primary: #353535;
+  /* 次要背景色（设置项、卡片等） */
   --bg-secondary: #2d2d2d;
+  /* 三级背景色（hover 态、分隔区域） */
   --bg-tertiary: #3d3d3d;
+  /* 标签栏背景色 */
   --tabbar-bg: #292929;
+  /* Chrome 外壳背景色（标签页区域） */
   --chrome-bg: #353535;
+  /* 主文字色（正文、标签标题） */
   --text-primary: #e0e0e0;
+  /* 次要文字色（描述、URL 等） */
   --text-secondary: #888;
+  /* 弱化文字色（占位符、禁用态） */
   --text-muted: #555;
-  --border-color: #1a1a1a;
+  /* 分隔线 / 边框色 */
+  --border-color: #3c3c3c;
+  /* 品牌强调色（链接、按钮高亮）#6366F1 */
   --accent-color: #6366F1;
+  /* 危险色（删除、错误提示） */
   --danger-color: #ff5555;
+  /* 地址栏输入框背景色 */
   --url-input-bg: #242424;
+  /* hover / 激活态背景色（略亮于 bg-primary） */
+  --bg-hover: #4a4a4a;
+  /* 标签页 hover 背景色 */
+  --bg-tab-hover: #1d4974;
 }
 
 [data-theme="light"] {
+  /* 主背景色 */
   --bg-primary: #ffffff;
+  /* 次要背景色 */
   --bg-secondary: #f5f5f5;
+  /* 三级背景色 */
   --bg-tertiary: #e8e8e8;
-  --tabbar-bg: #e8e8e8;
+  /* 标签栏背景色（浅蓝） */
+  --tabbar-bg: #cddffd;
+  /* Chrome 外壳背景色 */
   --chrome-bg: #ffffff;
+  /* 主文字色 */
   --text-primary: #1a1a1a;
+  /* 次要文字色 */
   --text-secondary: #666;
+  /* 弱化文字色 */
   --text-muted: #666;
+  /* 分隔线 / 边框色 */
   --border-color: #e0e0e0;
+  /* 品牌强调色 #6366F1 */
   --accent-color: #6366F1;
+  /* 危险色（删除、错误提示） */
   --danger-color: #d32f2f;
+  /* 地址栏输入框背景色 */
   --url-input-bg: #eaf0f9;
+  /* hover / 激活态背景色（略深于 bg-primary） */
+  --bg-hover: #f2f2f2;
+  /* 标签页 hover 背景色 */
+  --bg-tab-hover: #9ec0f9;
 }
 
 /* 设置页（/settings 各子视图 + 内部页通用表单样式） */

@@ -69,6 +69,7 @@
           v-else
           class="favicon"
           :size="14"
+          :btn-size="14"
         />
       </span>
       <span class="tab-title">{{ tab.title || 'New Tab' }}</span>
@@ -79,28 +80,17 @@
         :width="iconSize"
         :height="iconSize"
       />
-      <Icon
+      <IconButton
         class="tab-close"
         icon="ic:sharp-close"
-        :width="iconSize"
-        :height="iconSize"
+        :size="iconSize"
         @click.stop="closeTab(tab.id)"
       />
     </div>
-    <Icon
+    <IconButton
       class="tab-new"
       icon="ic:round-plus"
-      :width="plusIconSize"
-      :height="plusIconSize"
       @click="createNewTab"
-    />
-    <IconButton
-      class="app-menu"
-      icon="carbon:overflow-menu-vertical"
-      :size="18"
-      :active="appMenuOpen"
-      :title="t('tab.menu')"
-      @click.stop="openAppMenu"
     />
     <div
       v-if="!isMacOS"
@@ -141,15 +131,15 @@
 </template>
 
 <script setup lang="ts">
-import type { MenuItem, PopoverAnchor, PopoverDescriptor, TabState } from '@browser/ipc-contract'
+import type { PopoverAnchor, PopoverDescriptor, TabState } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
+import IconButton from '@/components/ui/IconButton.vue'
 import { requestAddressBarFocus } from '../composables/useAddressBarFocus'
 import { useI18n } from '../composables/useI18n'
 import { Popover } from '../lib/popover'
 import { isMacOS } from '../utils/os'
 import DefaultFavicon from './DefaultFavicon.vue'
-import IconButton from './ui/IconButton.vue'
 
 const { t } = useI18n()
 
@@ -157,9 +147,8 @@ const tabs = ref<TabState[]>([])
 const tabBarRef = ref<HTMLElement>()
 const tabBarWidth = ref(0)
 const isMaximized = ref(false)
-// 当前因右键/三点菜单而高亮的触发元素（popover 关闭时由 onPopoverDismiss 清空）
+// 当前因右键菜单而高亮的触发元素（popover 关闭时由 onPopoverDismiss 清空）
 const activeMenuTabId = ref<string | null>(null)
-const appMenuOpen = ref(false)
 
 const TAB_MIN = 30
 const TAB_MAX = 240
@@ -168,53 +157,11 @@ const PIN_WIDTH = 30
 const PADDING_LEFT = 80
 const PADDING_RIGHT = 8
 const NEW_BTN_WIDTH = 32
-const APP_MENU_WIDTH = 32
 const WINDOW_CONTROLS_WIDTH = 112
 const iconSize = 14
-const plusIconSize = 16
 const tabItemBorderRadius = 5
 const tabItemBorderRadiusWithPx = `${tabItemBorderRadius}px`
 const tabItemBackgroundBorderRadius = tabItemBorderRadius * 1.2
-
-const appMenuItems = computed<MenuItem[]>(() => [
-  { id: 'incognito', label: t('appMenu.incognito'), icon: 'mdi:account-off' },
-  { id: 'wmfx://bookmarks', label: t('appMenu.bookmarks'), icon: 'mdi:bookmark' },
-  { id: 'wmfx://history', label: t('appMenu.history'), icon: 'mdi:history' },
-  { id: 'wmfx://downloads', label: t('appMenu.downloads'), icon: 'mdi:download' },
-  { id: 'wmfx://proxy', label: t('appMenu.proxy'), icon: 'mdi:network' },
-  { id: 'wmfx://settings', label: t('appMenu.settings'), icon: 'mdi:cog' },
-])
-
-function openAppMenu(event: MouseEvent): void {
-  event.stopPropagation()
-  appMenuOpen.value = true
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const descriptor: PopoverDescriptor = { id: 'app-menu', kind: 'menu', items: appMenuItems.value }
-  void new Popover({
-    anchor: { type: 'rect', rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height }, placement: 'bottom-end' },
-    descriptor,
-    onAction: ({ menu, context }) => {
-      void runAppMenuItem(menu.id)
-      context.close()
-    },
-  })
-}
-
-async function runAppMenuItem(id: string): Promise<void> {
-  if (id === 'incognito') {
-    await window.browserAPI.createNewTab('incognito')
-    requestAddressBarFocus()
-    return
-  }
-  const list = await window.browserAPI.getList()
-  const existing = list.find(t => t.url === id || t.url.startsWith(`${id}/`))
-  if (existing) {
-    window.browserAPI.activateTab(existing.id)
-  }
-  else {
-    window.browserAPI.createTab({ url: id })
-  }
-}
 
 function openTabContextMenu(event: MouseEvent, tab: TabState): void {
   event.preventDefault()
@@ -301,7 +248,7 @@ function tabWidthFor(tab: TabState): number {
   if (unpinnedCount === 0) {
     return TAB_MAX
   }
-  const available = tabBarWidth.value - PADDING_LEFT - PADDING_RIGHT - NEW_BTN_WIDTH - APP_MENU_WIDTH - WINDOW_CONTROLS_WIDTH - (count - 1) * TAB_GAP
+  const available = tabBarWidth.value - PADDING_LEFT - PADDING_RIGHT - NEW_BTN_WIDTH - WINDOW_CONTROLS_WIDTH - (count - 1) * TAB_GAP
   const equal = Math.floor((available - pinnedCount * PIN_WIDTH) / unpinnedCount)
   return Math.max(TAB_MIN, Math.min(TAB_MAX, equal))
 }
@@ -509,7 +456,6 @@ onMounted(() => {
   // popover 关闭（无论是点击菜单项还是背景/Esc）时，清除触发元素高亮
   dismissHandler = () => {
     activeMenuTabId.value = null
-    appMenuOpen.value = false
   }
   window.browserAPI.onPopoverDismiss(dismissHandler)
 
@@ -568,7 +514,7 @@ onUnmounted(() => {
   -webkit-app-region: no-drag;
 
   &:hover {
-    background: var(--bg-secondary);
+    background: var(--bg-tab-hover);
   }
 
   .tabs-background {
@@ -687,13 +633,7 @@ onUnmounted(() => {
 }
 
 .tab-close {
-  color: var(--text-secondary);
-  cursor: pointer;
   -webkit-app-region: no-drag;
-
-  &:hover {
-    color: var(--danger-color);
-  }
 }
 
 .tab-mute {
@@ -711,11 +651,6 @@ onUnmounted(() => {
   &:hover {
     color: var(--accent-color);
   }
-}
-
-.app-menu {
-  margin: 0 12px 0 auto;
-  -webkit-app-region: no-drag;
 }
 
 .window-controls {

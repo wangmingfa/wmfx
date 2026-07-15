@@ -44,6 +44,13 @@ function resolveElectronBinary(): string {
 }
 
 function startElectron(): void {
+  // 取消尚未执行的重启请求，避免刚启动就被下一轮 restart 杀掉
+  if (restartTimer) {
+    clearTimeout(restartTimer)
+    restartTimer = null
+  }
+  isRestarting = false
+
   const binary = resolveElectronBinary()
   const entry = path.join(ROOT, 'apps/main/dist/index.cjs')
   console.log(`${CYAN}[dev]${RESET} 🖥️  启动 Electron: ${binary} ${entry}`)
@@ -54,6 +61,8 @@ function startElectron(): void {
   })
 
   electronProcess.catch((err) => {
+    // SIGTERM 是正常重启信号，不视为错误
+    if (err.killed) return
     console.error(`${RED}[dev] Electron 启动失败:`, err.message)
     cleanup()
   })

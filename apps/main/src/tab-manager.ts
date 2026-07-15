@@ -224,7 +224,11 @@ export class TabManager {
   getInternalTabs(): Array<{ id: string; webContents: Electron.WebContents }> {
     const result: Array<{ id: string; webContents: Electron.WebContents }> = []
     for (const tab of this.tabs.values()) {
-      if (tab.isInternal && !tab.view.webContents.isDestroyed()) {
+      if (
+        tab.isInternal &&
+        tab.view?.webContents?.isDestroyed &&
+        !tab.view.webContents.isDestroyed()
+      ) {
         result.push({ id: tab.id, webContents: tab.view.webContents })
       }
     }
@@ -276,7 +280,9 @@ export class TabManager {
     }
     for (const tab of this.tabs.values()) {
       this.window.contentView.removeChildView(tab.view)
-      tab.view.webContents.close()
+      if (tab.view?.webContents?.isDestroyed && !tab.view.webContents.isDestroyed()) {
+        tab.view.webContents.close()
+      }
     }
     this.tabs.clear()
     this.activeTabId = null
@@ -325,6 +331,7 @@ export class TabManager {
     }
 
     const view = new WebContentsView({ webPreferences })
+    view.setBackgroundColor('#000000')
     tab.view = view
 
     this.setupTabListeners(tab)

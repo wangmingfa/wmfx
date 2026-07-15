@@ -57,6 +57,7 @@
       @select="onAutocompleteSelect"
       @close="onAutocompleteClose"
     />
+    <AppMenuButton />
   </div>
 </template>
 
@@ -66,6 +67,7 @@ import { onMounted, ref, watch } from 'vue'
 
 import { useAddressBarFocus } from '../composables/useAddressBarFocus'
 import { useI18n } from '../composables/useI18n'
+import AppMenuButton from './AppMenuButton.vue'
 import Autocomplete from './Autocomplete.vue'
 import IconButton from './ui/IconButton.vue'
 

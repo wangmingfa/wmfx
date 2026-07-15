@@ -60,6 +60,8 @@ app.whenReady().then(async () => {
 
   const mainWindow = createMainWindow()
 
+  mainWindow.settingsManager.setNativeTheme()
+
   bootstrapWindow(mainWindow)
 
   // Start mihomo proxy
