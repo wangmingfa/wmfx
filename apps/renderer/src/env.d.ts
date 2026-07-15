@@ -5,9 +5,11 @@ import type {
   FindInPageOptions,
   IpcInvoke,
   LogEntry,
-  MenuItem,
   PopoverAnchor,
-  PopoverDescriptor,
+  PopoverEventPayload,
+  PopoverMode,
+  PopoverOpenOptions,
+  PopoverType,
   TabState,
   ThemeMode,
   UpdaterStatus,
@@ -137,14 +139,25 @@ declare global {
       getUpdaterStatus: IpcInvoke['updater:getStatus']
       onUpdaterStatus: (handler: (status: UpdaterStatus) => void) => void
       // Popover
-      popoverOpen: IpcInvoke['popover:open']
-      popoverClose: IpcInvoke['popover:close']
-      popoverSelect: IpcInvoke['popover:select']
+      popoverOpen: (popoverId: string, options: PopoverOpenOptions) => Promise<void>
+      popoverClose: (popoverId: string) => Promise<void>
+      popoverSendData: (popoverId: string, data: unknown) => Promise<void>
+      popoverEvent: (payload: PopoverEventPayload) => void
       onPopoverRender: (
-        handler: (popoverId: string, descriptor: PopoverDescriptor, anchor: PopoverAnchor) => void
+        handler: (
+          popoverId: string,
+          type: PopoverType,
+          anchor: PopoverAnchor,
+          data?: unknown,
+          mode?: PopoverMode
+        ) => void
+      ) => void
+      popoverMeasure: (
+        popoverId: string,
+        size: { width: number; height: number; gutter?: number }
       ) => void
       onPopoverDismiss: (handler: (popoverId: string) => void) => void
-      onPopoverAction: (handler: (payload: { popoverId: string; menu: MenuItem }) => void) => void
+      onPopoverEvent: (handler: (payload: PopoverEventPayload) => void) => void
       // Proxy traffic broadcast
       onProxyTraffic: (handler: (data: { up: number; down: number }) => void) => void
       // Theme change broadcast

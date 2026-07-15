@@ -36,8 +36,7 @@ const statusText = ref(t('proxy.trafficIdle'))
 const ZOOM_LEVELS = ['B/s', 'KB/s', 'MB/s', 'GB/s']
 
 function formatSpeed(bytesPerSec: number): string {
-  if (bytesPerSec === 0)
-    return '0 B/s'
+  if (bytesPerSec === 0) return '0 B/s'
   const k = 1024
   const i = Math.floor(Math.log(bytesPerSec) / Math.log(k))
   const idx = i < ZOOM_LEVELS.length ? i : ZOOM_LEVELS.length - 1
@@ -51,7 +50,7 @@ onMounted(() => {
   unsubscribeTraffic = () => {
     window.browserAPI.removeListener('proxy:traffic', null as never)
   }
-  window.browserAPI.onProxyTraffic((data: { up: number, down: number }) => {
+  window.browserAPI.onProxyTraffic((data: { up: number; down: number }) => {
     trafficUp.value = data.up
     trafficDown.value = data.down
     statusText.value = t('proxy.trafficRunning')
@@ -70,8 +69,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   unsubscribeTraffic?.()
-  if (statusInterval)
-    clearInterval(statusInterval)
+  if (statusInterval) clearInterval(statusInterval)
 })
 </script>
 

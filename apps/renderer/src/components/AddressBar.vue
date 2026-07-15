@@ -1,74 +1,39 @@
 <template>
   <div class="address-bar">
-    <IconButton
-      icon="ic:round-arrow-back"
-      :disabled="!canGoBack"
-      @click="goBack"
-    />
-    <IconButton
-      icon="ic:round-arrow-forward"
-      :disabled="!canGoForward"
-      @click="goForward"
-    />
-    <IconButton
-      :icon="isLoading ? 'ic:round-close' : 'ic:round-refresh'"
-      @click="isLoading ? stop() : reload()"
-    />
-    <IconButton
-      icon="ic:round-home"
-      @click="goHome"
-    />
-    <IconButton
-      icon="ic:round-print"
-      @click="printPage"
-    />
+    <IconButton icon="ic:round-arrow-back" :disabled="!canGoBack" @click="goBack" />
+    <IconButton icon="ic:round-arrow-forward" :disabled="!canGoForward" @click="goForward" />
+    <IconButton :icon="isLoading ? 'ic:round-close' : 'ic:round-refresh'" @click="isLoading ? stop() : reload()" />
+    <IconButton icon="ic:round-home" @click="goHome" />
+    <IconButton icon="ic:round-print" @click="printPage" />
     <div class="url-input-wrap">
       <input
         ref="inputRef"
         v-model="urlInput"
         class="url-input"
-        :placeholder="t('addressBar.placeholder')"
+        :placeholder="ADDRESS_BAR_PLACEHOLDER"
         @focus="onFocus"
-        @blur="onBlur"
-        @keydown.enter="navigate"
-      >
+      />
       <div class="url-input-actions">
-        <button
-          class="zoom-display"
-          @click="cycleZoom"
-        >
+        <button class="zoom-display" @click="cycleZoom">
           {{ currentZoomLevel }}
         </button>
-        <button
-          class="bookmark-btn"
-          :class="{ bookmarked: isBookmarked }"
-          @click="toggleBookmark"
-        >
-          <Icon
-            :icon="isBookmarked ? 'ic:round-star' : 'ic:round-star-outline'"
-            :width="iconSize"
-            :height="iconSize"
-          />
+        <button class="bookmark-btn" :class="{ bookmarked: isBookmarked }" @click="toggleBookmark">
+          <Icon :icon="isBookmarked ? 'ic:round-star' : 'ic:round-star-outline'" :width="iconSize" :height="iconSize" />
         </button>
       </div>
     </div>
-    <Autocomplete
-      :query="urlInput"
-      @select="onAutocompleteSelect"
-      @close="onAutocompleteClose"
-    />
     <AppMenuButton />
   </div>
 </template>
 
 <script setup lang="ts">
+import { ADDRESS_BAR_PLACEHOLDER } from '@browser/shared'
 import { Icon } from '@iconify/vue'
 import { onMounted, ref, watch } from 'vue'
 
 import { useAddressBarFocus } from '../composables/useAddressBarFocus'
-import { useI18n } from '../composables/useI18n'
+import { Popover } from '../lib/popover'
 import AppMenuButton from './AppMenuButton.vue'
-import Autocomplete from './Autocomplete.vue'
 import IconButton from './ui/IconButton.vue'
 
 const props = defineProps<{
@@ -84,16 +49,21 @@ const emit = defineEmits<{
 }>()
 
 const iconSize = 18
-const { t } = useI18n()
 
 const urlInput = ref('')
 const inputRef = ref<HTMLInputElement>()
+const suggestions = ref<{ type: 'history' | 'bookmark' | 'search'; title: string; url: string }[]>([])
+const activeIndex = ref(-1)
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let currentPopover: Popover | null = null
+
 // 新开标签页时由创建方触发聚焦地址输入框
 const focusNonce = useAddressBarFocus()
 watch(focusNonce, () => {
   // 需要延迟确保组件已挂载且 input 已渲染到 DOM
   setTimeout(() => inputRef.value?.focus(), 50)
 })
+
 const isBookmarked = ref(false)
 
 const ZOOM_LEVELS = [50, 75, 100, 125, 150]
@@ -102,14 +72,82 @@ const currentZoomIndex = ref(2)
 const currentZoomLevel = ref('100%')
 
 function onFocus(): void {
-  requestAnimationFrame(() => {
-    inputRef.value?.select()
-  })
+  fetchSuggestions()
+  openPopover()
 }
 
-function onBlur(): void {
-  // window.getSelection()?.removeAllRanges()
+function openPopover(): void {
+  const rect = inputRef.value?.getBoundingClientRect()
+  if (!rect) return
+  currentPopover = new Popover({
+    type: 'addressbar',
+    mode: 'bounded',
+    // 仅约束宽度与输入框一致；高度由面板测量内容（输入框 + 建议列表）后回传，避免裁切建议
+    size: { width: rect.width },
+    anchor: {
+      type: 'rect',
+      rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
+      placement: 'cover-start',
+    },
+    data: { query: urlInput.value, suggestions: suggestions.value },
+    onEvent: (eventName, eventData) => {
+      if (eventName === 'select' && typeof eventData === 'string') {
+        selectSuggestion(eventData)
+      } else if (eventName === 'update-query' && typeof eventData === 'string') {
+        urlInput.value = eventData
+        fetchSuggestions()
+        currentPopover?.sendData({ query: urlInput.value, suggestions: suggestions.value })
+      } else if (eventName === 'navigate' && typeof eventData === 'string') {
+        urlInput.value = eventData
+        navigate()
+      } else if (eventName === 'close') {
+        closePopover()
+      }
+    },
+    onDismiss: () => {
+      currentPopover = null
+      suggestions.value = []
+      activeIndex.value = -1
+    },
+  })
+  // 面板 WebContentsView 会抢占焦点；关闭后浏览器会把焦点“还原”到本输入框，
+  // 再次触发 onFocus 导致 popover 反复弹出。这里主动 blur，打断焦点还原链。
+  setTimeout(() => inputRef.value?.blur(), 50)
 }
+
+function closePopover(): void {
+  currentPopover?.close()
+  currentPopover = null
+}
+
+function fetchSuggestions(): void {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  if (!urlInput.value.trim()) {
+    suggestions.value = []
+    return
+  }
+  debounceTimer = setTimeout(async () => {
+    suggestions.value = await window.browserAPI.getAutocompleteSuggestions({
+      query: urlInput.value,
+      limit: 6,
+    })
+    activeIndex.value = -1
+  }, 200)
+}
+
+function selectSuggestion(url: string): void {
+  closePopover()
+  suggestions.value = []
+  window.browserAPI.loadURL(props.tabId, url)
+  emit('navigate', url)
+}
+
+watch(urlInput, () => {
+  fetchSuggestions()
+  if (currentPopover) {
+    currentPopover.sendData({ query: urlInput.value, suggestions: suggestions.value })
+  }
+})
 
 watch(
   () => props.url,
@@ -149,6 +187,7 @@ async function goHome(): Promise<void> {
 function navigate(): void {
   const url = urlInput.value.trim()
   if (url) {
+    closePopover()
     inputRef.value!.blur()
     window.browserAPI.loadURL(props.tabId, url)
     emit('navigate', url)
@@ -160,8 +199,7 @@ async function getZoomLevel(): Promise<number> {
     const response = await window.browserAPI.getZoom(props.tabId)
     const index = ZOOM_FACTORS.indexOf(response.factor)
     return index !== -1 ? index : 2
-  }
-  catch {
+  } catch {
     return 2
   }
 }
@@ -180,22 +218,12 @@ function printPage(): void {
   window.browserAPI.printPage({ tabId: props.tabId })
 }
 
-function onAutocompleteSelect(url: string): void {
-  window.browserAPI.loadURL(props.tabId, url)
-  emit('navigate', url)
-}
-
-function onAutocompleteClose(): void {
-  // do nothing
-}
-
 async function syncBookmarkStatus(): Promise<void> {
   const url = props.url
   if (url && url.startsWith('http')) {
     const result = await window.browserAPI.isBookmarked(url)
     isBookmarked.value = result.isBookmarked
-  }
-  else {
+  } else {
     isBookmarked.value = false
   }
 }
@@ -212,8 +240,7 @@ async function toggleBookmark(): Promise<void> {
       await window.browserAPI.deleteBookmark(result.id)
     }
     isBookmarked.value = false
-  }
-  else {
+  } else {
     await window.browserAPI.addBookmark({
       title: url,
       url,

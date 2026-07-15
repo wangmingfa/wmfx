@@ -1,8 +1,5 @@
 <template>
-  <li
-    class="bookmark-node"
-    :class="{ 'bookmark-folder': node.isFolder, 'bookmark-item': !node.isFolder }"
-  >
+  <li class="bookmark-node" :class="{ 'bookmark-folder': node.isFolder, 'bookmark-item': !node.isFolder }">
     <div
       v-if="node.isFolder"
       class="bookmark-node-content"
@@ -14,24 +11,13 @@
       <span class="bookmark-node-title">{{ node.title }}</span>
     </div>
 
-    <div
-      v-else
-      class="bookmark-node-content"
-      @click="handleOpen"
-      @contextmenu.prevent="handleContextMenu"
-    >
+    <div v-else class="bookmark-node-content" @click="handleOpen" @contextmenu.prevent="handleContextMenu">
       <span class="bookmark-node-icon bookmark-icon-link">🔗</span>
       <span class="bookmark-node-title">{{ node.title }}</span>
-      <span
-        v-if="node.url"
-        class="bookmark-node-url"
-      >{{ node.url }}</span>
+      <span v-if="node.url" class="bookmark-node-url">{{ node.url }}</span>
     </div>
 
-    <ul
-      v-show="node.isFolder && expanded"
-      class="bookmark-children"
-    >
+    <ul v-show="node.isFolder && expanded" class="bookmark-children">
       <BookmarkNode
         v-for="child in node.children"
         :key="child.id"
@@ -42,9 +28,7 @@
         @delete="$emit('delete', $event)"
         @add="$emit('add', $event)"
         @open="$emit('open', $event)"
-        @contextmenu="
-          (e, item) => $emit('contextmenu', e, item)
-        "
+        @contextmenu="(e, item) => $emit('contextmenu', e, item)"
       />
     </ul>
   </li>
@@ -77,8 +61,7 @@ const emit = defineEmits<{
 const expanded = computed(() => props.expandedFolders.has(props.node.id))
 
 function handleToggle() {
-  if (!props.node.isFolder)
-    return
+  if (!props.node.isFolder) return
   emit('toggle', props.node)
 }
 

@@ -1,55 +1,34 @@
 <template>
   <div class="node-view">
     <div class="proxy-mode">
-      <button
-        :class="{ active: mode === 'rule' }"
-        @click="setMode('rule')"
-      >
+      <button :class="{ active: mode === 'rule' }" @click="setMode('rule')">
         {{ t('proxy.modeRule') }}
         <NTooltip :delay="100">
           <template #trigger>
             <span class="mode-tip">
-              <Icon
-                icon="carbon:help"
-                width="14"
-                height="14"
-              />
+              <Icon icon="carbon:help" width="14" height="14" />
             </span>
           </template>
           {{ t('proxy.modeRuleDesc') }}
         </NTooltip>
       </button>
-      <button
-        :class="{ active: mode === 'global' }"
-        @click="setMode('global')"
-      >
+      <button :class="{ active: mode === 'global' }" @click="setMode('global')">
         {{ t('proxy.modeGlobal') }}
         <NTooltip :delay="100">
           <template #trigger>
             <span class="mode-tip">
-              <Icon
-                icon="carbon:help"
-                width="14"
-                height="14"
-              />
+              <Icon icon="carbon:help" width="14" height="14" />
             </span>
           </template>
           {{ t('proxy.modeGlobalDesc') }}
         </NTooltip>
       </button>
-      <button
-        :class="{ active: mode === 'direct' }"
-        @click="setMode('direct')"
-      >
+      <button :class="{ active: mode === 'direct' }" @click="setMode('direct')">
         {{ t('proxy.modeDirect') }}
         <NTooltip :delay="100">
           <template #trigger>
             <span class="mode-tip">
-              <Icon
-                icon="carbon:help"
-                width="14"
-                height="14"
-              />
+              <Icon icon="carbon:help" width="14" height="14" />
             </span>
           </template>
           {{ t('proxy.modeDirectDesc') }}
@@ -57,17 +36,10 @@
       </button>
     </div>
 
-    <div
-      v-if="selectedGroup && proxies[selectedGroup]"
-      class="proxy-group"
-    >
+    <div v-if="selectedGroup && proxies[selectedGroup]" class="proxy-group">
       <div class="group-header">
         <span class="group-name">{{ selectedGroup }}</span>
-        <button
-          class="delay-btn"
-          :disabled="loading"
-          @click="checkDelay"
-        >
+        <button class="delay-btn" :disabled="loading" @click="checkDelay">
           {{ loading ? t('proxy.testing') : t('proxy.testDelay') }}
         </button>
       </div>
@@ -80,19 +52,13 @@
           @click="switchNode(node)"
         >
           <span class="node-name">{{ node }}</span>
-          <span
-            v-if="delays[node] !== undefined"
-            class="node-delay"
-          >
+          <span v-if="delays[node] !== undefined" class="node-delay">
             {{ formatDelay(delays[node]) }}
           </span>
         </div>
       </div>
     </div>
-    <div
-      v-else
-      class="empty"
-    >
+    <div v-else class="empty">
       <div class="empty-title">
         {{ t('proxy.noNodes') }}
       </div>
@@ -129,14 +95,13 @@ const delays = ref<Record<string, number>>({})
 
 async function loadProxies(): Promise<void> {
   proxies.value = await window.browserAPI.getProxies()
-  const groups = Object.keys(proxies.value).filter(k => proxies.value[k].type === 'Selector')
+  const groups = Object.keys(proxies.value).filter((k) => proxies.value[k].type === 'Selector')
   if (groups.length > 0 && !selectedGroup.value) {
     selectedGroup.value = groups[0]
   }
   if (selectedGroup.value) {
     const g = proxies.value[selectedGroup.value]
-    if (g?.now)
-      selectedNode.value = g.now
+    if (g?.now) selectedNode.value = g.now
   }
 }
 
@@ -145,8 +110,7 @@ async function loadMode(): Promise<void> {
 }
 
 async function switchNode(nodeName: string): Promise<void> {
-  if (!selectedGroup.value)
-    return
+  if (!selectedGroup.value) return
   selectedNode.value = nodeName
   await window.browserAPI.switchProxyNode(selectedGroup.value, nodeName)
 }
@@ -157,8 +121,7 @@ async function setMode(m: 'rule' | 'global' | 'direct'): Promise<void> {
 }
 
 async function checkDelay(): Promise<void> {
-  if (!selectedGroup.value)
-    return
+  if (!selectedGroup.value) return
   loading.value = true
   const results = await window.browserAPI.checkProxyDelay(selectedGroup.value)
   const map: Record<string, number> = {}
@@ -168,8 +131,7 @@ async function checkDelay(): Promise<void> {
 }
 
 function formatDelay(d: number): string {
-  if (d < 0)
-    return t('proxy.timeout')
+  if (d < 0) return t('proxy.timeout')
   return `${d}ms`
 }
 

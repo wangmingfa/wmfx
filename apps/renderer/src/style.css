@@ -276,8 +276,8 @@
   --text-primary: #1a1a1a;
   /* 次要文字色 */
   --text-secondary: #666;
-  /* 弱化文字色 */
-  --text-muted: #666;
+  /* 弱化文字色（占位符、禁用态），浅色模式下需明显浅于 --text-secondary 以区分禁用 */
+  --text-muted: #aaa;
   /* 分隔线 / 边框色 */
   --border-color: #e0e0e0;
   /* 品牌强调色 #6366F1 */
@@ -292,27 +292,7 @@
   --bg-tab-hover: #9ec0f9;
 }
 
-/* 设置页（/settings 各子视图 + 内部页通用表单样式） */
-.settings-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 20px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  overflow-y: auto;
-}
-
-.settings-page h3,
-.settings-section h3 {
-  margin: 0 0 16px;
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
-}
-
+/* 设置表单通用样式（分组、标签等，供各设置子视图复用） */
 .settings-section {
   margin-bottom: 28px;
   padding-bottom: 20px;
@@ -338,30 +318,6 @@
   color: var(--text-primary);
 }
 
-.settings-page input[type="text"],
-.settings-page input[type="number"],
-.settings-page select {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 14px;
-  outline: none;
-  box-sizing: border-box;
-}
-
-.settings-page input[type="text"]:focus,
-.settings-page input[type="number"]:focus,
-.settings-page select:focus {
-  border-color: var(--accent-color);
-}
-
-.settings-page input[type="text"]::placeholder {
-  color: var(--text-secondary);
-}
-
 .settings-radio {
   display: flex;
   align-items: center;
@@ -371,20 +327,10 @@
   color: var(--text-primary);
 }
 
-.settings-radio input[type="radio"] {
-  accent-color: var(--accent-color);
-  width: 16px;
-  height: 16px;
-}
-
 .zoom-control {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.zoom-control input[type="number"] {
-  width: 100px;
 }
 
 .zoom-value {

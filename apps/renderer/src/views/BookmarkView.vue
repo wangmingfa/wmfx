@@ -1,49 +1,27 @@
 <template>
-  <div class="bookmark-view">
-    <div class="bookmark-header">
-      <h2>{{ t('bookmark.title') }}</h2>
-      <div class="header-actions">
-        <button
-          class="btn btn-sm"
-          @click="handleImport"
-        >
-          {{ t('bookmark.import') }}
-        </button>
-        <button
-          class="btn btn-sm"
-          @click="handleExport"
-        >
-          {{ t('bookmark.export') }}
-        </button>
-        <button
-          class="btn btn-sm btn-primary"
-          @click="handleAddBookmark"
-        >
-          {{ t('bookmark.add') }}
-        </button>
-      </div>
-    </div>
+  <PageLayout
+    v-model:search="searchQuery"
+    :title="t('bookmark.title')"
+    icon="mdi:bookmark-outline"
+    :search-placeholder="t('bookmark.searchPlaceholder')"
+  >
+    <template #actions>
+      <button class="btn btn-sm" @click="handleImport">
+        {{ t('bookmark.import') }}
+      </button>
+      <button class="btn btn-sm" @click="handleExport">
+        {{ t('bookmark.export') }}
+      </button>
+      <button class="btn btn-sm btn-primary" @click="handleAddBookmark">
+        {{ t('bookmark.add') }}
+      </button>
+    </template>
 
-    <div class="bookmark-search">
-      <input
-        v-model="searchQuery"
-        type="text"
-        :placeholder="t('bookmark.searchPlaceholder')"
-        @input="debouncedSearch"
-      >
-    </div>
-
-    <div
-      v-if="treeNodes.length === 0"
-      class="bookmark-empty"
-    >
+    <div v-if="treeNodes.length === 0" class="bookmark-empty">
       <p>{{ t('bookmark.empty') }}</p>
     </div>
 
-    <ul
-      v-else
-      class="bookmark-tree"
-    >
+    <ul v-else class="bookmark-tree">
       <BookmarkNode
         v-for="node in treeNodes"
         :key="node.id"
@@ -72,33 +50,25 @@
         <li @click="contextAddBookmark">
           {{ t('bookmark.addBookmark') }}
         </li>
-        <li
-          v-if="contextMenu.item && !contextMenu.item.url"
-          @click="contextAddChild"
-        >
+        <li v-if="contextMenu.item && !contextMenu.item.url" @click="contextAddChild">
           {{ t('bookmark.addSubfolder') }}
         </li>
-        <li
-          v-if="contextMenu.item"
-          @click="contextRename"
-        >
+        <li v-if="contextMenu.item" @click="contextRename">
           {{ t('bookmark.rename') }}
         </li>
-        <li
-          v-if="contextMenu.item"
-          @click="contextDelete"
-        >
+        <li v-if="contextMenu.item" @click="contextDelete">
           {{ t('bookmark.delete') }}
         </li>
       </ul>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import type { BookmarkCreateOptions, BookmarkItem } from '@browser/ipc-contract'
 
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import PageLayout from '@/components/PageLayout.vue'
 import { useI18n } from '@/composables/useI18n'
 import BookmarkNode from './BookmarkNode.vue'
 
@@ -139,8 +109,7 @@ function buildTree(items: BookmarkItem[]): TreeNode[] {
   for (const node of itemMap.values()) {
     if (node.parentId === null) {
       roots.push(node)
-    }
-    else {
+    } else {
       const parent = itemMap.get(node.parentId)
       if (parent) {
         parent.children.push(node)
@@ -161,13 +130,11 @@ async function loadBookmarks() {
 }
 
 function handleToggle(node: TreeNode) {
-  if (!node.isFolder)
-    return
+  if (!node.isFolder) return
   const id = node.id
   if (expandedFolders.value.has(id)) {
     expandedFolders.value.delete(id)
-  }
-  else {
+  } else {
     expandedFolders.value.add(id)
   }
 }
@@ -175,8 +142,7 @@ function handleToggle(node: TreeNode) {
 async function handleAddBookmark() {
   // eslint-disable-next-line no-alert
   const title = prompt(t('bookmark.promptTitle'))
-  if (!title)
-    return
+  if (!title) return
   // eslint-disable-next-line no-alert
   const url = prompt(t('bookmark.promptUrl')) || null
   await window.browserAPI.addBookmark({ title, url })
@@ -186,8 +152,7 @@ async function handleAddBookmark() {
 async function handleAddChild(parentNode: TreeNode | BookmarkItem) {
   // eslint-disable-next-line no-alert
   const title = prompt(t('bookmark.promptTitle'))
-  if (!title)
-    return
+  if (!title) return
   // eslint-disable-next-line no-alert
   const url = prompt(t('bookmark.promptUrl')) || null
   const options: BookmarkCreateOptions = {
@@ -206,8 +171,7 @@ async function handleAddChild(parentNode: TreeNode | BookmarkItem) {
 async function handleRename(item: BookmarkItem) {
   // eslint-disable-next-line no-alert
   const newTitle = prompt(t('bookmark.promptNewTitle'), item.title)
-  if (!newTitle)
-    return
+  if (!newTitle) return
   await window.browserAPI.renameBookmark({ id: item.id, title: newTitle })
   await loadBookmarks()
 }
@@ -215,8 +179,7 @@ async function handleRename(item: BookmarkItem) {
 async function handleDelete(item: BookmarkItem) {
   const confirmMsg = t('bookmark.deleteConfirm').replace('{title}', JSON.stringify(item.title))
   // eslint-disable-next-line no-alert
-  if (!confirm(confirmMsg))
-    return
+  if (!confirm(confirmMsg)) return
   await window.browserAPI.deleteBookmark(item.id)
   await loadBookmarks()
 }
@@ -233,22 +196,19 @@ function contextAddBookmark() {
 }
 
 function contextAddChild() {
-  if (!contextMenu.value.item)
-    return
+  if (!contextMenu.value.item) return
   hideContextMenu()
   handleAddChild(contextMenu.value.item)
 }
 
 function contextRename() {
-  if (!contextMenu.value.item)
-    return
+  if (!contextMenu.value.item) return
   hideContextMenu()
   handleRename(contextMenu.value.item)
 }
 
 function contextDelete() {
-  if (!contextMenu.value.item)
-    return
+  if (!contextMenu.value.item) return
   hideContextMenu()
   handleDelete(contextMenu.value.item)
 }
@@ -260,17 +220,16 @@ function debouncedSearch() {
   searchTimer.value = setTimeout(async () => {
     if (searchQuery.value.trim()) {
       bookmarks.value = await window.browserAPI.searchBookmarks({ query: searchQuery.value })
-    }
-    else {
+    } else {
       await loadBookmarks()
     }
   }, 300)
 }
 
+watch(searchQuery, debouncedSearch)
+
 async function handleImport() {
-  const picker = (window as any).showOpenFilePicker as
-    | ((opts: any) => Promise<unknown[]>)
-    | undefined
+  const picker = (window as any).showOpenFilePicker as ((opts: any) => Promise<unknown[]>) | undefined
   if (!picker) {
     const input = document.createElement('input')
     input.type = 'file'
@@ -337,57 +296,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.bookmark-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 16px;
-  background: var(--bg-primary, #1a1a2e);
-  color: var(--text-primary, #e0e0e0);
-}
-
-.bookmark-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.bookmark-header h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.bookmark-search {
-  margin-bottom: 16px;
-}
-
-.bookmark-search input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color, #333);
-  border-radius: 6px;
-  background: var(--bg-secondary, #16213e);
-  color: var(--text-primary, #e0e0e0);
-  font-size: 14px;
-  outline: none;
-  box-sizing: border-box;
-}
-
-.bookmark-search input::placeholder {
-  color: var(--text-muted, #888);
-}
-
-.bookmark-search input:focus {
-  border-color: var(--color-primary, #4361ee);
-}
-
 .bookmark-empty {
   display: flex;
   justify-content: center;

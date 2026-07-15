@@ -11,15 +11,9 @@
           :can-go-forward="activeTab.canGoForward"
           :is-loading="activeTab.isLoading"
         />
-        <Viewport
-          v-if="activeTab"
-          :tab-id="activeTab.id"
-        />
+        <Viewport v-if="activeTab" :tab-id="activeTab.id" />
       </div>
-      <FindBar
-        v-if="activeTab"
-        :tab-id="activeTab.id"
-      />
+      <FindBar v-if="activeTab" :tab-id="activeTab.id" />
     </div>
   </div>
 </template>
@@ -36,7 +30,7 @@ const activeTab = ref<TabState | null>(null)
 
 async function syncActiveTab(): Promise<void> {
   const tabs = await window.browserAPI.getList()
-  const active = tabs.find(t => t.active)
+  const active = tabs.find((t) => t.active)
   if (active) {
     activeTab.value = active
   }

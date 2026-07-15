@@ -28,7 +28,8 @@
     "lint:ts": "bun x biome check .",
     "lint:vue": "bun x eslint .",
     "lint:typecheck": "bun run --filter '*' typecheck && bun x tsc --noEmit -p scripts/tsconfig.json",
-    "format": "bun x biome format --write . && bun x eslint --fix '**/*.vue'",
+    "format": "bun x biome format --write . && bun x prettier --write '**/*.vue'",
+    "format:vue": "bun x prettier --write '**/*.vue'",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "test": "bun x vitest run",
     "test:e2e": "bun run build && bun x playwright test",
@@ -54,6 +55,8 @@
     "electron": "^43.1.0",
     "electron-builder": "^26.15.3",
     "eslint": "^10.7.0",
+    "eslint-parser-vue": "^0.0.1-security",
+    "eslint-plugin-format": "^2.0.1",
     "execa": "^9.6.1",
     "husky": "^9.1.7",
     "jiti": "^2.7.0",
@@ -61,6 +64,7 @@
     "node-abi": "^4.33.0",
     "playwright": "^1.61.1",
     "png2icons": "^2.0.1",
+    "prettier": "^3.9.5",
     "semver": "^7.8.5",
     "sharp": "^0.35.3",
     "tsup": "^8.5.1",
@@ -71,7 +75,7 @@
   "lint-staged": {
     "*.ts": "biome check --write --no-errors-on-unmatched",
     "*.vue": [
-      "eslint --fix",
+      "prettier --write",
       "eslint"
     ]
   },

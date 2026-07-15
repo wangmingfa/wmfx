@@ -360,6 +360,8 @@ export function registerIpcHandlers(): void {
       for (const tab of inst.tabManager.getInternalTabs()) {
         tab.webContents.send('theme:change', theme)
       }
+      // popover 面板（独立 WebContentsView）也需同步主题
+      inst.popoverManager.sendTheme(theme)
     }
     // 广播到所有窗口的渲染进程，并同步窗口背景色
     for (const win of BrowserWindow.getAllWindows()) {
@@ -652,14 +654,28 @@ export function registerIpcHandlers(): void {
   })
 
   // Popover
-  handle('popover:open', (event, popoverId, anchor, descriptor) => {
-    getInstance(event)?.popoverManager.open(popoverId, anchor, descriptor)
+  handle('popover:open', (event, popoverId, options) => {
+    getInstance(event)?.popoverManager.open(popoverId, options)
   })
   handle('popover:close', (event, popoverId) => {
     getInstance(event)?.popoverManager.close(popoverId)
   })
-  handle('popover:select', (event, popoverId, itemId) => {
-    getInstance(event)?.popoverManager.select(popoverId, itemId)
+  handle('popover:data', (event, popoverId, data) => {
+    getInstance(event)?.popoverManager.sendData(popoverId, data)
+  })
+  ipcMain.on('popover:panel-event', (event, payload) => {
+    const { popoverId, eventName, eventData } = payload as {
+      popoverId: string
+      eventName: string
+      eventData?: unknown
+    }
+    getInstance(event)?.popoverManager.notifyEvent(popoverId, eventName, eventData)
+  })
+  ipcMain.on('popover:measure', (event, popoverId, size) => {
+    getInstance(event)?.popoverManager.applyMeasure(
+      popoverId,
+      size as { width: number; height: number; gutter?: number }
+    )
   })
 
   // 更新状态变更时广播到所有渲染进程窗口

@@ -34,6 +34,7 @@ export interface Message {
   newTab: {
     title: string
     recentHistory: string
+    openInNewTab: string
   }
   bookmark: {
     title: string
@@ -59,6 +60,7 @@ export interface Message {
     zoom: string
   }
   settings: {
+    title: string
     theme: string
     themeModes: {
       light: string
@@ -92,6 +94,8 @@ export interface Message {
     contextOpenInNewTab: string
     contextDelete: string
     visits: string
+    clear: string
+    clearConfirm: string
   }
   proxy: {
     modeRule: string
@@ -195,6 +199,7 @@ export const messages: Record<string, Message> = {
     newTab: {
       title: '新标签页',
       recentHistory: '最近访问',
+      openInNewTab: '在新标签页中打开链接',
     },
     bookmark: {
       title: '书签',
@@ -220,6 +225,7 @@ export const messages: Record<string, Message> = {
       zoom: '100%',
     },
     settings: {
+      title: '设置',
       theme: '主题',
       themeModes: {
         light: '浅色',
@@ -253,6 +259,8 @@ export const messages: Record<string, Message> = {
       contextOpenInNewTab: '在新标签页打开',
       contextDelete: '删除',
       visits: '次访问',
+      clear: '清空记录',
+      clearConfirm: '确定要清空所有历史记录吗？',
     },
     proxy: {
       modeRule: '规则',
@@ -354,6 +362,7 @@ export const messages: Record<string, Message> = {
     newTab: {
       title: 'New Tab',
       recentHistory: 'Recent History',
+      openInNewTab: 'Open links in new tab',
     },
     bookmark: {
       title: 'Bookmarks',
@@ -379,6 +388,7 @@ export const messages: Record<string, Message> = {
       zoom: '100%',
     },
     settings: {
+      title: 'Settings',
       theme: 'Theme',
       themeModes: {
         light: 'Light',
@@ -412,6 +422,8 @@ export const messages: Record<string, Message> = {
       contextOpenInNewTab: 'Open in new tab',
       contextDelete: 'Delete',
       visits: 'visits',
+      clear: 'Clear history',
+      clearConfirm: 'Clear all history records?',
     },
     proxy: {
       modeRule: 'Rule',

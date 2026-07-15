@@ -1,12 +1,7 @@
 <template>
-  <div class="settings-page">
-    <h3>{{ t('settings.navGeneral') }}</h3>
-
+  <PageLayout :title="t('settings.navGeneral')" icon="mdi:cog">
     <div class="settings-group">
-      <label
-        class="settings-label"
-        for="search-engine"
-      >{{ t('settings.searchEngine') }}</label>
+      <label class="settings-label" for="search-engine">{{ t('settings.searchEngine') }}</label>
       <NSelect
         id="search-engine"
         v-model:value="searchEngine"
@@ -16,10 +11,7 @@
     </div>
 
     <div class="settings-group">
-      <label
-        class="settings-label"
-        for="new-tab-url"
-      >{{ t('settings.newTabUrl') }}</label>
+      <label class="settings-label" for="new-tab-url">{{ t('settings.newTabUrl') }}</label>
       <NInput
         id="new-tab-url"
         v-model:value="newTabUrl"
@@ -29,10 +21,7 @@
     </div>
 
     <div class="settings-group">
-      <label
-        class="settings-label"
-        for="default-zoom"
-      >{{ t('settings.defaultZoom') }}</label>
+      <label class="settings-label" for="default-zoom">{{ t('settings.defaultZoom') }}</label>
       <div class="zoom-control">
         <NInputNumber
           id="default-zoom"
@@ -52,23 +41,16 @@
     </div>
 
     <div class="settings-group">
-      <label
-        class="settings-label"
-        for="language"
-      >{{ t('settings.language') }}</label>
-      <NSelect
-        id="language"
-        v-model:value="currentLang"
-        :options="languageOptions"
-        @update:value="saveLanguage()"
-      />
+      <label class="settings-label" for="language">{{ t('settings.language') }}</label>
+      <NSelect id="language" v-model:value="currentLang" :options="languageOptions" @update:value="saveLanguage()" />
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
 import { computed, onMounted, ref, watch } from 'vue'
+import PageLayout from '@/components/PageLayout.vue'
 import { setLang, useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()
@@ -95,8 +77,7 @@ const currentLang = ref('zh-CN')
 async function saveSetting(key: string, value: unknown): Promise<void> {
   try {
     await window.browserAPI.setSetting({ key, value })
-  }
-  catch (err) {
+  } catch (err) {
     console.error(`Failed to save setting ${key}:`, err)
   }
 }
@@ -105,8 +86,7 @@ async function saveLanguage(): Promise<void> {
   try {
     await window.browserAPI.setSetting({ key: 'currentLang', value: currentLang.value })
     setLang(currentLang.value)
-  }
-  catch (err) {
+  } catch (err) {
     console.error('Failed to save language setting:', err)
   }
 }

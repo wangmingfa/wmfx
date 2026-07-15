@@ -1,39 +1,30 @@
 <template>
   <ul class="popover-menu">
-    <template
-      v-for="(item, idx) in items"
-      :key="item.id ?? idx"
-    >
-      <li
-        v-if="item.type === 'separator'"
-        class="popover-divider-item"
-      >
+    <template v-for="(item, idx) in items" :key="item.id ?? idx">
+      <li v-if="item.type === 'separator'" class="popover-divider-item">
         <div class="popover-divider" />
       </li>
       <li
         v-else
         class="popover-menu-item"
-        :class="{ 'disabled': item.disabled, 'danger': item.danger, 'has-submenu': item.type === 'submenu', 'active': item.id === activeId }"
+        :class="{
+          disabled: item.disabled,
+          danger: item.danger,
+          'has-submenu': item.type === 'submenu',
+          active: item.id === activeId,
+        }"
         @mouseenter="emit('hover', item.id)"
         @click="onClick(item)"
       >
-        <Icon
-          v-if="item.icon"
-          :icon="item.icon"
-          class="popover-item-icon"
-          width="16"
-          height="16"
-        />
+        <Icon v-if="item.icon" :icon="item.icon" class="popover-item-icon" width="16" height="16" />
         <span class="popover-item-label">
           <template v-if="item.accessKey && showMnemonics">
-            <u>{{ item.label?.charAt(0) }}</u>{{ item.label?.slice(1) }}
+            <u>{{ item.label?.charAt(0) }}</u>
+            {{ item.label?.slice(1) }}
           </template>
           <template v-else>{{ item.label }}</template>
         </span>
-        <span
-          v-if="item.shortcut"
-          class="popover-item-shortcut"
-        >{{ item.shortcut }}</span>
+        <span v-if="item.shortcut" class="popover-item-shortcut">{{ item.shortcut }}</span>
         <Icon
           v-if="item.type === 'submenu'"
           icon="mdi:chevron-right"
@@ -41,10 +32,7 @@
           width="16"
           height="16"
         />
-        <div
-          v-if="item.type === 'submenu' && openSubIds.has(item.id) && item.children"
-          class="popover-submenu"
-        >
+        <div v-if="item.type === 'submenu' && openSubIds.has(item.id) && item.children" class="popover-submenu">
           <PopoverMenu
             :items="item.children"
             :popover-id="popoverId"
@@ -78,8 +66,7 @@ const emit = defineEmits<{
 }>()
 
 function onClick(item: MenuItem): void {
-  if (item.disabled)
-    return
+  if (item.disabled) return
   if (item.type === 'submenu') {
     emit('hover', item.id)
     return
@@ -89,21 +76,52 @@ function onClick(item: MenuItem): void {
 </script>
 
 <style lang="less" scoped>
-.popover-menu { list-style: none; margin: 0; padding: 0; }
+.popover-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 .popover-menu-item {
   position: relative;
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 16px; min-width: 180px;
-  color: var(--text-primary); font-size: 13px; cursor: pointer;
-  &:hover { background: var(--bg-tertiary); }
-  &.disabled { color: var(--text-secondary); cursor: default; &:hover { background: transparent; } }
-  &.active { background: var(--bg-tertiary); }
-  &.danger { color: var(--danger-color); }
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  min-width: 180px;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  &:hover {
+    background: var(--bg-tertiary);
+  }
+  &.disabled {
+    color: var(--text-secondary);
+    cursor: default;
+    &:hover {
+      background: transparent;
+    }
+  }
+  &.active {
+    background: var(--bg-tertiary);
+  }
+  &.danger {
+    color: var(--danger-color);
+  }
 }
-.popover-item-icon { flex-shrink: 0; }
-.popover-item-label { flex: 1; }
-.popover-item-shortcut { margin-left: auto; color: var(--text-secondary); font-size: 12px; }
-.popover-submenu-arrow { margin-left: auto; }
+.popover-item-icon {
+  flex-shrink: 0;
+}
+.popover-item-label {
+  flex: 1;
+}
+.popover-item-shortcut {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.popover-submenu-arrow {
+  margin-left: auto;
+}
 .popover-submenu {
   position: absolute;
   background: var(--bg-secondary);
@@ -113,5 +131,9 @@ function onClick(item: MenuItem): void {
   padding: 4px 0;
   z-index: 10;
 }
-.popover-divider { height: 1px; margin: 4px 0; background: var(--bg-tertiary); }
+.popover-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--bg-tertiary);
+}
 </style>

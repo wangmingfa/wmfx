@@ -76,3 +76,20 @@ export function initRendererLogger(): void {
 }
 
 initRendererLogger()
+
+/**
+ * 全局错误兜底：同步异常和 Promise rejection 不会经过 console.error，
+ * 需要单独监听，通过已有 log:frontend 通道转发到主进程落盘。
+ */
+window.addEventListener('error', (event: ErrorEvent) => {
+  const msg = event.message || String(event.error ?? 'unknown error')
+  const loc = event.filename ? ` @ ${event.filename}:${event.lineno}:${event.colno}` : ''
+  const stack = event.error instanceof Error ? event.error.stack : ''
+  console.error(`[Uncaught]${loc} ${msg}${stack ? `\n${stack}` : ''}`)
+})
+
+window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
+  const reason = event.reason
+  const msg = reason instanceof Error ? `${reason.message}\n${reason.stack ?? ''}` : String(reason)
+  console.error(`[UnhandledRejection] ${msg}`)
+})

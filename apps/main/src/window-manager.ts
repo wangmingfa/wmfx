@@ -83,6 +83,7 @@ export function createMainWindow(): BrowserWindowInstance {
       sandbox: true,
     },
   })
+  win.webContents.setBackgroundThrottling(false)
 
   const sessionManager = new SessionManager()
   const database = DatabaseManager.getInstance()
@@ -92,18 +93,19 @@ export function createMainWindow(): BrowserWindowInstance {
   const subscriptionRepo = new SubscriptionRepository(database.db)
 
   const historyManager = new HistoryManager(historyRepo)
+  const popoverManager = new PopoverManager(win)
   const tabManager = new TabManager(
     win,
     (name) => sessionManager.getSession(name),
     'default',
     historyManager,
-    settingsManager
+    settingsManager,
+    popoverManager
   )
   const navigationManager = new NavigationManager(tabManager)
   const downloadManager = new DownloadManager(win, downloadRepo, settingsManager)
   const bookmarkManager = new BookmarkManager(bookmarkRepo)
   const subscriptionManager = new SubscriptionManager(subscriptionRepo)
-  const popoverManager = new PopoverManager(win)
 
   const proxyManager = new ProxyManager(
     /** 配置目录放在用户数据目录，而非应用包内，避免只读限制 */

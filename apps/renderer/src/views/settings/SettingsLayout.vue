@@ -1,52 +1,20 @@
 <template>
   <div class="settings-layout">
     <nav class="settings-nav">
-      <RouterLink
-        to="/settings/appearance"
-        class="settings-nav-item"
-      >
-        <Icon
-          icon="mdi:palette"
-          width="18"
-          height="18"
-          class="nav-icon"
-        />
+      <RouterLink to="/settings/appearance" class="settings-nav-item">
+        <Icon icon="mdi:palette" width="18" height="18" class="nav-icon" />
         {{ t('settings.navAppearance') }}
       </RouterLink>
-      <RouterLink
-        to="/settings/general"
-        class="settings-nav-item"
-      >
-        <Icon
-          icon="mdi:cog"
-          width="18"
-          height="18"
-          class="nav-icon"
-        />
+      <RouterLink to="/settings/general" class="settings-nav-item">
+        <Icon icon="mdi:cog" width="18" height="18" class="nav-icon" />
         {{ t('settings.navGeneral') }}
       </RouterLink>
-      <RouterLink
-        to="/settings/downloads"
-        class="settings-nav-item"
-      >
-        <Icon
-          icon="mdi:download"
-          width="18"
-          height="18"
-          class="nav-icon"
-        />
+      <RouterLink to="/settings/downloads" class="settings-nav-item">
+        <Icon icon="mdi:download" width="18" height="18" class="nav-icon" />
         {{ t('settings.navDownloads') }}
       </RouterLink>
-      <RouterLink
-        to="/settings/about"
-        class="settings-nav-item"
-      >
-        <Icon
-          icon="mdi:information"
-          width="18"
-          height="18"
-          class="nav-icon"
-        />
+      <RouterLink to="/settings/about" class="settings-nav-item">
+        <Icon icon="mdi:information" width="18" height="18" class="nav-icon" />
         {{ t('settings.navAbout') }}
       </RouterLink>
     </nav>

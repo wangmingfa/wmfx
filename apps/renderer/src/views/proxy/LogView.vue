@@ -1,20 +1,10 @@
 <template>
   <div class="log-view">
-    <div
-      ref="logContainer"
-      class="log-container"
-    >
-      <div
-        v-if="logs.length === 0"
-        class="empty"
-      >
+    <div ref="logContainer" class="log-container">
+      <div v-if="logs.length === 0" class="empty">
         {{ t('proxy.logsEmpty') }}
       </div>
-      <div
-        v-for="(log, i) in logs"
-        :key="i"
-        class="log-line"
-      >
+      <div v-for="(log, i) in logs" :key="i" class="log-line">
         {{ log }}
       </div>
     </div>

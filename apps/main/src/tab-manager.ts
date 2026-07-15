@@ -1,4 +1,10 @@
-import type { CreateTabOptions, TabState, ViewBounds } from '@browser/ipc-contract'
+import type {
+  CreateTabOptions,
+  MenuItem,
+  PopoverAnchor,
+  TabState,
+  ViewBounds,
+} from '@browser/ipc-contract'
 import {
   internalTitleFromPath,
   isWmfxUrl,
@@ -6,10 +12,18 @@ import {
   wmfxFromActualUrl,
   wmfxPath,
 } from '@browser/shared'
-import { type BrowserWindow, type Session, WebContentsView } from 'electron'
+import {
+  type BrowserWindow,
+  type ContextMenuParams,
+  clipboard,
+  nativeTheme,
+  type Session,
+  WebContentsView,
+} from 'electron'
 import type { HistoryManager } from './history-manager'
 import { loadInternalView } from './internal-url'
 import { getPreloadPath } from './paths'
+import type { PopoverManager } from './popover-manager'
 import type { SettingsManager } from './settings-manager'
 
 export interface TabManagerConfig {
@@ -30,7 +44,8 @@ export class TabManager {
     private getSession: (name: string) => Session,
     private defaultSessionName: string = 'default',
     private historyManager: HistoryManager,
-    private settingsManager: SettingsManager | null = null
+    private settingsManager: SettingsManager | null = null,
+    private popoverManager: PopoverManager
   ) {
     this.windowId = window.id.toString()
     window.on('close', () => this.destroy())
@@ -331,11 +346,21 @@ export class TabManager {
     }
 
     const view = new WebContentsView({ webPreferences })
-    view.setBackgroundColor('#000000')
+    view.setBackgroundColor(this.resolveViewBackgroundColor())
     tab.view = view
 
     this.setupTabListeners(tab)
     this.applyBounds(tab)
+  }
+
+  /**
+   * 解析视图初始背景色，避免刷新/加载时闪烁与主题不符的底色。
+   * 依据当前主题设置（含 system 跟随系统）返回浅色/深色底色。
+   */
+  private resolveViewBackgroundColor(): string {
+    const theme = this.settingsManager?.get('theme') ?? 'system'
+    const isDark = theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors)
+    return isDark ? '#353535' : '#ffffff'
   }
 
   private checkSuspendTabs(): void {
@@ -456,6 +481,141 @@ export class TabManager {
         tab.view.webContents.loadURL(url)
       }
     })
+
+    // 网页右键菜单：外部页无 preload，必须由主进程拦截 context-menu 事件并复用 Popover 渲染
+    wc.on('context-menu', (_event, params) => {
+      this.openWebContextMenu(tab, params)
+    })
+  }
+
+  /** 依据 context-menu 参数构建网页右键菜单项（编辑/链接/图片/导航/检查元素）。 */
+  private buildWebContextItems(tab: Tab, params: ContextMenuParams): MenuItem[] {
+    const wc = tab.view.webContents
+    const items: MenuItem[] = []
+    let sepSeq = 0
+    const sep = (): MenuItem => ({ id: `web-sep-${sepSeq++}`, type: 'separator' })
+    const ef = params.editFlags
+
+    if (params.isEditable) {
+      if (ef.canUndo) items.push({ id: 'web-undo', label: '撤销', icon: 'mdi:undo' })
+      if (ef.canRedo) items.push({ id: 'web-redo', label: '重做', icon: 'mdi:redo' })
+      if (ef.canUndo || ef.canRedo) items.push(sep())
+      if (ef.canCut) items.push({ id: 'web-cut', label: '剪切', icon: 'mdi:content-cut' })
+      if (ef.canCopy) items.push({ id: 'web-copy', label: '复制', icon: 'mdi:content-copy' })
+      if (ef.canPaste) items.push({ id: 'web-paste', label: '粘贴', icon: 'mdi:content-paste' })
+      if (ef.canDelete) items.push({ id: 'web-delete', label: '删除' })
+      if (ef.canCut || ef.canCopy || ef.canPaste || ef.canDelete) items.push(sep())
+      if (ef.canSelectAll)
+        items.push({ id: 'web-select-all', label: '全选', icon: 'mdi:select-all' })
+    } else if (params.selectionText) {
+      items.push({ id: 'web-copy', label: '复制', icon: 'mdi:content-copy' })
+    }
+
+    if (params.linkURL) {
+      items.push({ id: 'web-open-link', label: '在新标签页中打开', icon: 'mdi:open-in-new' })
+      items.push({ id: 'web-copy-link', label: '复制链接地址', icon: 'mdi:link-variant' })
+    }
+
+    if (params.mediaType === 'image' && params.srcURL) {
+      items.push({ id: 'web-open-image', label: '在新标签页中打开图片', icon: 'mdi:image' })
+      items.push({ id: 'web-copy-image-url', label: '复制图片地址', icon: 'mdi:image-outline' })
+      items.push({ id: 'web-save-image', label: '图片另存为', icon: 'mdi:download' })
+    }
+
+    if (items.length) items.push(sep())
+    items.push({
+      id: 'web-back',
+      label: '后退',
+      icon: 'mdi:arrow-left',
+      disabled: !wc.navigationHistory.canGoBack(),
+    })
+    items.push({
+      id: 'web-forward',
+      label: '前进',
+      icon: 'mdi:arrow-right',
+      disabled: !wc.navigationHistory.canGoForward(),
+    })
+    items.push({ id: 'web-reload', label: '重新加载', icon: 'mdi:refresh' })
+    items.push(sep())
+    items.push({ id: 'web-inspect', label: '检查元素', icon: 'mdi:code-tags' })
+
+    return items
+  }
+
+  /** 打开网页右键菜单：把内容坐标转换为窗口坐标作为锚点，主进程直接处理选中动作。 */
+  private openWebContextMenu(tab: Tab, params: ContextMenuParams): void {
+    const items = this.buildWebContextItems(tab, params)
+    const bounds = tab.view.getBounds()
+    const anchor: PopoverAnchor = {
+      type: 'point',
+      x: Math.round(bounds.x + params.x),
+      y: Math.round(bounds.y + params.y),
+    }
+    this.popoverManager.open('web-context-menu', {
+      type: 'menu',
+      anchor,
+      data: { id: 'web-context-menu', items },
+      onSelect: (eventData) => {
+        if (typeof eventData === 'string') {
+          this.handleWebContextAction(tab, params, eventData)
+        }
+      },
+    })
+  }
+
+  /** 执行网页右键菜单的选中动作，全部在主进程操作对应 webContents。 */
+  private handleWebContextAction(tab: Tab, params: ContextMenuParams, id: string): void {
+    const wc = tab.view.webContents
+    switch (id) {
+      case 'web-back':
+        wc.navigationHistory.goBack()
+        break
+      case 'web-forward':
+        wc.navigationHistory.goForward()
+        break
+      case 'web-reload':
+        wc.reload()
+        break
+      case 'web-undo':
+        wc.undo()
+        break
+      case 'web-redo':
+        wc.redo()
+        break
+      case 'web-cut':
+        wc.cut()
+        break
+      case 'web-copy':
+        wc.copy()
+        break
+      case 'web-paste':
+        wc.paste()
+        break
+      case 'web-delete':
+        wc.delete()
+        break
+      case 'web-select-all':
+        wc.selectAll()
+        break
+      case 'web-open-link':
+        if (params.linkURL) this.create({ url: params.linkURL, sessionId: tab.sessionId })
+        break
+      case 'web-copy-link':
+        if (params.linkURL) clipboard.writeText(params.linkURL)
+        break
+      case 'web-open-image':
+        if (params.srcURL) this.create({ url: params.srcURL, sessionId: tab.sessionId })
+        break
+      case 'web-copy-image-url':
+        if (params.srcURL) clipboard.writeText(params.srcURL)
+        break
+      case 'web-save-image':
+        if (params.srcURL) wc.downloadURL(params.srcURL)
+        break
+      case 'web-inspect':
+        wc.inspectElement(params.x, params.y)
+        break
+    }
   }
 
   private buildTabState(tab: Tab): TabState {

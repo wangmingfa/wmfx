@@ -1,12 +1,7 @@
 <template>
-  <div class="settings-page">
-    <h3>{{ t('settings.navDownloads') }}</h3>
-
+  <PageLayout :title="t('settings.navDownloads')" icon="mdi:download">
     <div class="settings-group">
-      <label
-        class="settings-label"
-        for="download-path"
-      >{{ t('settings.downloadPath') }}</label>
+      <label class="settings-label" for="download-path">{{ t('settings.downloadPath') }}</label>
       <NInput
         id="download-path"
         v-model:value="downloadPath"
@@ -14,12 +9,13 @@
         @update:value="saveSetting('downloadPath', $event)"
       />
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { NInput } from 'naive-ui'
 import { onMounted, ref } from 'vue'
+import PageLayout from '@/components/PageLayout.vue'
 import { useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()
@@ -29,8 +25,7 @@ const downloadPath = ref('')
 async function saveSetting(key: string, value: unknown): Promise<void> {
   try {
     await window.browserAPI.setSetting({ key, value })
-  }
-  catch (err) {
+  } catch (err) {
     console.error(`Failed to save setting ${key}:`, err)
   }
 }

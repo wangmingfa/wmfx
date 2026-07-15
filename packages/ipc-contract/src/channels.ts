@@ -4,7 +4,27 @@
  * 后续里程碑在此扩展（tab:*, nav:*, proxy:* ...）。
  */
 
-export type PopoverKind = 'menu' // 后续扩展 'command-palette' | 'panel'
+/** Popover 类型：menu=下拉菜单, addressbar=地址栏建议面板 */
+export type PopoverType = 'menu' | 'addressbar'
+
+/** Popover 显示模式：overlay=铺满窗口阻断交互；bounded=仅覆盖内容区、非阻断、失焦关闭 */
+export type PopoverMode = 'overlay' | 'bounded'
+
+/** Popover 事件：面板 → 主 renderer */
+export interface PopoverEventPayload {
+  popoverId: string
+  eventName: string
+  eventData?: unknown
+}
+
+/** Popover 打开参数 */
+export interface PopoverOpenOptions {
+  type: PopoverType
+  anchor: PopoverAnchor
+  data?: unknown
+  mode?: PopoverMode
+  size?: { width?: number; height?: number }
+}
 
 export type PopoverPlacement =
   | 'bottom-start'
@@ -13,6 +33,8 @@ export type PopoverPlacement =
   | 'top-end'
   | 'right-start'
   | 'left-start'
+  | 'cover-start' // 视图左上角对齐锚点 rect 左上角（覆盖在元素上，向下延伸）
+  | 'cover-end' // 视图右上角对齐锚点 rect 右上角
 
 /** 锚点：触发元素的窗口局部坐标，getBoundingClientRect 直传 */
 export type PopoverAnchor =
@@ -33,18 +55,6 @@ export interface MenuItem {
   disabled?: boolean
   danger?: boolean // 危险操作红色样式（如关闭标签页）
   children?: MenuItem[] // submenu -> 递归即多级菜单
-}
-
-export interface PopoverDescriptor {
-  id: string // 逻辑菜单 id，如 'tab-context' / 'app-menu'
-  kind: PopoverKind
-  items: MenuItem[]
-}
-
-/** 动作回调接收的参数 */
-export interface PopoverActionPayload {
-  menu: MenuItem
-  context: { close: () => void }
 }
 
 export interface TabState {
@@ -394,16 +404,23 @@ export interface IpcContract {
   'updater:check': () => void
   'updater:getStatus': () => UpdaterStatus
   // Popover
-  'popover:open': (popoverId: string, anchor: PopoverAnchor, descriptor: PopoverDescriptor) => void
+  'popover:open': (popoverId: string, options: PopoverOpenOptions) => void
   'popover:close': (popoverId: string) => void
-  'popover:select': (popoverId: string, itemId: string) => void
+  'popover:data': (popoverId: string, data: unknown) => void
+  'popover:panel-event': (payload: PopoverEventPayload) => void
+  'popover:event': (payload: PopoverEventPayload) => void
   'popover:render': (
     popoverId: string,
-    descriptor: PopoverDescriptor,
-    anchor: PopoverAnchor
+    type: PopoverType,
+    anchor: PopoverAnchor,
+    data?: unknown,
+    mode?: PopoverMode
+  ) => void
+  'popover:measure': (
+    popoverId: string,
+    size: { width: number; height: number; gutter?: number }
   ) => void
   'popover:dismiss': (popoverId: string) => void
-  'popover:action': (payload: { popoverId: string; menu: MenuItem }) => void
 }
 
 export type IpcChannel = keyof IpcContract
@@ -504,10 +521,11 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   // Popover
   'popover:open',
   'popover:close',
-  'popover:select',
+  'popover:data',
+  'popover:panel-event',
+  'popover:event',
   'popover:render',
   'popover:dismiss',
-  'popover:action',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {

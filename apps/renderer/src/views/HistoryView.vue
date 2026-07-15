@@ -1,30 +1,21 @@
 <template>
-  <div class="history-view">
-    <div class="history-header">
-      <h2>{{ t('history.title') }}</h2>
-      <span class="history-count">{{ historyItems.length }}</span>
-    </div>
+  <PageLayout
+    v-model:search="searchQuery"
+    :title="`${t('history.title')} (${historyItems.length})`"
+    icon="mdi:history"
+    :search-placeholder="t('history.placeholder')"
+  >
+    <template #actions>
+      <button class="btn btn-sm" @click="handleClear">
+        {{ t('history.clear') }}
+      </button>
+    </template>
 
-    <div class="history-search">
-      <input
-        v-model="searchQuery"
-        type="text"
-        :placeholder="t('history.placeholder')"
-        @input="debouncedSearch"
-      >
-    </div>
-
-    <div
-      v-if="historyItems.length === 0"
-      class="history-empty"
-    >
+    <div v-if="historyItems.length === 0" class="history-empty">
       <p>{{ t('history.empty') }}</p>
     </div>
 
-    <ul
-      v-else
-      class="history-list"
-    >
+    <ul v-else class="history-list">
       <li
         v-for="item in historyItems"
         :key="item.id"
@@ -38,11 +29,8 @@
             :alt="item.title || item.url"
             class="history-favicon"
             @error="handleFaviconError"
-          >
-          <div
-            v-else
-            class="history-favicon-placeholder"
-          >
+          />
+          <div v-else class="history-favicon-placeholder">
             {{ getDomain(item.url) }}
           </div>
         </div>
@@ -81,14 +69,15 @@
         </li>
       </ul>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import type { HistoryItem } from '@browser/ipc-contract'
 
-import { onMounted, onUnmounted, ref } from 'vue'
-import { useI18n } from '../composables/useI18n'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
+import PageLayout from '@/components/PageLayout.vue'
+import { useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()
 
@@ -128,18 +117,25 @@ function debouncedSearch() {
   searchTimer = setTimeout(async () => {
     if (searchQuery.value.trim()) {
       historyItems.value = await window.browserAPI.searchHistory({ query: searchQuery.value })
-    }
-    else {
+    } else {
       await loadHistory()
     }
   }, 300)
 }
 
+watch(searchQuery, debouncedSearch)
+
+async function handleClear() {
+  // eslint-disable-next-line no-alert
+  if (!confirm(t('history.clearConfirm'))) return
+  await window.browserAPI.clearHistory()
+  await loadHistory()
+}
+
 function getDomain(url: string): string {
   try {
     return new URL(url).hostname
-  }
-  catch {
+  } catch {
     return url
   }
 }
@@ -150,18 +146,14 @@ function formatVisitTime(visitTime: number): string {
   const diffMs = now.getTime() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
 
-  if (diffMins < 1)
-    return 'just now'
-  if (diffMins < 60)
-    return `${diffMins}m ago`
+  if (diffMins < 1) return 'just now'
+  if (diffMins < 60) return `${diffMins}m ago`
 
   const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24)
-    return `${diffHours}h ago`
+  if (diffHours < 24) return `${diffHours}h ago`
 
   const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7)
-    return `${diffDays}d ago`
+  if (diffDays < 7) return `${diffDays}d ago`
 
   return date.toLocaleDateString()
 }
@@ -172,15 +164,13 @@ function handleFaviconError(event: Event) {
 }
 
 async function openInNewTab() {
-  if (!contextMenu.value.item)
-    return
+  if (!contextMenu.value.item) return
   await window.browserAPI.createTab({ url: contextMenu.value.item.url })
   hideContextMenu()
 }
 
 async function deleteItem() {
-  if (!contextMenu.value.item)
-    return
+  if (!contextMenu.value.item) return
   await window.browserAPI.deleteHistory(contextMenu.value.item.id)
   hideContextMenu()
   await loadHistory()
@@ -202,57 +192,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.history-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 16px;
-  background: var(--bg-primary, #1a1a2e);
-  color: var(--text-primary, #e0e0e0);
-}
-
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.history-header h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.history-count {
-  font-size: 13px;
-  color: var(--text-muted, #888);
-}
-
-.history-search {
-  margin-bottom: 16px;
-}
-
-.history-search input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color, #333);
-  border-radius: 6px;
-  background: var(--bg-secondary, #16213e);
-  color: var(--text-primary, #e0e0e0);
-  font-size: 14px;
-  outline: none;
-  box-sizing: border-box;
-}
-
-.history-search input::placeholder {
-  color: var(--text-muted, #888);
-}
-
-.history-search input:focus {
-  border-color: var(--color-primary, #4361ee);
-}
-
 .history-empty {
   display: flex;
   justify-content: center;
@@ -344,6 +283,22 @@ onUnmounted(() => {
 
 .visit-count {
   color: var(--color-primary, #4361ee);
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--bg-secondary, #16213e);
+  color: var(--text-primary, #e0e0e0);
+  border: 1px solid var(--border-color, #333);
+  transition: opacity 0.2s;
+}
+
+.btn-sm:hover {
+  opacity: 0.8;
 }
 
 .context-menu {

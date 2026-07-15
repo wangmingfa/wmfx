@@ -1,27 +1,11 @@
 <template>
-  <div class="downloads-view">
-    <div class="downloads-header">
-      <h2>{{ t('downloads.title') }}</h2>
-      <span class="downloads-count">{{ downloads.length }}</span>
-    </div>
-
-    <div
-      v-if="downloads.length === 0"
-      class="downloads-empty"
-    >
+  <PageLayout :title="`${t('downloads.title')} (${downloads.length})`" icon="mdi:download">
+    <div v-if="downloads.length === 0" class="downloads-empty">
       <p>{{ t('downloads.empty') }}</p>
     </div>
 
-    <ul
-      v-else
-      class="downloads-list"
-    >
-      <li
-        v-for="item in downloads"
-        :key="item.id"
-        class="download-item"
-        :class="item.state"
-      >
+    <ul v-else class="downloads-list">
+      <li v-for="item in downloads" :key="item.id" class="download-item" :class="item.state">
         <div class="download-info">
           <div class="download-name">
             {{ item.filename }}
@@ -33,34 +17,20 @@
 
         <div class="download-progress">
           <div class="progress-bar">
-            <div
-              class="progress-fill"
-              :style="{ width: `${progressPercent(item)}%` }"
-            />
+            <div class="progress-fill" :style="{ width: `${progressPercent(item)}%` }" />
           </div>
           <span class="progress-text">{{ formatBytes(item) }}</span>
         </div>
 
         <div class="download-actions">
-          <span
-            class="state-badge"
-            :class="item.state"
-          >
+          <span class="state-badge" :class="item.state">
             {{ stateLabel(item.state) }}
           </span>
 
-          <button
-            v-if="item.state === 'paused'"
-            class="btn btn-sm"
-            @click="handleResume(item.id)"
-          >
+          <button v-if="item.state === 'paused'" class="btn btn-sm" @click="handleResume(item.id)">
             {{ t('downloads.resume') }}
           </button>
-          <button
-            v-if="item.state === 'downloading'"
-            class="btn btn-sm"
-            @click="handlePause(item.id)"
-          >
+          <button v-if="item.state === 'downloading'" class="btn btn-sm" @click="handlePause(item.id)">
             {{ t('downloads.pause') }}
           </button>
           <button
@@ -72,21 +42,19 @@
           </button>
         </div>
 
-        <div
-          v-if="item.errorMsg"
-          class="download-error"
-        >
+        <div v-if="item.errorMsg" class="download-error">
           {{ item.errorMsg }}
         </div>
       </li>
     </ul>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import type { DownloadItem, DownloadState } from '@browser/ipc-contract'
 
 import { onMounted, onUnmounted, ref } from 'vue'
+import PageLayout from '@/components/PageLayout.vue'
 import { useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()
@@ -98,8 +66,7 @@ async function loadDownloads() {
 }
 
 function progressPercent(item: DownloadItem): number {
-  if (!item.totalBytes || item.totalBytes === 0)
-    return 0
+  if (!item.totalBytes || item.totalBytes === 0) return 0
   return Math.round((item.receivedBytes / item.totalBytes) * 100)
 }
 
@@ -129,7 +96,8 @@ function stateLabel(state: DownloadItem['state']): string {
   return labels[state] || state
 }
 
-let progressHandler: ((data: { id: string, state: string, receivedBytes: number, totalBytes: number }) => void) | null = null
+let progressHandler: ((data: { id: string; state: string; receivedBytes: number; totalBytes: number }) => void) | null =
+  null
 
 async function handlePause(id: string) {
   await window.browserAPI.pauseDownload(id)
@@ -149,7 +117,7 @@ async function handleCancel(id: string) {
 onMounted(async () => {
   await loadDownloads()
   progressHandler = (data) => {
-    const idx = downloads.value.findIndex(d => d.id === data.id)
+    const idx = downloads.value.findIndex((d) => d.id === data.id)
     if (idx !== -1) {
       const item = downloads.value[idx]
       downloads.value[idx] = {
@@ -171,33 +139,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.downloads-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 16px;
-  background: var(--bg-primary, #1a1a2e);
-  color: var(--text-primary, #e0e0e0);
-}
-
-.downloads-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.downloads-header h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.downloads-count {
-  font-size: 13px;
-  color: var(--text-muted, #888);
-}
-
 .downloads-empty {
   display: flex;
   justify-content: center;

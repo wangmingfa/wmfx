@@ -1,24 +1,19 @@
 <template>
-  <div class="settings-page">
-    <h3>{{ t('about.updates') }}</h3>
-
+  <PageLayout :title="t('settings.navAbout')" icon="mdi:information">
     <div class="settings-group">
-      <button
-        class="settings-button"
-        :disabled="updating"
-        @click="checkUpdates"
-      >
+      <button class="settings-button" :disabled="updating" @click="checkUpdates">
         {{ updating ? t('about.checking') : t('about.checkForUpdates') }}
       </button>
       <p class="update-status">
         {{ updateText }}
       </p>
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import PageLayout from '@/components/PageLayout.vue'
 import { useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()
@@ -26,7 +21,7 @@ const { t } = useI18n()
 const updateText = ref(t('about.upToDate'))
 const updating = ref(false)
 
-function statusToText(status: { state: string, percent?: number, info?: { version: string } }): string {
+function statusToText(status: { state: string; percent?: number; info?: { version: string } }): string {
   switch (status.state) {
     case 'checking':
       return t('about.checking')
@@ -49,13 +44,12 @@ async function checkUpdates(): Promise<void> {
   updating.value = true
   try {
     await window.browserAPI.checkForUpdates()
-  }
-  finally {
+  } finally {
     updating.value = false
   }
 }
 
-function handleUpdaterStatus(status: { state: string, percent?: number, info?: { version: string } }): void {
+function handleUpdaterStatus(status: { state: string; percent?: number; info?: { version: string } }): void {
   updateText.value = statusToText(status)
 }
 

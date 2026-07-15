@@ -10,10 +10,10 @@
 </template>
 
 <script setup lang="ts">
-import type { MenuItem, PopoverDescriptor } from '@browser/ipc-contract'
+import type { MenuItem } from '@browser/ipc-contract'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from '../composables/useI18n'
-import { Popover } from '../lib/popover'
+import { DropdownMenu } from '../lib/dropdown-menu'
 import IconButton from './ui/IconButton.vue'
 
 const { t } = useI18n()
@@ -34,10 +34,14 @@ function openMenu(event: MouseEvent): void {
   event.stopPropagation()
   isOpen.value = true
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const descriptor: PopoverDescriptor = { id: 'app-menu', kind: 'menu', items: menuItems.value }
-  void new Popover({
-    anchor: { type: 'rect', rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height }, placement: 'bottom-end' },
-    descriptor,
+  void new DropdownMenu({
+    mode: 'bounded',
+    anchor: {
+      type: 'rect',
+      rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
+      placement: 'bottom-end',
+    },
+    descriptor: { id: 'app-menu', items: menuItems.value },
     onAction: ({ menu, context }) => {
       void runMenuItem(menu.id)
       context.close()
@@ -51,11 +55,10 @@ async function runMenuItem(id: string): Promise<void> {
     return
   }
   const list = await window.browserAPI.getList()
-  const existing = list.find(t => t.url === id || t.url.startsWith(`${id}/`))
+  const existing = list.find((t) => t.url === id || t.url.startsWith(`${id}/`))
   if (existing) {
     window.browserAPI.activateTab(existing.id)
-  }
-  else {
+  } else {
     window.browserAPI.createTab({ url: id })
   }
 }

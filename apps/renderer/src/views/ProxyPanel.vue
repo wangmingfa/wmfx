@@ -1,6 +1,6 @@
 <template>
-  <div class="proxy-panel">
-    <div class="proxy-header">
+  <PageLayout :title="t('appMenu.proxy')" icon="mdi:network" :body-scroll="false">
+    <template #search>
       <div class="proxy-tabs">
         <button
           v-for="tab in tabs"
@@ -12,25 +12,26 @@
           {{ tab.label }}
         </button>
       </div>
-      <button
-        class="proxy-toggle"
-        :class="{ on: proxyRunning }"
-        @click="toggleProxy"
-      >
+    </template>
+
+    <template #actions>
+      <button class="proxy-toggle" :class="{ on: proxyRunning }" @click="toggleProxy">
         {{ proxyRunning ? t('proxy.on') : t('proxy.off') }}
       </button>
-    </div>
+    </template>
+
     <div class="proxy-content">
       <NodeView @go-subscriptions="activeTab = 'subscriptions'" />
       <SubscriptionView v-show="activeTab === 'subscriptions'" />
       <TrafficView v-show="activeTab === 'traffic'" />
       <LogView v-show="activeTab === 'logs'" />
     </div>
-  </div>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import PageLayout from '@/components/PageLayout.vue'
 import { useI18n } from '@/composables/useI18n'
 import LogView from './proxy/LogView.vue'
 import NodeView from './proxy/NodeView.vue'
@@ -51,8 +52,7 @@ const proxyRunning = ref(false)
 async function toggleProxy(): Promise<void> {
   if (proxyRunning.value) {
     await window.browserAPI.stopProxy()
-  }
-  else {
+  } else {
     await window.browserAPI.startProxy()
   }
   await checkStatus()
@@ -67,36 +67,19 @@ onMounted(checkStatus)
 </script>
 
 <style scoped>
-.proxy-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.proxy-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 8px;
-}
-
 .proxy-tabs {
   display: flex;
-  flex: 1;
   gap: 2px;
 }
 
 .proxy-tab {
-  flex: 1;
-  padding: 6px 4px;
+  padding: 6px 16px;
   border: none;
   border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 13px;
   text-align: center;
 }
 
@@ -110,7 +93,7 @@ onMounted(checkStatus)
 }
 
 .proxy-content {
-  flex: 1;
+  height: 100%;
   overflow-y: auto;
 }
 

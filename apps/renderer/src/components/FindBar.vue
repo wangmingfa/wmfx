@@ -1,8 +1,5 @@
 <template>
-  <div
-    class="find-bar"
-    :class="{ visible: isVisible }"
-  >
+  <div class="find-bar" :class="{ visible: isVisible }">
     <input
       ref="inputRef"
       v-model="searchText"
@@ -11,39 +8,16 @@
       @keydown.enter="findNext"
       @keydown.esc="close"
       @input="onInput"
-    >
+    />
     <span class="find-counter">{{ matches > 0 ? `${activeMatch + 1}/${matches}` : '0/0' }}</span>
-    <button
-      class="find-btn"
-      :disabled="matches === 0"
-      @click="findPrevious"
-    >
-      <Icon
-        icon="ic:round-keyboard-arrow-up"
-        width="18"
-        height="18"
-      />
+    <button class="find-btn" :disabled="matches === 0" @click="findPrevious">
+      <Icon icon="ic:round-keyboard-arrow-up" width="18" height="18" />
     </button>
-    <button
-      class="find-btn"
-      :disabled="matches === 0"
-      @click="findNext"
-    >
-      <Icon
-        icon="ic:round-keyboard-arrow-down"
-        width="18"
-        height="18"
-      />
+    <button class="find-btn" :disabled="matches === 0" @click="findNext">
+      <Icon icon="ic:round-keyboard-arrow-down" width="18" height="18" />
     </button>
-    <button
-      class="find-btn close-btn"
-      @click="close"
-    >
-      <Icon
-        icon="ic:sharp-close"
-        width="20"
-        height="20"
-      />
+    <button class="find-btn close-btn" @click="close">
+      <Icon icon="ic:sharp-close" width="20" height="20" />
     </button>
   </div>
 </template>
@@ -69,8 +43,7 @@ function onInput(): void {
   const text = searchText.value
   if (text) {
     window.browserAPI.startFind({ tabId: props.tabId, searchText: text })
-  }
-  else {
+  } else {
     window.browserAPI.endFind(props.tabId)
   }
 }
@@ -98,7 +71,7 @@ function open(): void {
   })
 }
 
-function onFoundInPage(data: { matches: number, activeMatch: number, tabId: string }): void {
+function onFoundInPage(data: { matches: number; activeMatch: number; tabId: string }): void {
   if (data.tabId === props.tabId) {
     matches.value = data.matches
     activeMatch.value = data.activeMatch
@@ -112,8 +85,7 @@ onMounted(() => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
       e.preventDefault()
       open()
-    }
-    else if (e.key === 'Escape' && isVisible.value) {
+    } else if (e.key === 'Escape' && isVisible.value) {
       e.preventDefault()
       close()
     }
@@ -143,7 +115,9 @@ onUnmounted(() => {
   z-index: 1000;
   opacity: 0;
   transform: translateY(-8px);
-  transition: opacity 0.2s, transform 0.2s;
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
   pointer-events: none;
 }
 
