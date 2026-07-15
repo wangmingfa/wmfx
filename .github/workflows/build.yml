@@ -1,30 +1,44 @@
-name: Build & Release
+name: Build
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
 
 jobs:
   build:
-    name: Build ${{ matrix.os }} / ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
-            args: --mac --x64
-          - os: macos-latest
-            args: --mac --arm64
-          - os: windows-latest
-            args: --win --x64
-          - os: windows-latest
-            args: --win --arm64
           - os: ubuntu-latest
-            args: --linux --x64
-          - os: ubuntu-latest
-            args: --linux --arm64
+            target: linux
+            arch: x64
+            build-cmd: bun run package:linux
+            artifact: wmfx-linux
+
+          - os: macos-14
+            target: mac
+            arch: x64
+            build-cmd: bun run package:mac
+            artifact: wmfx-mac-x64
+
+          - os: macos-latest
+            target: mac
+            arch: arm64
+            build-cmd: bun run package:mac
+            artifact: wmfx-mac-arm64
+
+          - os: windows-latest
+            target: win
+            arch: x64
+            build-cmd: bun run package:win
+            artifact: wmfx-win
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -34,26 +48,30 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Cache bun install
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - name: Install dependencies
-        # 跳过原生编译；electron-builder 打包时 electron-rebuild 会按需重建
-        run: bun install --frozen-lockfile --ignore-scripts
+        run: bun install --ignore-scripts
 
-      - name: Build app bundles
-        run: bun run build
-
-      - name: Sync version from git tag
-        # electron-builder 以 package.json 的 version 作为发布版本号，
-        # 需将 tag（如 v1.2.3）同步进根 package.json，避免每次都发布为 0.0.0
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          node -e "const fs=require('fs');const p='package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version='${VERSION}';fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
-
-      - name: Download Mihomo cores (best-effort)
-        # 内核二进制随包分发（extraResources）；下载失败不阻塞打包
+      - name: Download mihomo binary
         run: bun run download:cores
-        continue-on-error: true
 
-      - name: Build & publish to GitHub Releases
+      - name: Package & publish
+        run: ${{ matrix.build-cmd }} --publish always
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun x electron-builder ${{ matrix.args }} --publish always
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist-pack/
+          retention-days: 30

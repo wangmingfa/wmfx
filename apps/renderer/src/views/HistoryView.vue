@@ -1,7 +1,7 @@
 <template>
   <div class="history-view">
     <div class="history-header">
-      <h2>History</h2>
+      <h2>{{ t('history.title') }}</h2>
       <span class="history-count">{{ historyItems.length }}</span>
     </div>
 
@@ -9,7 +9,7 @@
       <input
         v-model="searchQuery"
         type="text"
-        placeholder="Search history..."
+        :placeholder="t('history.placeholder')"
         @input="debouncedSearch"
       >
     </div>
@@ -18,7 +18,7 @@
       v-if="historyItems.length === 0"
       class="history-empty"
     >
-      <p>No history</p>
+      <p>{{ t('history.empty') }}</p>
     </div>
 
     <ul
@@ -56,7 +56,7 @@
           </div>
           <div class="history-item-meta">
             <span>{{ formatVisitTime(item.visitTime) }}</span>
-            <span class="visit-count">{{ item.visitCount }} visits</span>
+            <span class="visit-count">{{ item.visitCount }}{{ t('history.visits') }}</span>
           </div>
         </div>
       </li>
@@ -74,10 +74,10 @@
     >
       <ul>
         <li @click="openInNewTab">
-          在新标签页打开
+          {{ t('history.contextOpenInNewTab') }}
         </li>
         <li @click="deleteItem">
-          删除
+          {{ t('history.contextDelete') }}
         </li>
       </ul>
     </div>
@@ -88,6 +88,9 @@
 import type { HistoryItem } from '@browser/ipc-contract'
 
 import { onMounted, onUnmounted, ref } from 'vue'
+import { useI18n } from '../composables/useI18n'
+
+const { t } = useI18n()
 
 const historyItems = ref<HistoryItem[]>([])
 const searchQuery = ref('')

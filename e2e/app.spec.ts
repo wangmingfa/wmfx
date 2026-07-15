@@ -72,7 +72,7 @@ test.beforeEach(async () => {
     }
   })
   await expect(page.locator('.tab-item')).toHaveCount(1, { timeout: 15000 })
-  await expect(page.locator('.url-input')).toHaveValue('wmfx://newtab', {
+  await expect(page.locator('.url-input')).toHaveValue('', {
     timeout: 15000,
   })
 })
@@ -164,8 +164,8 @@ test('app menu opens and closes', async () => {
   await expect(page.locator('.app-menu-dropdown')).toHaveCount(0)
 })
 
-test('default new tab shows wmfx://newtab address', async () => {
-  await expect(page.locator('.url-input')).toHaveValue('wmfx://newtab')
+test('default new tab shows empty address bar', async () => {
+  await expect(page.locator('.url-input')).toHaveValue('')
 })
 
 test('find bar opens on Ctrl+F', async () => {
@@ -250,4 +250,29 @@ test('session state is saved on quit and restored on restart', async () => {
     async () => (await window.browserAPI.getList()).length,
   )
   expect(restored).toBe(3)
+})
+
+test('address bar clears when navigating to new tab from external page', async () => {
+  // Navigate to a settings page (non-newtab internal URL)
+  await page.locator('.url-input').fill('wmfx://settings')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.url-input')).toHaveValue('wmfx://settings/appearance')
+
+  // Navigate to newtab — address bar should be empty
+  await page.locator('.url-input').fill('wmfx://newtab')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.url-input')).toHaveValue('')
+})
+
+test('address bar updates when navigating to a non-newtab internal page', async () => {
+  await page.locator('.url-input').fill('wmfx://proxy')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.url-input')).toHaveValue('wmfx://proxy')
+})
+
+test('new tab button triggers address bar focus', async () => {
+  await page.locator('.tab-new').click()
+  await expect(page.locator('.tab-item')).toHaveCount(2)
+  // After creating new tab, address bar should be empty (new tab)
+  await expect(page.locator('.url-input')).toHaveValue('')
 })

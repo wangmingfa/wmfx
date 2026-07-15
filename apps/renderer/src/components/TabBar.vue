@@ -99,7 +99,7 @@
       icon="carbon:overflow-menu-vertical"
       :size="18"
       :active="appMenuOpen"
-      title="菜单"
+      :title="t('tab.menu')"
       @click.stop="openAppMenu"
     />
     <div
@@ -143,12 +143,15 @@
 <script setup lang="ts">
 import type { MenuItem, PopoverAnchor, PopoverDescriptor, TabState } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { requestAddressBarFocus } from '../composables/useAddressBarFocus'
+import { useI18n } from '../composables/useI18n'
 import { Popover } from '../lib/popover'
 import { isMacOS } from '../utils/os'
 import DefaultFavicon from './DefaultFavicon.vue'
 import IconButton from './ui/IconButton.vue'
+
+const { t } = useI18n()
 
 const tabs = ref<TabState[]>([])
 const tabBarRef = ref<HTMLElement>()
@@ -173,20 +176,20 @@ const tabItemBorderRadius = 5
 const tabItemBorderRadiusWithPx = `${tabItemBorderRadius}px`
 const tabItemBackgroundBorderRadius = tabItemBorderRadius * 1.2
 
-const appMenuItems: MenuItem[] = [
-  { id: 'incognito', label: '新建隐身标签页', icon: 'mdi:account-off' },
-  { id: 'wmfx://bookmarks', label: '书签', icon: 'mdi:bookmark' },
-  { id: 'wmfx://history', label: '历史', icon: 'mdi:history' },
-  { id: 'wmfx://downloads', label: '下载', icon: 'mdi:download' },
-  { id: 'wmfx://proxy', label: '代理', icon: 'mdi:network' },
-  { id: 'wmfx://settings', label: '设置', icon: 'mdi:cog' },
-]
+const appMenuItems = computed<MenuItem[]>(() => [
+  { id: 'incognito', label: t('appMenu.incognito'), icon: 'mdi:account-off' },
+  { id: 'wmfx://bookmarks', label: t('appMenu.bookmarks'), icon: 'mdi:bookmark' },
+  { id: 'wmfx://history', label: t('appMenu.history'), icon: 'mdi:history' },
+  { id: 'wmfx://downloads', label: t('appMenu.downloads'), icon: 'mdi:download' },
+  { id: 'wmfx://proxy', label: t('appMenu.proxy'), icon: 'mdi:network' },
+  { id: 'wmfx://settings', label: t('appMenu.settings'), icon: 'mdi:cog' },
+])
 
 function openAppMenu(event: MouseEvent): void {
   event.stopPropagation()
   appMenuOpen.value = true
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const descriptor: PopoverDescriptor = { id: 'app-menu', kind: 'menu', items: appMenuItems }
+  const descriptor: PopoverDescriptor = { id: 'app-menu', kind: 'menu', items: appMenuItems.value }
   void new Popover({
     anchor: { type: 'rect', rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height }, placement: 'bottom-end' },
     descriptor,
@@ -223,17 +226,17 @@ function openTabContextMenu(event: MouseEvent, tab: TabState): void {
     id: 'tab-context',
     kind: 'menu',
     items: [
-      { id: 'new-tab-right', label: '在右侧新增标签页', icon: 'mdi:plus' },
+      { id: 'new-tab-right', label: t('tab.closeRight'), icon: 'mdi:plus' },
       { id: 'sep-1', type: 'separator' },
-      { id: 'reload', label: '重新加载', icon: 'mdi:refresh' },
-      { id: 'duplicate', label: '复制', icon: 'mdi:content-copy' },
-      { id: 'pin', label: tab.isPinned ? '取消固定' : '固定', icon: 'mdi:pin' },
-      { id: 'mute', label: tab.isMuted ? '取消静音' : '将这个网站静音', icon: tab.isMuted ? 'mdi:volume-off' : 'mdi:volume-high' },
+      { id: 'reload', label: t('tab.reload'), icon: 'mdi:refresh' },
+      { id: 'duplicate', label: t('tab.duplicate'), icon: 'mdi:content-copy' },
+      { id: 'pin', label: tab.isPinned ? t('tab.unpinned') : t('tab.pinned'), icon: 'mdi:pin' },
+      { id: 'mute', label: tab.isMuted ? t('tab.unmute') : t('tab.mute'), icon: tab.isMuted ? 'mdi:volume-off' : 'mdi:volume-high' },
       { id: 'sep-2', type: 'separator' },
-      { id: 'close', label: '关闭', icon: 'mdi:close', danger: true },
-      { id: 'close-others', label: '关闭其它标签页', icon: 'mdi:close-box-multiple' },
-      { id: 'close-left', label: '关闭左侧标签页', icon: 'mdi:arrow-left-bold-box-outline' },
-      { id: 'close-right', label: '关闭右侧标签页', icon: 'mdi:arrow-right-bold-box-outline' },
+      { id: 'close', label: t('tab.close'), icon: 'mdi:close', danger: true },
+      { id: 'close-others', label: t('tab.closeOthers'), icon: 'mdi:close-box-multiple' },
+      { id: 'close-left', label: t('tab.closeLeft'), icon: 'mdi:arrow-left-bold-box-outline' },
+      { id: 'close-right', label: t('tab.closeRightTabs'), icon: 'mdi:arrow-right-bold-box-outline' },
     ],
   }
   void new Popover({

@@ -1,13 +1,14 @@
-name: CI
+name: E2E
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
-  ci:
+  e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,11 +28,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bun-
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/playwright.config.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install dependencies
         run: bun install
 
-      - name: Lint
-        run: bun run lint
+      - name: Install Playwright
+        run: bun x playwright install --with-deps
 
-      - name: Unit tests
-        run: bun run test
+      - name: Build
+        run: bun run build
+
+      - name: E2E tests
+        run: bun run test:e2e

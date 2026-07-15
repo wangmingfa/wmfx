@@ -27,7 +27,7 @@
         ref="inputRef"
         v-model="urlInput"
         class="url-input"
-        placeholder="Enter URL"
+        :placeholder="t('addressBar.placeholder')"
         @focus="onFocus"
         @blur="onBlur"
         @keydown.enter="navigate"
@@ -65,6 +65,7 @@ import { Icon } from '@iconify/vue'
 import { onMounted, ref, watch } from 'vue'
 
 import { useAddressBarFocus } from '../composables/useAddressBarFocus'
+import { useI18n } from '../composables/useI18n'
 import Autocomplete from './Autocomplete.vue'
 import IconButton from './ui/IconButton.vue'
 
@@ -81,6 +82,7 @@ const emit = defineEmits<{
 }>()
 
 const iconSize = 18
+const { t } = useI18n()
 
 const urlInput = ref('')
 const inputRef = ref<HTMLInputElement>()
@@ -110,9 +112,11 @@ function onBlur(): void {
 watch(
   () => props.url,
   (newUrl) => {
-    // 内部页面（如 wmfx://newtab）地址栏不显示内容
-    if (newUrl.startsWith('wmfx://'))
+    // 仅新标签页地址栏清空，其它内部页（settings/proxy 等）仍显示 URL
+    if (newUrl.startsWith('wmfx://newtab')) {
+      urlInput.value = ''
       return
+    }
     if (newUrl !== urlInput.value) {
       urlInput.value = newUrl
     }

@@ -1,64 +1,41 @@
 <template>
   <div class="settings-page">
-    <h3>Appearance</h3>
+    <h3>{{ t('settings.navAppearance') }}</h3>
 
     <div class="settings-group">
-      <label class="settings-label">Theme</label>
-      <div class="settings-radio-group">
-        <label
+      <label class="settings-label">{{ t('settings.theme') }}</label>
+      <NRadioGroup
+        :value="themeSetting"
+        class="settings-radio-group"
+        @update:value="onThemeChange"
+      >
+        <NRadio
           v-for="mode in themeModes"
           :key="mode.value"
-          class="settings-radio"
-        >
-          <input
-            v-model="themeMode"
-            type="radio"
-            :value="mode.value"
-            @change="onThemeChange"
-          >
-          <span>{{ mode.label }}</span>
-        </label>
-      </div>
+          :value="mode.value"
+          :label="mode.label"
+        />
+      </NRadioGroup>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { ThemeMode } from '@browser/ipc-contract'
-import { onMounted, ref } from 'vue'
+import { NRadio, NRadioGroup } from 'naive-ui'
+import { useI18n } from '@/composables/useI18n'
+import { useTheme } from '@/composables/useTheme'
+
+const { t } = useI18n()
+const { themeSetting } = useTheme()
 
 const themeModes: { label: string, value: ThemeMode }[] = [
-  { label: 'Light', value: 'light' },
-  { label: 'Dark', value: 'dark' },
-  { label: 'System', value: 'system' },
+  { label: t('settings.themeModes.light'), value: 'light' },
+  { label: t('settings.themeModes.dark'), value: 'dark' },
+  { label: t('settings.themeModes.system'), value: 'system' },
 ]
 
-const themeMode = ref<ThemeMode>('dark')
-
-function applyTheme(mode: ThemeMode): void {
-  const el = document.documentElement
-  if (mode === 'system') {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    el.setAttribute('data-theme', prefersDark ? 'dark' : 'light')
-  }
-  else {
-    el.setAttribute('data-theme', mode)
-  }
+async function onThemeChange(theme: ThemeMode): Promise<void> {
+  await window.browserAPI.setTheme(theme)
 }
-
-async function onThemeChange(): Promise<void> {
-  applyTheme(themeMode.value)
-  await window.browserAPI.setTheme(themeMode.value)
-  await window.browserAPI.setSetting({ key: 'theme', value: themeMode.value })
-}
-
-async function loadSettings(): Promise<void> {
-  const allSettings = await window.browserAPI.getAllSettings()
-  themeMode.value = (allSettings.theme as ThemeMode) ?? 'dark'
-}
-
-onMounted(async () => {
-  await loadSettings()
-  applyTheme(themeMode.value)
-})
 </script>

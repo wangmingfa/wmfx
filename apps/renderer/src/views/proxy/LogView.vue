@@ -8,7 +8,7 @@
         v-if="logs.length === 0"
         class="empty"
       >
-        No logs yet. Logs will appear when mihomo is running.
+        {{ t('proxy.logsEmpty') }}
       </div>
       <div
         v-for="(log, i) in logs"
@@ -23,6 +23,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from '@/composables/useI18n'
+
+const { t } = useI18n()
 
 const logs = ref<string[]>([])
 const logContainer = ref<HTMLElement | null>(null)

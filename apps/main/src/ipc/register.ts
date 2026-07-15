@@ -206,10 +206,8 @@ export function registerIpcHandlers(): void {
     }))
   })
 
-  handle('download:setPath', (event, path) => {
-    const inst = getInstance(event)
-    if (!inst) return
-    inst.settingsManager.set('downloadPath', path)
+  handle('download:setPath', (_event, path) => {
+    SettingsManager.getInstance().set('downloadPath', path)
   })
 
   handle('history:add', (event, opts) => {
@@ -333,43 +331,55 @@ export function registerIpcHandlers(): void {
     return { factor: wc.getZoomFactor() }
   })
 
-  handle('settings:get', (event, key) => {
-    const inst = getInstance(event)
-    if (!inst) return undefined
-    return inst.settingsManager.get(key as never)
+  handle('settings:get', (_event, key) => {
+    return SettingsManager.getInstance().get(key as never)
   })
 
-  handle('settings:set', (event, opts) => {
-    const inst = getInstance(event)
-    if (!inst) return
-    inst.settingsManager.set(opts.key as never, opts.value as never)
+  handle('settings:set', (_event, opts) => {
+    SettingsManager.getInstance().set(opts.key as never, opts.value as never)
   })
 
   handle('settings:getAll', () => {
-    return new SettingsManager().getAll()
+    return SettingsManager.getInstance().getAll()
   })
 
   handle('theme:get', () => {
-    return nativeTheme.themeSource as ThemeMode
+    return SettingsManager.getInstance().get('theme')
   })
 
-  handle('theme:set', (event, theme) => {
-    nativeTheme.themeSource = theme
-    const inst = getInstance(event)
-    if (inst) inst.settingsManager.set('theme' as never, theme as never)
+  function notifyThemeChange(theme: ThemeMode) {
+    // 遍历所有窗口的所有 internal tabs
+    for (const inst of globalThis.browserInstances.values()) {
+      for (const tab of inst.tabManager.getInternalTabs()) {
+        tab.webContents.send('theme:change', theme)
+      }
+    }
+    // 广播到所有窗口的渲染进程（shell 的 TabBar/AddressBar 在独立 WebContents 中）
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send('theme:change', theme)
+    }
+  }
+
+  handle('theme:set', (_event, theme) => {
+    SettingsManager.getInstance().set('theme', theme)
+    notifyThemeChange(theme)
+  })
+
+  nativeTheme.on('updated', () => {
+    const theme = SettingsManager.getInstance().get('theme')
+    // 如果是跟随系统，才需要通知
+    if (theme === 'system') {
+      notifyThemeChange(theme)
+    }
   })
 
   // QuickLinks
-  handle('settings:getQuickLinks', (event) => {
-    const inst = getInstance(event)
-    if (!inst) return []
-    return inst.settingsManager.get('quickLinks') as QuickLink[]
+  handle('settings:getQuickLinks', () => {
+    return SettingsManager.getInstance().get('quickLinks') as QuickLink[]
   })
 
-  handle('settings:setQuickLinks', (event, links) => {
-    const inst = getInstance(event)
-    if (!inst) return
-    inst.settingsManager.set('quickLinks' as never, links as never)
+  handle('settings:setQuickLinks', (_event, links) => {
+    SettingsManager.getInstance().set('quickLinks' as never, links as never)
   })
 
   // Autocomplete
@@ -394,10 +404,9 @@ export function registerIpcHandlers(): void {
         unique.set(r.url, r)
       }
     }
-    const suggestions = Array.from(unique.values())
+    return Array.from(unique.values())
       .slice(0, limit)
       .filter((s) => s.url)
-    return suggestions
   })
 
   // Bookmark

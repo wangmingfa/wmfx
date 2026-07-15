@@ -17,7 +17,7 @@
         :class="{ on: proxyRunning }"
         @click="toggleProxy"
       >
-        {{ proxyRunning ? 'ON' : 'OFF' }}
+        {{ proxyRunning ? t('proxy.on') : t('proxy.off') }}
       </button>
     </div>
     <div class="proxy-content">
@@ -30,18 +30,21 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useI18n } from '@/composables/useI18n'
 import LogView from './proxy/LogView.vue'
 import NodeView from './proxy/NodeView.vue'
 import SubscriptionView from './proxy/SubscriptionView.vue'
 import TrafficView from './proxy/TrafficView.vue'
 
-const tabs = [
-  { key: 'nodes', label: 'Nodes' },
-  { key: 'subscriptions', label: 'Subscriptions' },
-  { key: 'traffic', label: 'Traffic' },
-  { key: 'logs', label: 'Logs' },
-]
+const { t } = useI18n()
+
+const tabs = computed(() => [
+  { key: 'nodes', label: t('proxy.tabNodes') },
+  { key: 'subscriptions', label: t('proxy.tabSubscriptions') },
+  { key: 'traffic', label: t('proxy.tabTraffic') },
+  { key: 'logs', label: t('proxy.tabLogs') },
+])
 const activeTab = ref('nodes')
 const proxyRunning = ref(false)
 

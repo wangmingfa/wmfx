@@ -9,6 +9,7 @@ import type {
   PopoverAnchor,
   PopoverDescriptor,
   TabState,
+  ThemeMode,
   UpdaterStatus,
 } from '@browser/ipc-contract'
 
@@ -146,6 +147,8 @@ declare global {
       onPopoverAction: (handler: (payload: { popoverId: string; menu: MenuItem }) => void) => void
       // Proxy traffic broadcast
       onProxyTraffic: (handler: (data: { up: number; down: number }) => void) => void
+      // Theme change broadcast
+      onThemeChange: (handler: (theme: ThemeMode) => void) => void
     }
   }
 }

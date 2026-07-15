@@ -96,7 +96,29 @@ ConfigManager.writeConfig() → YAML.stringify() → config.yaml
 MihomoProcess 读取 config.yaml 启动
 ```
 
-## Current Milestone
+## Naive UI 组件规范
+
+### 安装方式
+使用 `naive-ui`，通过按需引入使用组件（tree-shaking 友好）：
+```ts
+import { NInput, NSelect, NSwitch } from 'naive-ui'
+```
+不要整包引入，不要二次封装简单组件。
+
+### 主题适配
+- 全局主题色通过 `n-config-provider` 的 `themeOverrides` 配置
+- 主色定义在 `apps/renderer/src/style.css` 的 `:root` / `[data-theme]` 中（oklch 色彩空间）
+- Naive UI 组件会自动继承 CSS 变量，无需额外适配浅色/深色模式
+
+### 常用组件映射
+| 场景 | 组件 |
+|------|------|
+| 文本输入 | `NInput` |
+| 数字输入 | `NInputNumber` |
+| 下拉选择 | `NSelect` |
+| 开关 | `NSwitch` |
+| 单选 | `NRadioGroup` + `NRadioButton` |
+| 提示 | `NTooltip` |
 **M1 — 基础浏览（Phase 1）** ✅ COMPLETED
 - TabManager: WebContentsView lifecycle with event listeners
 - NavigationManager: goBack/forward/reload/stop/loadURL

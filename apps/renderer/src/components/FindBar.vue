@@ -7,7 +7,7 @@
       ref="inputRef"
       v-model="searchText"
       class="find-input"
-      placeholder="Find in page"
+      :placeholder="t('find.placeholder')"
       @keydown.enter="findNext"
       @keydown.esc="close"
       @input="onInput"
@@ -51,10 +51,13 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { useI18n } from '@/composables/useI18n'
 
 const props = defineProps<{
   tabId: string
 }>()
+
+const { t } = useI18n()
 
 const isVisible = ref(false)
 const searchText = ref('')

@@ -1,68 +1,60 @@
 <template>
   <div class="node-view">
     <div class="proxy-mode">
-      <TooltipProvider>
-        <button
-          :class="{ active: mode === 'rule' }"
-          @click="setMode('rule')"
-        >
-          Rule
-          <Tooltip :delay-duration="100">
-            <TooltipTrigger as-child>
-              <span class="mode-tip">
-                <Icon
-                  icon="carbon:help"
-                  width="14"
-                  height="14"
-                />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              根据规则决定走代理还是直连（如国内直连、国外走代理）
-            </TooltipContent>
-          </Tooltip>
-        </button>
-        <button
-          :class="{ active: mode === 'global' }"
-          @click="setMode('global')"
-        >
-          Global
-          <Tooltip :delay-duration="100">
-            <TooltipTrigger as-child>
-              <span class="mode-tip">
-                <Icon
-                  icon="carbon:help"
-                  width="14"
-                  height="14"
-                />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              所有流量都走代理节点
-            </TooltipContent>
-          </Tooltip>
-        </button>
-        <button
-          :class="{ active: mode === 'direct' }"
-          @click="setMode('direct')"
-        >
-          Direct
-          <Tooltip :delay-duration="100">
-            <TooltipTrigger as-child>
-              <span class="mode-tip">
-                <Icon
-                  icon="carbon:help"
-                  width="14"
-                  height="14"
-                />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              所有流量直连，不走代理
-            </TooltipContent>
-          </Tooltip>
-        </button>
-      </TooltipProvider>
+      <button
+        :class="{ active: mode === 'rule' }"
+        @click="setMode('rule')"
+      >
+        {{ t('proxy.modeRule') }}
+        <NTooltip :delay="100">
+          <template #trigger>
+            <span class="mode-tip">
+              <Icon
+                icon="carbon:help"
+                width="14"
+                height="14"
+              />
+            </span>
+          </template>
+          {{ t('proxy.modeRuleDesc') }}
+        </NTooltip>
+      </button>
+      <button
+        :class="{ active: mode === 'global' }"
+        @click="setMode('global')"
+      >
+        {{ t('proxy.modeGlobal') }}
+        <NTooltip :delay="100">
+          <template #trigger>
+            <span class="mode-tip">
+              <Icon
+                icon="carbon:help"
+                width="14"
+                height="14"
+              />
+            </span>
+          </template>
+          {{ t('proxy.modeGlobalDesc') }}
+        </NTooltip>
+      </button>
+      <button
+        :class="{ active: mode === 'direct' }"
+        @click="setMode('direct')"
+      >
+        {{ t('proxy.modeDirect') }}
+        <NTooltip :delay="100">
+          <template #trigger>
+            <span class="mode-tip">
+              <Icon
+                icon="carbon:help"
+                width="14"
+                height="14"
+              />
+            </span>
+          </template>
+          {{ t('proxy.modeDirectDesc') }}
+        </NTooltip>
+      </button>
     </div>
 
     <div
@@ -76,7 +68,7 @@
           :disabled="loading"
           @click="checkDelay"
         >
-          {{ loading ? 'Testing...' : 'Test Delay' }}
+          {{ loading ? t('proxy.testing') : t('proxy.testDelay') }}
         </button>
       </div>
       <div class="node-list">
@@ -102,13 +94,10 @@
       class="empty"
     >
       <div class="empty-title">
-        No proxy nodes available
+        {{ t('proxy.noNodes') }}
       </div>
       <div class="empty-desc">
-        Please add a subscription in the <span
-          class="link"
-          @click="$emit('goSubscriptions')"
-        >Subscriptions</span> tab first, then come back to select nodes.
+        {{ t('proxy.noNodesDesc') }}
       </div>
     </div>
   </div>
@@ -116,15 +105,13 @@
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
+import { NTooltip } from 'naive-ui'
 import { onMounted, ref } from 'vue'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '../../components/ui/tooltip'
+import { useI18n } from '../../composables/useI18n'
 
 defineEmits<{ goSubscriptions: [] }>()
+
+const { t } = useI18n()
 
 interface ProxyGroup {
   name: string
@@ -182,7 +169,7 @@ async function checkDelay(): Promise<void> {
 
 function formatDelay(d: number): string {
   if (d < 0)
-    return 'timeout'
+    return t('proxy.timeout')
   return `${d}ms`
 }
 

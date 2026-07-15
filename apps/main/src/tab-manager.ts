@@ -56,7 +56,11 @@ export class TabManager {
         windowId: this.windowId,
         sessionId,
         url: resolvedUrl,
-        title: opts?.title ?? (wantInternal ? internalTitleFromPath(wmfxPath(resolvedUrl)) : ''),
+        title:
+          opts?.title ??
+          (wantInternal
+            ? internalTitleFromPath(wmfxPath(resolvedUrl), this.settingsManager?.get('currentLang'))
+            : ''),
         favicon: null,
         isLoading: false,
         canGoBack: false,
@@ -128,11 +132,21 @@ export class TabManager {
 
     const wasActive = this.activeTabId === tabId
 
-    this.window.contentView.removeChildView(tab.view)
-    tab.view.webContents.close()
+    // 先更新模型并广播移除事件：即使下方视图卸载抛错（如视图已脱离 contentView），
+    // 渲染进程也能正确移除标签条，避免出现「网页已关但标签残留」的现象。
     this.tabs.delete(tabId)
-
     this.window.webContents.send('tab:removed', tabId)
+
+    try {
+      if (this.window.contentView.children.includes(tab.view)) {
+        this.window.contentView.removeChildView(tab.view)
+      }
+      if (!tab.view.webContents.isDestroyed()) {
+        tab.view.webContents.close()
+      }
+    } catch {
+      /* 视图卸载失败不阻塞标签移除 */
+    }
 
     if (wasActive) {
       if (this.tabs.size > 0) {
@@ -158,7 +172,13 @@ export class TabManager {
     this.lastActiveTime.set(tabId, Date.now())
 
     if (previousActive) {
-      this.window.contentView.removeChildView(previousActive.view)
+      try {
+        if (this.window.contentView.children.includes(previousActive.view)) {
+          this.window.contentView.removeChildView(previousActive.view)
+        }
+      } catch {
+        /* 视图已脱离 contentView 时忽略 */
+      }
     }
 
     if (tab.isSuspended) {
@@ -198,6 +218,17 @@ export class TabManager {
       states.push(this.buildTabState(tab))
     }
     return states
+  }
+
+  /** 获取所有内置页（wmfx://）的 tab id 和 webContents */
+  getInternalTabs(): Array<{ id: string; webContents: Electron.WebContents }> {
+    const result: Array<{ id: string; webContents: Electron.WebContents }> = []
+    for (const tab of this.tabs.values()) {
+      if (tab.isInternal && !tab.view.webContents.isDestroyed()) {
+        result.push({ id: tab.id, webContents: tab.view.webContents })
+      }
+    }
+    return result
   }
 
   getActiveTabId(): string | null {

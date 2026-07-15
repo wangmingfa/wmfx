@@ -92,6 +92,7 @@ const api: {
   // Theme
   getTheme: () => Promise<ThemeMode>
   setTheme: (theme: ThemeMode) => Promise<void>
+  onThemeChange: (cb: (theme: ThemeMode) => void) => void
   // Broadcast
   onDownloadProgress: (
     cb: (data: { id: string; state: string; receivedBytes: number; totalBytes: number }) => void
@@ -235,6 +236,7 @@ const api: {
   // Theme
   getTheme: () => ipcRenderer.invoke('theme:get'),
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
+  onThemeChange: (cb) => ipcRenderer.on('theme:change', (_e, theme) => cb(theme as ThemeMode)),
   // Broadcast
   onDownloadProgress: (cb) =>
     ipcRenderer.on('download:progress', (_e, data) =>

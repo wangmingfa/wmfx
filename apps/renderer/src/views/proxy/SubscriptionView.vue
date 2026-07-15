@@ -3,12 +3,12 @@
     <div class="sub-add">
       <input
         v-model="newSubName"
-        placeholder="Name"
+        :placeholder="t('proxy.addNamePlaceholder')"
         class="sub-input"
       >
       <input
         v-model="newSubUrl"
-        placeholder="Subscription URL"
+        :placeholder="t('proxy.addUrlPlaceholder')"
         class="sub-input"
       >
       <button
@@ -16,7 +16,7 @@
         :disabled="adding || !newSubUrl || !newSubName"
         @click="addSubscription"
       >
-        {{ adding ? 'Adding...' : 'Add' }}
+        {{ adding ? t('proxy.adding') : t('proxy.add') }}
       </button>
       <div
         v-if="addError"
@@ -37,10 +37,10 @@
         class="empty-icon"
       />
       <div class="empty-title">
-        No subscriptions yet
+        {{ t('proxy.noSubscriptions') }}
       </div>
       <div class="empty-desc">
-        Add a proxy subscription link to get started. You can get a subscription URL from your proxy service provider.
+        {{ t('proxy.noSubscriptionsDesc') }}
       </div>
     </div>
 
@@ -60,14 +60,14 @@
             <span
               v-if="sub.active"
               class="active-badge"
-            >Active</span>
+            >{{ t('proxy.active') }}</span>
           </div>
           <div class="sub-meta">
-            <span>Used: {{ formatBytes(sub.download) }}</span>
+            <span>{{ t('proxy.used') }}: {{ formatBytes(sub.download) }}</span>
             <span v-if="sub.total > 0">/ {{ formatBytes(sub.total) }}</span>
           </div>
           <div class="sub-meta">
-            <span>Expire: {{ formatDate(sub.expire) }}</span>
+            <span>{{ t('proxy.expire') }}: {{ formatDate(sub.expire) }}</span>
           </div>
         </div>
         <div class="sub-actions">
@@ -76,19 +76,19 @@
             :class="{ activate: !sub.active }"
             @click="sub.active ? deactivateSubscription(sub.id) : activateSubscription(sub.id)"
           >
-            {{ sub.active ? 'Deactivate' : 'Activate' }}
+            {{ sub.active ? t('proxy.deactivate') : t('proxy.activate') }}
           </button>
           <button
             class="sub-action-btn"
             @click="updateSubscription(sub.id)"
           >
-            Refresh
+            {{ t('proxy.refresh') }}
           </button>
           <button
             class="sub-action-btn danger"
             @click="removeSubscription(sub.id)"
           >
-            Delete
+            {{ t('proxy.delete') }}
           </button>
         </div>
       </div>
@@ -99,6 +99,9 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { onMounted, ref } from 'vue'
+import { useI18n } from '@/composables/useI18n'
+
+const { t } = useI18n()
 
 interface Subscription {
   id: string
@@ -173,7 +176,7 @@ function formatBytes(bytes: number): string {
 
 function formatDate(ts: number): string {
   if (ts === 0)
-    return 'N/A'
+    return t('proxy.notAvailable')
   return new Date(ts * 1000).toLocaleDateString()
 }
 

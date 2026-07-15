@@ -20,6 +20,7 @@ export type {
   PrintOptions,
   PrintToPdfOptions,
   QuickLink,
+  ResolvedThemeMode,
   SearchEngine,
   SearchOptions,
   SettingsSnapshot,

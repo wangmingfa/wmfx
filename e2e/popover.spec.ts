@@ -82,7 +82,7 @@ test.beforeEach(async () => {
     }
   })
   await expect(page.locator('.tab-item')).toHaveCount(1, { timeout: 15000 })
-  await expect(page.locator('.url-input')).toHaveValue('wmfx://newtab', {
+  await expect(page.locator('.url-input')).toHaveValue('', {
     timeout: 15000,
   })
 })

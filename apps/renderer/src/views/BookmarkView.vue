@@ -1,25 +1,25 @@
 <template>
   <div class="bookmark-view">
     <div class="bookmark-header">
-      <h2>Bookmarks</h2>
+      <h2>{{ t('bookmark.title') }}</h2>
       <div class="header-actions">
         <button
           class="btn btn-sm"
           @click="handleImport"
         >
-          Import
+          {{ t('bookmark.import') }}
         </button>
         <button
           class="btn btn-sm"
           @click="handleExport"
         >
-          Export
+          {{ t('bookmark.export') }}
         </button>
         <button
           class="btn btn-sm btn-primary"
           @click="handleAddBookmark"
         >
-          Add
+          {{ t('bookmark.add') }}
         </button>
       </div>
     </div>
@@ -28,7 +28,7 @@
       <input
         v-model="searchQuery"
         type="text"
-        placeholder="Search bookmarks..."
+        :placeholder="t('bookmark.searchPlaceholder')"
         @input="debouncedSearch"
       >
     </div>
@@ -37,7 +37,7 @@
       v-if="treeNodes.length === 0"
       class="bookmark-empty"
     >
-      <p>No bookmarks</p>
+      <p>{{ t('bookmark.empty') }}</p>
     </div>
 
     <ul
@@ -70,25 +70,25 @@
     >
       <ul>
         <li @click="contextAddBookmark">
-          Add bookmark
+          {{ t('bookmark.addBookmark') }}
         </li>
         <li
           v-if="contextMenu.item && !contextMenu.item.url"
           @click="contextAddChild"
         >
-          Add subfolder
+          {{ t('bookmark.addSubfolder') }}
         </li>
         <li
           v-if="contextMenu.item"
           @click="contextRename"
         >
-          Rename
+          {{ t('bookmark.rename') }}
         </li>
         <li
           v-if="contextMenu.item"
           @click="contextDelete"
         >
-          Delete
+          {{ t('bookmark.delete') }}
         </li>
       </ul>
     </div>
@@ -99,12 +99,15 @@
 import type { BookmarkCreateOptions, BookmarkItem } from '@browser/ipc-contract'
 
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useI18n } from '@/composables/useI18n'
 import BookmarkNode from './BookmarkNode.vue'
 
 const bookmarks = ref<BookmarkItem[]>([])
 const searchQuery = ref('')
 const searchTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const expandedFolders = ref<Set<string>>(new Set())
+
+const { t } = useI18n()
 
 const contextMenu = ref({
   visible: false,
@@ -171,22 +174,22 @@ function handleToggle(node: TreeNode) {
 
 async function handleAddBookmark() {
   // eslint-disable-next-line no-alert
-  const title = prompt('Bookmark title:')
+  const title = prompt(t('bookmark.promptTitle'))
   if (!title)
     return
   // eslint-disable-next-line no-alert
-  const url = prompt('Bookmark URL:') || null
+  const url = prompt(t('bookmark.promptUrl')) || null
   await window.browserAPI.addBookmark({ title, url })
   await loadBookmarks()
 }
 
 async function handleAddChild(parentNode: TreeNode | BookmarkItem) {
   // eslint-disable-next-line no-alert
-  const title = prompt('Bookmark title:')
+  const title = prompt(t('bookmark.promptTitle'))
   if (!title)
     return
   // eslint-disable-next-line no-alert
-  const url = prompt('Bookmark URL:') || null
+  const url = prompt(t('bookmark.promptUrl')) || null
   const options: BookmarkCreateOptions = {
     title,
     url,
@@ -202,7 +205,7 @@ async function handleAddChild(parentNode: TreeNode | BookmarkItem) {
 
 async function handleRename(item: BookmarkItem) {
   // eslint-disable-next-line no-alert
-  const newTitle = prompt('New title:', item.title)
+  const newTitle = prompt(t('bookmark.promptNewTitle'), item.title)
   if (!newTitle)
     return
   await window.browserAPI.renameBookmark({ id: item.id, title: newTitle })
@@ -210,7 +213,7 @@ async function handleRename(item: BookmarkItem) {
 }
 
 async function handleDelete(item: BookmarkItem) {
-  const confirmMsg = `Delete ${JSON.stringify(item.title)}?`
+  const confirmMsg = t('bookmark.deleteConfirm').replace('{title}', JSON.stringify(item.title))
   // eslint-disable-next-line no-alert
   if (!confirm(confirmMsg))
     return

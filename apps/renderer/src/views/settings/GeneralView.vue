@@ -1,72 +1,79 @@
 <template>
   <div class="settings-page">
-    <h3>General</h3>
+    <h3>{{ t('settings.navGeneral') }}</h3>
 
     <div class="settings-group">
       <label
         class="settings-label"
         for="search-engine"
-      >Default search engine</label>
-      <select
+      >{{ t('settings.searchEngine') }}</label>
+      <NSelect
         id="search-engine"
-        v-model="searchEngine"
-        @change="saveSetting('searchEngine', searchEngine)"
-      >
-        <option
-          v-for="engine in searchEngines"
-          :key="engine.value"
-          :value="engine.value"
-        >
-          {{ engine.label }}
-        </option>
-      </select>
+        v-model:value="searchEngine"
+        :options="searchEngines"
+        @update:value="saveSetting('searchEngine', $event)"
+      />
     </div>
 
     <div class="settings-group">
       <label
         class="settings-label"
         for="new-tab-url"
-      >New tab URL</label>
-      <input
+      >{{ t('settings.newTabUrl') }}</label>
+      <NInput
         id="new-tab-url"
-        v-model="newTabUrl"
-        type="text"
-        placeholder="e.g. https://www.baidu.com"
-        @change="saveSetting('newTabUrl', newTabUrl)"
-      >
+        v-model:value="newTabUrl"
+        :placeholder="t('settings.zoomPlaceholder')"
+        @update:value="saveSetting('newTabUrl', $event)"
+      />
     </div>
 
     <div class="settings-group">
       <label
         class="settings-label"
         for="default-zoom"
-      >Default zoom</label>
+      >{{ t('settings.defaultZoom') }}</label>
       <div class="zoom-control">
-        <input
+        <NInputNumber
           id="default-zoom"
-          v-model.number="defaultZoom"
-          type="number"
-          min="0.5"
-          max="3"
-          step="0.1"
-          @change="saveSetting('defaultZoom', defaultZoom)"
-        >
+          v-model:value="defaultZoom"
+          :min="0.5"
+          :max="3"
+          :step="0.1"
+          @update:value="saveSetting('defaultZoom', $event)"
+        />
         <span class="zoom-value">{{ (defaultZoom * 100).toFixed(0) }}%</span>
       </div>
     </div>
 
     <div class="settings-group settings-switch-row">
-      <label class="settings-label">在新标签页打开链接</label>
-      <Switch v-model:checked="openInNewTab" />
+      <label class="settings-label">{{ t('settings.openInNewTab') }}</label>
+      <NSwitch v-model:value="openInNewTab" />
+    </div>
+
+    <div class="settings-group">
+      <label
+        class="settings-label"
+        for="language"
+      >{{ t('settings.language') }}</label>
+      <NSelect
+        id="language"
+        v-model:value="currentLang"
+        :options="languageOptions"
+        @update:value="saveLanguage()"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import Switch from '../../components/ui/switch/Switch.vue'
+import { NInput, NInputNumber, NSelect, NSwitch } from 'naive-ui'
+import { computed, onMounted, ref, watch } from 'vue'
+import { setLang, useI18n } from '@/composables/useI18n'
 
-const searchEngines: { label: string, value: string }[] = [
+const { t } = useI18n()
+
+const searchEngines = [
   { label: 'Google', value: 'google' },
   { label: 'Baidu', value: 'baidu' },
   { label: 'Bing', value: 'bing' },
@@ -77,12 +84,30 @@ const newTabUrl = ref('')
 const defaultZoom = ref(1.0)
 const openInNewTab = ref(true)
 
+const languageOptions = computed(() => [
+  { label: t('settings.languageOptions.system'), value: 'system' },
+  { label: t('settings.languageOptions.chinese'), value: 'zh-CN' },
+  { label: t('settings.languageOptions.english'), value: 'en-US' },
+])
+
+const currentLang = ref('zh-CN')
+
 async function saveSetting(key: string, value: unknown): Promise<void> {
   try {
     await window.browserAPI.setSetting({ key, value })
   }
   catch (err) {
     console.error(`Failed to save setting ${key}:`, err)
+  }
+}
+
+async function saveLanguage(): Promise<void> {
+  try {
+    await window.browserAPI.setSetting({ key: 'currentLang', value: currentLang.value })
+    setLang(currentLang.value)
+  }
+  catch (err) {
+    console.error('Failed to save language setting:', err)
   }
 }
 
@@ -95,11 +120,13 @@ async function loadSettings(): Promise<void> {
   if (typeof saved === 'boolean') {
     openInNewTab.value = saved
   }
+  const langSaved = (await window.browserAPI.getSetting('currentLang')) as string
+  currentLang.value = langSaved ?? 'zh-CN'
+  setLang(currentLang.value)
 }
 
 onMounted(loadSettings)
 
-// 同标签/新标签开关持久化（原 NewTab 内联设置，迁移至此）
 watch(openInNewTab, (value) => {
   void saveSetting('newTabOpenInNewTab', value)
 })

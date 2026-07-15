@@ -66,7 +66,7 @@ function onClick(ev: MouseEvent): void {
   // hover / 激活 背景用中性灰 74 74 74，图标颜色保持不变。
   &:hover:not(:disabled),
   &.is-active {
-    background: rgb(74, 74, 74);
+    background: rgb(248, 248, 248);
   }
 
   // 浅色模式：保持原样（与旧 nav-btn 一致）

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
+import { app, BrowserWindow, Menu } from 'electron'
 import { registerIpcHandlers } from './ipc/register'
 import { initLogger, startLogRotation } from './logger'
 import { registerAppShortcut, toggleDevTools } from './shortcut'
@@ -59,13 +59,6 @@ app.whenReady().then(async () => {
   updater.init()
 
   const mainWindow = createMainWindow()
-
-  const theme = mainWindow.settingsManager.get('theme')
-  if (theme === 'dark') {
-    nativeTheme.themeSource = 'dark'
-  } else if (theme === 'light') {
-    nativeTheme.themeSource = 'light'
-  }
 
   bootstrapWindow(mainWindow)
 

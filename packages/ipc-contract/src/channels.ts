@@ -121,8 +121,10 @@ export interface BookmarkItem {
   createdAt: number
 }
 
-/** 主题模式 */
+/** 主题设置值：用户在设置页选择的值（含 system） */
 export type ThemeMode = 'light' | 'dark' | 'system'
+/** 最终渲染主题：始终为 'light' 或 'dark'，由 ThemeMode 解析而来 */
+export type ResolvedThemeMode = 'light' | 'dark'
 /** 搜索引擎 */
 export type SearchEngine = 'google' | 'baidu' | 'bing'
 

@@ -1,7 +1,7 @@
 <template>
   <div class="downloads-view">
     <div class="downloads-header">
-      <h2>Downloads</h2>
+      <h2>{{ t('downloads.title') }}</h2>
       <span class="downloads-count">{{ downloads.length }}</span>
     </div>
 
@@ -9,7 +9,7 @@
       v-if="downloads.length === 0"
       class="downloads-empty"
     >
-      <p>No downloads</p>
+      <p>{{ t('downloads.empty') }}</p>
     </div>
 
     <ul
@@ -54,21 +54,21 @@
             class="btn btn-sm"
             @click="handleResume(item.id)"
           >
-            Resume
+            {{ t('downloads.resume') }}
           </button>
           <button
             v-if="item.state === 'downloading'"
             class="btn btn-sm"
             @click="handlePause(item.id)"
           >
-            Pause
+            {{ t('downloads.pause') }}
           </button>
           <button
             v-if="['pending', 'downloading', 'paused'].includes(item.state)"
             class="btn btn-sm btn-danger"
             @click="handleCancel(item.id)"
           >
-            Cancel
+            {{ t('downloads.cancel') }}
           </button>
         </div>
 
@@ -87,6 +87,9 @@
 import type { DownloadItem, DownloadState } from '@browser/ipc-contract'
 
 import { onMounted, onUnmounted, ref } from 'vue'
+import { useI18n } from '@/composables/useI18n'
+
+const { t } = useI18n()
 
 const downloads = ref<DownloadItem[]>([])
 
@@ -116,12 +119,12 @@ function formatBytes(item: DownloadItem): string {
 
 function stateLabel(state: DownloadItem['state']): string {
   const labels: Record<string, string> = {
-    pending: 'Pending',
-    downloading: 'Downloading',
-    paused: 'Paused',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
-    error: 'Error',
+    pending: t('downloads.pending'),
+    downloading: t('downloads.downloading'),
+    paused: t('downloads.paused'),
+    completed: t('downloads.completed'),
+    cancelled: t('downloads.cancelled'),
+    error: t('downloads.error'),
   }
   return labels[state] || state
 }

@@ -5,7 +5,7 @@
       <input
         v-model="searchQuery"
         class="search-input"
-        placeholder="Search or enter URL"
+        :placeholder="t('search.placeholder')"
         @keydown.enter="onSearch"
         @focus="showEngine = true"
         @blur="hideEngine"
@@ -47,7 +47,7 @@
       </div>
     </div>
     <div class="recent-history">
-      <h3>最近访问</h3>
+      <h3>{{ t('newTab.recentHistory') }}</h3>
       <div
         v-for="item in recentHistory"
         :key="item.id"
@@ -74,23 +74,26 @@
 <script setup lang="ts">
 import type { QuickLink } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { usePageTitle } from '@/composables/usePageTitle'
 import DefaultFavicon from '../components/DefaultFavicon.vue'
+import { useI18n } from '../composables/useI18n'
 
-// 网页标题（窗口标题）设为“新标签页”
-const [pageTitle] = usePageTitle('新标签页')
+const { t } = useI18n()
+
+// 网页标题（窗口标题）设为新标签页
+const [pageTitle] = usePageTitle(computed(() => t('newTab.title')))
 
 const searchQuery = ref('')
 const showEngine = ref(false)
 const currentEngine = ref('google')
 const openInNewTab = ref(true)
 
-const engines = [
-  { key: 'google', label: 'Google', icon: 'logos:google-icon' },
-  { key: 'baidu', label: 'Baidu', icon: 'logos:baidu-icon' },
-  { key: 'bing', label: 'Bing', icon: 'logos:bing' },
-]
+const engines = computed(() => [
+  { key: 'google', label: t('search.engines.google'), icon: 'logos:google-icon' },
+  { key: 'baidu', label: t('search.engines.baidu'), icon: 'logos:baidu-icon' },
+  { key: 'bing', label: t('search.engines.bing'), icon: 'logos:bing' },
+])
 
 const quickLinks = ref<QuickLink[]>([])
 const recentHistory = ref<{

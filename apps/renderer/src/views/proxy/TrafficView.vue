@@ -2,7 +2,7 @@
   <div class="traffic-view">
     <div class="traffic-card">
       <div class="traffic-label">
-        Upload
+        {{ t('proxy.upload') }}
       </div>
       <div class="traffic-value up">
         {{ formatSpeed(trafficUp) }}
@@ -10,7 +10,7 @@
     </div>
     <div class="traffic-card">
       <div class="traffic-label">
-        Download
+        {{ t('proxy.download') }}
       </div>
       <div class="traffic-value down">
         {{ formatSpeed(trafficDown) }}
@@ -24,11 +24,14 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+import { useI18n } from '@/composables/useI18n'
+
+const { t } = useI18n()
 
 const trafficUp = ref(0)
 const trafficDown = ref(0)
 
-const statusText = ref('Real-time traffic data will be available when mihomo is running.')
+const statusText = ref(t('proxy.trafficIdle'))
 
 const ZOOM_LEVELS = ['B/s', 'KB/s', 'MB/s', 'GB/s']
 
@@ -51,7 +54,7 @@ onMounted(() => {
   window.browserAPI.onProxyTraffic((data: { up: number, down: number }) => {
     trafficUp.value = data.up
     trafficDown.value = data.down
-    statusText.value = 'Mihomo is running — live traffic monitoring active.'
+    statusText.value = t('proxy.trafficRunning')
   })
 
   // 初始状态检查
@@ -60,7 +63,7 @@ onMounted(() => {
     if (!status.running) {
       trafficUp.value = 0
       trafficDown.value = 0
-      statusText.value = 'Real-time traffic data will be available when mihomo is running.'
+      statusText.value = t('proxy.trafficIdle')
     }
   }, 5000)
 })

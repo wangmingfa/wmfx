@@ -14,9 +14,10 @@ interface SettingsSchema {
   openTabs: { url: string; title: string }[]
   activeTabIndex: number
   windowBounds: { x: number; y: number; width: number; height: number } | null
+  currentLang: 'zh-CN' | 'en-US' | 'system'
 }
 
-const defaultSettings: SettingsSchema = {
+export const defaultSettings: SettingsSchema = {
   theme: 'dark',
   downloadPath: '',
   defaultSearch: 'google',
@@ -29,6 +30,7 @@ const defaultSettings: SettingsSchema = {
   openTabs: [],
   activeTabIndex: 0,
   windowBounds: null,
+  currentLang: 'zh-CN',
 }
 
 /** 校验 theme 值 */
@@ -118,13 +120,21 @@ function validateWindowBounds(
 }
 
 export class SettingsManager {
+  private static instance: SettingsManager
   private store: Store<SettingsSchema>
 
-  constructor() {
+  private constructor() {
     this.store = new Store<SettingsSchema>({
       name: 'wmfx-settings',
       defaults: defaultSettings,
     })
+  }
+
+  static getInstance(): SettingsManager {
+    if (!SettingsManager.instance) {
+      SettingsManager.instance = new SettingsManager()
+    }
+    return SettingsManager.instance
   }
 
   get<K extends keyof SettingsSchema>(key: K): SettingsSchema[K] {
@@ -170,6 +180,11 @@ export class SettingsManager {
         return validateWindowBounds(value) as SettingsSchema[K]
       case 'downloadPath':
         return validateString(value, defaultSettings.downloadPath) as SettingsSchema[K]
+      case 'currentLang': {
+        if (['zh-CN', 'en-US', 'system'].includes(value as string))
+          return value as SettingsSchema[K]
+        return defaultSettings.currentLang as SettingsSchema[K]
+      }
       default:
         return value
     }

@@ -1,6 +1,6 @@
 <template>
   <div class="settings-page">
-    <h3>Updates</h3>
+    <h3>{{ t('about.updates') }}</h3>
 
     <div class="settings-group">
       <button
@@ -8,7 +8,7 @@
         :disabled="updating"
         @click="checkUpdates"
       >
-        {{ updating ? 'Checking…' : 'Check for updates' }}
+        {{ updating ? t('about.checking') : t('about.checkForUpdates') }}
       </button>
       <p class="update-status">
         {{ updateText }}
@@ -19,26 +19,29 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useI18n } from '@/composables/useI18n'
 
-const updateText = ref('Up to date')
+const { t } = useI18n()
+
+const updateText = ref(t('about.upToDate'))
 const updating = ref(false)
 
 function statusToText(status: { state: string, percent?: number, info?: { version: string } }): string {
   switch (status.state) {
     case 'checking':
-      return 'Checking for updates…'
+      return t('about.checking')
     case 'available':
-      return `Update available: v${status.info?.version ?? '?'}`
+      return t('about.updateAvailable').replace('{version}', status.info?.version ?? '?')
     case 'downloading':
-      return `Downloading… ${Math.round(status.percent ?? 0)}%`
+      return t('about.downloading').replace('{percent}', String(Math.round(status.percent ?? 0)))
     case 'downloaded':
-      return 'Update downloaded, will install on quit'
+      return t('about.downloaded')
     case 'not-available':
-      return 'Up to date'
+      return t('about.notAvailable')
     case 'error':
-      return 'Update check failed'
+      return t('about.updateFailed')
     default:
-      return 'Up to date'
+      return t('about.upToDate')
   }
 }
 

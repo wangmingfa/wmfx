@@ -4,5 +4,10 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import { router } from './router'
 import './style.css'
+import { syncThemeToShell } from '@/composables/useTheme'
 
-createApp(App).use(createPinia()).use(router).mount('#app')
+const app = createApp(App).use(createPinia()).use(router)
+
+syncThemeToShell().then(() => {
+  app.mount('#app')
+})

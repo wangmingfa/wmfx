@@ -1,3 +1,5 @@
+import { messages } from './i18n/messages'
+
 export interface AddressBarResult {
   type: 'url' | 'search'
   value: string
@@ -38,7 +40,7 @@ export const INTERNAL_ROUTE_PREFIXES: readonly string[] = [
   '/newtab',
 ]
 
-/** 内部页标题：由 path 首段映射到菜单名（create() 设置 tab.title 用） */
+/** 内部页标题硬编码映射：由 path 首段映射到中文菜单名（向后兼容用）。 */
 const INTERNAL_TITLE_MAP: Record<string, string> = {
   settings: '设置',
   history: '历史',
@@ -48,10 +50,26 @@ const INTERNAL_TITLE_MAP: Record<string, string> = {
   newtab: '新标签页',
 }
 
-/** 由 wmfx:// 之后的 path 推导展示标题，如 'settings/appearance' → 'Settings' */
-export function internalTitleFromPath(path: string): string {
+/** 由 wmfx:// 之后的 path 推导展示标题，如 'settings/appearance' → 'Settings'（支持 i18n）。 */
+export function internalTitleFromPath(path: string, lang: string = 'zh-CN'): string {
   const top = path.split('/')[0] ?? ''
-  return INTERNAL_TITLE_MAP[top] ?? 'Internal'
+  if (lang === 'zh-CN') {
+    return INTERNAL_TITLE_MAP[top] ?? 'Internal'
+  }
+  const msg = messages[lang] ?? messages['zh-CN']
+  const topToKey: Record<string, string> = {
+    settings: 'settings',
+    history: 'history',
+    bookmarks: 'bookmarks',
+    downloads: 'downloads',
+    proxy: 'proxy',
+    newtab: 'newTab',
+  }
+  const msgKey = topToKey[top]
+  if (msgKey === 'newTab') return msg.newTab.title
+  const appMenuKey = msgKey as keyof typeof msg.appMenu
+  if (appMenuKey && msg.appMenu?.[appMenuKey]) return msg.appMenu[appMenuKey]
+  return 'Internal'
 }
 
 /** 判断是否为 wmfx:// 内部地址 */

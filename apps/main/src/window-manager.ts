@@ -57,7 +57,7 @@ export function createMainWindow(): BrowserWindowInstance {
     app.dock?.setIcon(dockIcon)
   }
 
-  const settingsManager = new SettingsManager()
+  const settingsManager = SettingsManager.getInstance()
   const savedBounds = settingsManager.get('windowBounds')
 
   const win = new BrowserWindow({
