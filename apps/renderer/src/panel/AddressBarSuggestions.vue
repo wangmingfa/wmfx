@@ -5,6 +5,8 @@
       :model-value="data.query"
       :placeholder="ADDRESS_BAR_PLACEHOLDER"
       :favicon="data.favicon"
+      :security-state="data.securityState"
+      :url="data.url"
       @input="onInput"
       @keydown="onKeydown"
     />
@@ -36,7 +38,13 @@ import AddressInput from '../components/AddressInput.vue'
 
 const props = defineProps<{
   popoverId: string
-  data: { query: string; suggestions: AutocompleteSuggestion[]; favicon?: string | null }
+  data: {
+    query: string
+    suggestions: AutocompleteSuggestion[]
+    favicon?: string | null
+    securityState?: 'secure' | 'insecure' | 'internal'
+    url?: string
+  }
 }>()
 
 const emit = defineEmits<{

@@ -1,5 +1,5 @@
 <template>
-  <div class="address-input-wrap">
+  <div ref="wrapRef" class="address-input-wrap">
     <span v-if="favicon" class="favicon-icon">
       <Favicon :url="url ?? ''" :favicon="favicon" :size="14" />
     </span>
@@ -41,6 +41,7 @@ const emit = defineEmits<{
 }>()
 
 const inputRef = ref<HTMLInputElement>()
+const wrapRef = ref<HTMLDivElement>()
 const { t } = useI18n()
 
 const securityIcon = computed(() => {
@@ -66,6 +67,7 @@ function onKeydown(e: KeyboardEvent): void {
 
 defineExpose({
   getEl: () => inputRef.value,
+  getWrapEl: () => wrapRef.value,
   getValue: () => inputRef.value?.value ?? '',
   focus: () => inputRef.value?.focus(),
   select: () => inputRef.value?.select(),

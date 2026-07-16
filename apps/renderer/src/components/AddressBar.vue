@@ -94,7 +94,7 @@ function onEnter(): void {
 }
 
 function openPopover(): void {
-  const rect = inputRef.value?.getEl()?.getBoundingClientRect()
+  const rect = inputRef.value?.getWrapEl()?.getBoundingClientRect()
   if (!rect) return
   currentPopover = new Popover({
     type: 'addressbar',
@@ -107,14 +107,26 @@ function openPopover(): void {
       rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
       placement: 'cover-start',
     },
-    data: { query: urlInput.value, suggestions: suggestions.value, favicon: props.favicon ?? null },
+    data: {
+      query: urlInput.value,
+      suggestions: suggestions.value,
+      favicon: props.favicon ?? null,
+      securityState: props.securityState,
+      url: props.url,
+    },
     onEvent: (eventName, eventData) => {
       if (eventName === 'select' && typeof eventData === 'string') {
         selectSuggestion(eventData)
       } else if (eventName === 'update-query' && typeof eventData === 'string') {
         urlInput.value = eventData
         fetchSuggestions()
-        currentPopover?.sendData({ query: urlInput.value, suggestions: suggestions.value })
+        currentPopover?.sendData({
+          query: urlInput.value,
+          suggestions: suggestions.value,
+          favicon: props.favicon ?? null,
+          securityState: props.securityState,
+          url: props.url,
+        })
       } else if (eventName === 'navigate' && typeof eventData === 'string') {
         urlInput.value = eventData
         navigate()
