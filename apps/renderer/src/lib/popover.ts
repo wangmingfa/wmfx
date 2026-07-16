@@ -32,6 +32,8 @@ export interface PopoverOptions {
   data?: unknown
   mode?: PopoverMode
   size?: { width?: number; height?: number }
+  /** 常驻：失焦不自动关闭（如页内查找栏） */
+  persistent?: boolean
   onEvent?: (eventName: string, eventData?: unknown) => void
   onDismiss?: () => void
   autoOpen?: boolean
@@ -64,8 +66,28 @@ export class Popover {
       data: toPlain(this.opts.data),
       mode: this.opts.mode,
       size: this.opts.size,
+      persistent: this.opts.persistent,
     }
     void window.browserAPI.popoverOpen(this.popoverId, options)
+    this.opened = true
+  }
+
+  /**
+   * 常驻 popover 重定位/换数据：切换 tab 时用新锚点与新数据重新渲染同一个 popover。
+   * 主进程 open() 对已存在的 popoverId 会更新 overlay 并重新 renderTop（不重复入栈）。
+   */
+  reopen(anchor: PopoverAnchor, data?: unknown): void {
+    this.opts.anchor = anchor
+    this.opts.data = data
+    if (this.opts.onEvent) eventMap.set(this.popoverId, this.opts.onEvent)
+    void window.browserAPI.popoverOpen(this.popoverId, {
+      type: this.opts.type,
+      anchor,
+      data: toPlain(data),
+      mode: this.opts.mode,
+      size: this.opts.size,
+      persistent: this.opts.persistent,
+    })
     this.opened = true
   }
 

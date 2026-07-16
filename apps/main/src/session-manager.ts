@@ -40,6 +40,9 @@ export class SessionManager {
 
   /** 设置全局代理规则，后续创建的 session 都会走代理 */
   setProxyRules(rules?: string): void {
+    console.debug(
+      `[SessionManager] setProxyRules: rules=${rules ? rules.slice(0, 100) : 'undefined'}`
+    )
     this.proxyRules = rules
   }
 
@@ -56,6 +59,9 @@ export class SessionManager {
         inMemory: false,
       }
       this.sessions.set(name, config)
+      console.debug(`[SessionManager] getSession: created new session name=${name}`)
+    } else {
+      console.debug(`[SessionManager] getSession: returning existing session name=${name}`)
     }
     const opts: { cache: boolean; proxyRules?: string } = { cache: !config.inMemory }
     if (this.proxyRules) {

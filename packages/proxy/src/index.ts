@@ -1,4 +1,8 @@
 /** @module @browser/proxy — 代理核心模块 */
+console.debug(
+  '[proxy] index: exporting ApiClient, ConfigManager, CoreDownloader, HealthChecker, MihomoProcess, ProxyManager, TrafficMonitor'
+)
+
 export { ApiClient } from './ApiClient'
 export { ConfigManager } from './ConfigManager'
 export { downloadMihomo, getMihomoBinaryPath, isMihomoDownloaded } from './CoreDownloader'

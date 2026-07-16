@@ -29,12 +29,16 @@ export class HealthChecker {
     const group = await this.apiClient.getProxyGroup(groupName)
     if (!group.all) return []
 
+    console.debug(
+      `[HealthChecker] checkGroup: group=${groupName}, nodes=${group.all.length}, concurrency=${this.concurrency}`
+    )
     const results: DelayResult[] = []
     for (let i = 0; i < group.all.length; i += this.concurrency) {
       const batch = group.all.slice(i, i + this.concurrency)
       const batchResults = await Promise.all(batch.map((name) => this.checkNode(name)))
       results.push(...batchResults)
     }
+    console.debug(`[HealthChecker] checkGroup: group=${groupName}, total results=${results.length}`)
     return results
   }
 }

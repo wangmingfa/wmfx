@@ -1,10 +1,10 @@
 <template>
   <div class="addressbar-panel">
-    <input
+    <AddressInput
       ref="inputRef"
-      :value="data.query"
-      class="addressbar-input"
+      :model-value="data.query"
       :placeholder="ADDRESS_BAR_PLACEHOLDER"
+      :favicon="data.favicon"
       @input="onInput"
       @keydown="onKeydown"
     />
@@ -32,17 +32,18 @@ import type { AutocompleteSuggestion } from '@browser/ipc-contract'
 import { ADDRESS_BAR_PLACEHOLDER } from '@browser/shared'
 import { Icon } from '@iconify/vue'
 import { onMounted, ref, watch } from 'vue'
+import AddressInput from '../components/AddressInput.vue'
 
 const props = defineProps<{
   popoverId: string
-  data: { query: string; suggestions: AutocompleteSuggestion[] }
+  data: { query: string; suggestions: AutocompleteSuggestion[]; favicon?: string | null }
 }>()
 
 const emit = defineEmits<{
   event: [eventName: string, eventData?: unknown]
 }>()
 
-const inputRef = ref<HTMLInputElement>()
+const inputRef = ref<InstanceType<typeof AddressInput>>()
 const activeIndex = ref(-1)
 
 onMounted(() => {
@@ -78,7 +79,9 @@ function onKeydown(e: KeyboardEvent): void {
     if (activeIndex.value >= 0 && suggestions[activeIndex.value]) {
       onSelect(suggestions[activeIndex.value].url)
     } else {
-      emit('event', 'navigate', props.data.query)
+      // 用输入框本地值，而非 props.data.query：后者经主进程异步回传，
+      // 快速回车时仍是旧值（可能为空），导致 navigate('') 无响应。
+      emit('event', 'navigate', inputRef.value?.getValue() ?? props.data.query)
     }
   } else if (e.key === 'Escape') {
     emit('event', 'close')
@@ -94,24 +97,6 @@ function onSelect(url: string): void {
 .addressbar-panel {
   padding: 0;
   min-width: 300px;
-}
-
-.addressbar-input {
-  width: 100%;
-  height: 28px;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 0 76px 0 12px;
-  color: var(--text-primary);
-  font-size: 13px;
-  line-height: 28px;
-  outline: none;
-  box-sizing: border-box;
-}
-
-.addressbar-input:focus {
-  outline: none;
 }
 
 .addressbar-suggestions {

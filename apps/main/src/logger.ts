@@ -30,8 +30,13 @@ import * as readline from 'node:readline'
 import type { LogEntry } from '@browser/ipc-contract'
 import type { App } from 'electron'
 
-type Level = 'INFO' | 'WARN' | 'ERROR'
+type Level = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR'
 type Source = 'main' | 'renderer'
+
+// 日志等级过滤（仅 dev 模式生效，生产包不设 WMFX_LOG_LEVEL → 全部保留）
+const LEVEL_ORDER: Record<Level, number> = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 }
+const MIN_LEVEL: Level = (process.env.WMFX_LOG_LEVEL?.toUpperCase() as Level) || 'DEBUG'
+const MIN_LEVEL_NUM = LEVEL_ORDER[MIN_LEVEL] ?? 0
 
 const LOG_NAMES = [
   'main',
@@ -160,6 +165,7 @@ function writeToFiles(source: Source, level: Level, line: string): void {
 }
 
 function emit(source: Source, level: Level, message: string): void {
+  if (LEVEL_ORDER[level] < MIN_LEVEL_NUM) return
   openStreamsSafe()
   const line = formatLine(source, level, message)
 
@@ -180,7 +186,14 @@ function write(level: Level, args: unknown[]): void {
 
 /** 主进程接收渲染进程转发来的日志条目后写入（由 ipc/register 调用）。 */
 export function handleFrontendLog(entry: LogEntry): void {
-  const level: Level = entry.level === 'error' ? 'ERROR' : entry.level === 'warn' ? 'WARN' : 'INFO'
+  const level: Level =
+    entry.level === 'error'
+      ? 'ERROR'
+      : entry.level === 'warn'
+        ? 'WARN'
+        : entry.level === 'debug'
+          ? 'DEBUG'
+          : 'INFO'
   emit('renderer', level, entry.message)
 }
 
@@ -362,6 +375,7 @@ export async function startLogRotation(): Promise<void> {
 }
 
 export function initLogger(): void {
+  console.debug = (...args: unknown[]): void => write('DEBUG', args)
   console.log = (...args: unknown[]): void => write('INFO', args)
   console.info = (...args: unknown[]): void => write('INFO', args)
   console.warn = (...args: unknown[]): void => write('WARN', args)

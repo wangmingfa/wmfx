@@ -39,6 +39,7 @@ declare global {
       getDownload: IpcInvoke['download:get']
       getDownloads: IpcInvoke['download:getList']
       setDownloadPath: IpcInvoke['download:setPath']
+      selectFolder: IpcInvoke['dialog:selectFolder']
       // History
       addHistory: IpcInvoke['history:add']
       deleteHistory: IpcInvoke['history:delete']
@@ -77,6 +78,8 @@ declare global {
       onFoundInPage: (
         handler: (data: { matches: number; activeMatch: number; tabId: string }) => void
       ) => void
+      onOpenFind: (handler: (tabId: string) => void) => void
+      onFocusAddressBar: (handler: () => void) => void
       // Tab reorder
       reorderTabs: IpcInvoke['tab:reorder']
       // Tab pin / mute / batch close
@@ -138,6 +141,9 @@ declare global {
       checkForUpdates: IpcInvoke['updater:check']
       getUpdaterStatus: IpcInvoke['updater:getStatus']
       onUpdaterStatus: (handler: (status: UpdaterStatus) => void) => void
+      restartAndInstall: IpcInvoke['updater:restart']
+      // App info
+      getAppInfo: IpcInvoke['app:info']
       // Popover
       popoverOpen: (popoverId: string, options: PopoverOpenOptions) => Promise<void>
       popoverClose: (popoverId: string) => Promise<void>
@@ -156,10 +162,29 @@ declare global {
         popoverId: string,
         size: { width: number; height: number; gutter?: number }
       ) => void
+      onPopoverData: (handler: (popoverId: string, data: unknown) => void) => void
       onPopoverDismiss: (handler: (popoverId: string) => void) => void
       onPopoverEvent: (handler: (payload: PopoverEventPayload) => void) => void
       // Proxy traffic broadcast
       onProxyTraffic: (handler: (data: { up: number; down: number }) => void) => void
+      // Error / Cert Warning
+      getErrorInfo: () => Promise<{
+        code: number
+        description: string
+        requestedUrl: string
+      } | null>
+      retry: () => Promise<void>
+      getCertWarningInfo: () => Promise<{
+        host: string
+        errorText: string
+        requestedUrl: string
+      } | null>
+      trustCertAndContinue: (scope: 'once' | 'session' | 'always') => Promise<void>
+      // Default browser
+      setDefaultBrowser: IpcInvoke['default-browser:set']
+      isDefaultBrowser: IpcInvoke['default-browser:isDefault']
+      // Favicon
+      faviconGet: IpcInvoke['favicon:get']
       // Theme change broadcast
       onThemeChange: (handler: (theme: ThemeMode) => void) => void
     }

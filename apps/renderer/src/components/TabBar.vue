@@ -53,17 +53,9 @@
           width="14"
           height="14"
         />
-        <!-- 内部页面不显示loading -->
-        <Spinner class="tab-spinner" :size="16" />
-        <Icon
-          v-if="isInternalUrl(tab.url)"
-          :icon="internalIcon(tab.url)"
-          class="favicon internal-favicon"
-          width="14"
-          height="14"
-        />
-        <img v-else-if="tab.favicon" class="favicon" :src="tab.favicon" :alt="tab.title" />
-        <DefaultFavicon v-else class="favicon" :size="14" :btn-size="14" />
+        <!-- 内部页面不显示 loading -->
+        <Spinner v-else-if="showTabLoading(tab)" class="tab-spinner" :size="16" />
+        <Favicon v-else :url="tab.navigation.displayUrl" :favicon="tab.favicon" :size="14" />
       </div>
       <span class="tab-title">{{ tab.title || 'New Tab' }}</span>
       <Icon v-if="tab.isMuted" class="tab-mute" icon="mdi:volume-off" :width="iconSize" :height="iconSize" />
@@ -100,7 +92,7 @@ import { requestAddressBarFocus } from '../composables/useAddressBarFocus'
 import { useI18n } from '../composables/useI18n'
 import { DropdownMenu } from '../lib/dropdown-menu'
 import { isMacOS } from '../utils/os'
-import DefaultFavicon from './DefaultFavicon.vue'
+import Favicon from './Favicon.vue'
 import Spinner from './ui/Spinner.vue'
 
 const { t } = useI18n()
@@ -130,7 +122,7 @@ const tabItemBorderRadiusWithPx = `${tabItemBorderRadius}px`
 const tabItemBackgroundBorderRadius = tabItemBorderRadius * 1.2
 
 function showTabLoading(tab: TabState) {
-  return tab.isLoading && !isInternalUrl(tab.url)
+  return tab.navigation.isLoading && !isInternalUrl(tab.navigation.displayUrl)
 }
 
 function openTabContextMenu(event: MouseEvent, tab: TabState): void {
@@ -270,20 +262,6 @@ function isInternalUrl(url: string): boolean {
   return url.startsWith('wmfx://')
 }
 
-const INTERNAL_ICONS: Record<string, string> = {
-  newtab: 'mdi:earth',
-  bookmarks: 'mdi:bookmark',
-  history: 'mdi:history',
-  downloads: 'mdi:download',
-  proxy: 'mdi:network',
-  settings: 'mdi:cog',
-}
-
-function internalIcon(url: string): string {
-  const path = url.replace('wmfx://', '').split('/')[0]
-  return INTERNAL_ICONS[path] ?? 'mdi:web'
-}
-
 function minimizeWindow(): void {
   window.browserAPI.minimizeWindow()
 }
@@ -313,7 +291,7 @@ function reloadTab(tab: TabState): void {
 /** 复制标签：以相同 url 与会话新建，并插入到原标签右侧。 */
 async function duplicateTab(tab: TabState): Promise<void> {
   const newTab = await window.browserAPI.createTab({
-    url: tab.url,
+    url: tab.navigation.displayUrl,
     sessionId: tab.sessionId,
     activate: true,
   })
@@ -407,10 +385,11 @@ onMounted(() => {
       if (wasPinned !== state.isPinned) {
         applyOrder()
       }
-    } else {
-      tabs.value.push(state)
-      applyOrder()
     }
+    // Unknown tab IDs are silently ignored — state-change only updates
+    // existing tabs, never creates them.  Tab creation goes through
+    // tab:created → createdHandler; stale events from closed tabs would
+    // otherwise be pushed back as ghost entries.
   }
 
   createdHandler = (state: TabState) => {

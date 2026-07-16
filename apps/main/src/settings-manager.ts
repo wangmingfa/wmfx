@@ -16,6 +16,7 @@ interface SettingsSchema {
   activeTabIndex: number
   windowBounds: { x: number; y: number; width: number; height: number } | null
   currentLang: 'zh-CN' | 'en-US' | 'system'
+  trustedCerts: { host: string; errorText: string }[]
 }
 
 export const defaultSettings: SettingsSchema = {
@@ -32,6 +33,7 @@ export const defaultSettings: SettingsSchema = {
   activeTabIndex: 0,
   windowBounds: null,
   currentLang: 'zh-CN',
+  trustedCerts: [],
 }
 
 /** 校验 theme 值 */
@@ -143,6 +145,7 @@ export class SettingsManager {
   }
 
   set<K extends keyof SettingsSchema>(key: K, value: SettingsSchema[K]): void {
+    console.debug(`[SettingsManager] set: key=${key}`)
     const validated = this.validateValue(key, value)
     this.store.set(key, validated)
     if (key === 'theme') {
@@ -188,6 +191,16 @@ export class SettingsManager {
         if (['zh-CN', 'en-US', 'system'].includes(value as string))
           return value as SettingsSchema[K]
         return defaultSettings.currentLang as SettingsSchema[K]
+      }
+      case 'trustedCerts': {
+        if (!Array.isArray(value)) return defaultSettings.trustedCerts as SettingsSchema[K]
+        return value.filter(
+          (item) =>
+            item != null &&
+            typeof item === 'object' &&
+            typeof (item as { host?: unknown }).host === 'string' &&
+            typeof (item as { errorText?: unknown }).errorText === 'string'
+        ) as SettingsSchema[K]
       }
       default:
         return value

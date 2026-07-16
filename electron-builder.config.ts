@@ -45,6 +45,13 @@ const config: Configuration = {
     allowToChangeInstallationDirectory: true,
   },
 
+  // 声明应用接管 http/https 协议，使「设为默认浏览器」在系统层面生效
+  // （macOS 写入 Info.plist CFBundleURLTypes，Windows 写入注册表）
+  protocols: {
+    name: 'WMFX',
+    schemes: ['http', 'https'],
+  },
+
   publish: [
     {
       provider: 'github',

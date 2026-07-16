@@ -60,8 +60,9 @@
     <div class="recent-history">
       <h3>{{ t('newTab.recentHistory') }}</h3>
       <div v-for="item in recentHistory" :key="item.id" class="recent-item" @click="openLink(item.url)">
-        <img v-if="item.favicon" :src="item.favicon" class="recent-favicon" alt="" />
-        <DefaultFavicon v-else class="recent-icon" :size="16" />
+        <span class="recent-favicon">
+          <Favicon :url="item.url" :favicon="item.favicon" :size="16" />
+        </span>
         <span class="recent-title">{{ item.title || item.url }}</span>
       </div>
     </div>
@@ -74,7 +75,7 @@ import { Icon } from '@iconify/vue'
 import { NSwitch } from 'naive-ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { usePageTitle } from '@/composables/usePageTitle'
-import DefaultFavicon from '../components/DefaultFavicon.vue'
+import Favicon from '../components/Favicon.vue'
 import IconButton from '../components/ui/IconButton.vue'
 import { useI18n } from '../composables/useI18n'
 
@@ -407,8 +408,9 @@ onBeforeUnmount(() => {
   background: var(--bg-secondary);
 }
 
-.recent-icon,
 .recent-favicon {
+  display: flex;
+  align-items: center;
   width: 16px;
   height: 16px;
   flex-shrink: 0;

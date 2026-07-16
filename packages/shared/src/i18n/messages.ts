@@ -1,3 +1,10 @@
+/**
+ * 所有 i18n key 的嵌套结构（单语言形状）。
+ * 重要约束：本接口所有字段必须为必填（不得出现 `?:` 可选字段），且不得添加索引签名
+ *（`[key: string]: ...`）。只有这样，`messages` 的 `Record<string, Message>` 类型才能强制
+ * 每个语言对象与 Message "完全一模一样"——不能多写 key、也不能漏写 key、value 类型必须一致，
+ * 从而从 TS 层面保证翻译完整性（多/少 key 均编译报错）。
+ */
 export interface Message {
   tab: {
     newTab: string
@@ -58,6 +65,9 @@ export interface Message {
   addressBar: {
     placeholder: string
     zoom: string
+    secure: string
+    insecure: string
+    internal: string
   }
   settings: {
     title: string
@@ -82,8 +92,22 @@ export interface Message {
     navGeneral: string
     navDownloads: string
     navAbout: string
+    sections: {
+      basic: string
+      appearance: string
+      system: string
+      language: string
+      downloadLocation: string
+      theme: string
+    }
+    defaultBrowser: string
+    makeDefault: string
+    isDefaultBrowser: string
+    notDefaultBrowser: string
+    defaultBrowserFailed: string
     downloadPath: string
-    downloadPathPlaceholder: string
+    downloadPathEmpty: string
+    selectFolder: string
     aboutTitle: string
     aboutVersion: string
   }
@@ -138,6 +162,7 @@ export interface Message {
   }
   downloads: {
     title: string
+    showAll: string
     empty: string
     resume: string
     pause: string
@@ -151,15 +176,79 @@ export interface Message {
   }
   about: {
     updates: string
+    updateLabel: string
     checkForUpdates: string
     checking: string
     upToDate: string
+    latestVersion: string
+    versionArch: string
+    restartToUpdate: string
     updateAvailable: string
     downloading: string
     downloaded: string
     notAvailable: string
     updateFailed: string
   }
+  error: {
+    title: string
+    description: string
+    retry: string
+    goBack: string
+    suggestions: {
+      default: string
+      dns: string
+      connection: string
+    }
+    codes: {
+      '-105': string
+      '-102': string
+      '-118': string
+      '-106': string
+      '-109': string
+      '-101': string
+    }
+  }
+  certWarning: {
+    title: string
+    description: string
+    goBack: string
+    showDetails: string
+    hideDetails: string
+    continueAnyway: string
+    trustOnce: string
+    trustSession: string
+    trustAlways: string
+    host: string
+    error: string
+  }
+}
+
+/**
+ * 从 Message 嵌套结构递归推导所有"叶子路径"的联合类型（点分字符串）。
+ * 例：'tab.newTab' | 'downloads.showAll' | 'about.updateAvailable' ...
+ * 用于约束 t() 的 key 参数，拼写错误或不存在的 key 在编译期即报错。
+ */
+export type I18nKey = LeafPaths<Message>
+
+/** 递归提取嵌套对象所有叶子（string）的点分路径联合类型 */
+type LeafPaths<T, Prefix extends string = ''> = T extends string
+  ? Prefix
+  : T extends object
+    ? {
+        [K in keyof T & string]: LeafPaths<T[K], Prefix extends '' ? K : `${Prefix}.${K}`>
+      }[keyof T & string]
+    : never
+
+/**
+ * 需要插值的 key → 其必须接收的参数（手写维护，与 messages 同步）。
+ * 仅列出含占位符（如 {title}）的 key；配合 t() 重载，使插值参数也享受编译期校验：
+ * 漏传参数、参数名拼错、给不需要参数的 key 传参均报错。
+ */
+export interface I18nParams {
+  'bookmark.deleteConfirm': { title: string }
+  'about.updateAvailable': { version: string }
+  'about.downloading': { percent: string | number }
+  'about.versionArch': { version: string; arch: string }
 }
 
 export const messages: Record<string, Message> = {
@@ -223,6 +312,9 @@ export const messages: Record<string, Message> = {
     addressBar: {
       placeholder: '输入网址',
       zoom: '100%',
+      secure: '安全连接',
+      insecure: '不安全连接',
+      internal: '内部页面',
     },
     settings: {
       title: '设置',
@@ -247,8 +339,22 @@ export const messages: Record<string, Message> = {
       navGeneral: '常规',
       navDownloads: '下载',
       navAbout: '关于',
+      sections: {
+        basic: '启动与首页',
+        appearance: '外观',
+        system: '系统',
+        language: '语言',
+        downloadLocation: '下载位置',
+        theme: '主题',
+      },
+      defaultBrowser: '默认浏览器',
+      makeDefault: '设为默认浏览器',
+      isDefaultBrowser: 'WMFX 已是默认浏览器',
+      notDefaultBrowser: 'WMFX 不是默认浏览器',
+      defaultBrowserFailed: '设置失败，请手动在系统设置中更改',
       downloadPath: '下载路径',
-      downloadPathPlaceholder: '请输入下载保存路径',
+      downloadPathEmpty: '未选择下载路径，点击右侧按钮选择',
+      selectFolder: '选择文件夹',
       aboutTitle: '关于',
       aboutVersion: '版本',
     },
@@ -303,6 +409,7 @@ export const messages: Record<string, Message> = {
     },
     downloads: {
       title: '下载',
+      showAll: '查看全部',
       empty: '暂无下载',
       resume: '继续',
       pause: '暂停',
@@ -316,14 +423,50 @@ export const messages: Record<string, Message> = {
     },
     about: {
       updates: '更新',
+      updateLabel: '更新检查',
       checkForUpdates: '检查更新',
       checking: '正在检查更新...',
       upToDate: '已是最新版本',
+      latestVersion: '已是最新版本',
+      versionArch: '版本 {version} · {arch}',
+      restartToUpdate: '重启更新',
       updateAvailable: '发现新版本：v{version}',
       downloading: '正在下载... {percent}%',
       downloaded: '更新已下载，将在退出时安装',
       notAvailable: '已是最新版本',
       updateFailed: '更新检查失败',
+    },
+    error: {
+      title: '无法访问此网站',
+      description: '网页加载时出错',
+      retry: '重试',
+      goBack: '返回',
+      suggestions: {
+        default: '请检查你的网络连接后重试。',
+        dns: '请检查 DNS 设置或稍后重试。',
+        connection: '请检查网站地址是否正确，或稍后重试。',
+      },
+      codes: {
+        '-105': '找不到服务器（DNS 解析失败）',
+        '-102': '连接被重置',
+        '-118': '连接超时',
+        '-106': '网络连接中断',
+        '-109': '无法访问此服务器',
+        '-101': '连接被拒绝',
+      },
+    },
+    certWarning: {
+      title: '您的连接不是私密连接',
+      description: '此网站的安全证书存在问题，继续访问可能存在风险。',
+      goBack: '返回',
+      showDetails: '显示详情',
+      hideDetails: '隐藏详情',
+      continueAnyway: '仍然继续',
+      trustOnce: '仅本次信任',
+      trustSession: '本次会话信任',
+      trustAlways: '始终信任此网站',
+      host: '主机',
+      error: '错误',
     },
   },
   'en-US': {
@@ -386,6 +529,9 @@ export const messages: Record<string, Message> = {
     addressBar: {
       placeholder: 'Enter URL',
       zoom: '100%',
+      secure: 'Secure connection',
+      insecure: 'Insecure connection',
+      internal: 'Internal page',
     },
     settings: {
       title: 'Settings',
@@ -410,8 +556,22 @@ export const messages: Record<string, Message> = {
       navGeneral: 'General',
       navDownloads: 'Downloads',
       navAbout: 'About',
+      sections: {
+        basic: 'Startup & Home',
+        appearance: 'Appearance',
+        system: 'System',
+        language: 'Language',
+        downloadLocation: 'Download location',
+        theme: 'Theme',
+      },
+      defaultBrowser: 'Default browser',
+      makeDefault: 'Make WMFX the default browser',
+      isDefaultBrowser: 'WMFX is already the default browser',
+      notDefaultBrowser: 'WMFX is not the default browser',
+      defaultBrowserFailed: 'Failed to set, please change it in system settings',
       downloadPath: 'Download path',
-      downloadPathPlaceholder: 'Enter download path',
+      downloadPathEmpty: 'No download path selected, click the button on the right to choose',
+      selectFolder: 'Select folder',
       aboutTitle: 'About',
       aboutVersion: 'Version',
     },
@@ -468,6 +628,7 @@ export const messages: Record<string, Message> = {
     },
     downloads: {
       title: 'Downloads',
+      showAll: 'Show all',
       empty: 'No downloads',
       resume: 'Resume',
       pause: 'Pause',
@@ -481,14 +642,50 @@ export const messages: Record<string, Message> = {
     },
     about: {
       updates: 'Updates',
+      updateLabel: 'Update check',
       checkForUpdates: 'Check for updates',
-      checking: 'Checking for updates…',
+      checking: 'Checking for updates...',
       upToDate: 'Up to date',
-      updateAvailable: 'Update available: v{version}',
-      downloading: 'Downloading… {percent}%',
-      downloaded: 'Update downloaded, will install on quit',
+      latestVersion: 'Up to date',
+      versionArch: 'Version {version} · {arch}',
+      restartToUpdate: 'Restart to update',
+      updateAvailable: 'New version available: v{version}',
+      downloading: 'Downloading... {percent}%',
+      downloaded: 'Update downloaded, will be installed on quit',
       notAvailable: 'Up to date',
       updateFailed: 'Update check failed',
+    },
+    error: {
+      title: "This site can't be reached",
+      description: 'An error occurred while loading the page',
+      retry: 'Retry',
+      goBack: 'Go back',
+      suggestions: {
+        default: 'Check your network connection and try again.',
+        dns: 'Check your DNS settings or try again later.',
+        connection: 'Check the website address and try again later.',
+      },
+      codes: {
+        '-105': 'Server not found (DNS resolution failed)',
+        '-102': 'Connection was reset',
+        '-118': 'Connection timed out',
+        '-106': 'Network connection was interrupted',
+        '-109': 'Server unreachable',
+        '-101': 'Connection refused',
+      },
+    },
+    certWarning: {
+      title: 'Your connection is not private',
+      description: 'The security certificate of this site has issues. Continuing may pose a risk.',
+      goBack: 'Go back',
+      showDetails: 'Show details',
+      hideDetails: 'Hide details',
+      continueAnyway: 'Continue anyway',
+      trustOnce: 'Trust once',
+      trustSession: 'Trust for this session',
+      trustAlways: 'Always trust this site',
+      host: 'Host',
+      error: 'Error',
     },
   },
 }

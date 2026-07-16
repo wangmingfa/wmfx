@@ -44,6 +44,39 @@
 - `bun run build:main` → only main process (CJS)
 - `bun run build:renderer` → only renderer (Vite)
 
+## 日志规范
+
+### 调试日志（console.debug）
+所有关键代码路径**必须**添加 `console.debug` 日志，便于排查问题。统一使用 `console.debug`（不用 `console.log`/`console.info`）。
+
+**格式**：`[模块名] 方法名: 描述含关键参数`
+```ts
+console.debug('[TabManager] close: tabId=%s wasActive=%s remaining=%d', tabId, wasActive, this.tabs.size)
+console.debug('[IPC] tab:create: url=%s sessionId=%s', opts?.url, opts?.sessionId)
+console.debug('[ProxyManager] start: configPath=%s', configPath)
+```
+
+**必须加日志的位置**：
+- **Tab 生命周期**：`create`/`close`/`activate`/`suspend`/`resume`/`relaunchView`
+- **导航**：`loadURL`/`goBack`/`goForward`/`reload`/`stop`/`setNavigating`
+- **IPC 关键 handler**：`tab:create`/`tab:close`/`tab:activate`/`nav:*`/`download:*`/`proxy:*`/`settings:set`
+- **下载生命周期**：`will-download`/`updated`/`done`/`create`/`pause`/`resume`/`cancel`
+- **代理模块**：`start`/`stop`/`injectProxies`/`switchNode`/`setMode`/`request`
+- **进程事件**：`did-fail-load`/`certificate-error`/`render-process-gone`/子进程 `exit`
+- **数据变更**：`history:add`/`bookmark:create`/`subscription:add`/`settings:set`
+
+**不要加日志的位置**：
+- 高频调用（`setViewportBounds`、`getState`、`getList` 等 getter）
+- 简单 UI 事件（按钮 click handler）
+- 循环体内部
+
+**日志等级**：
+- `console.debug` → 开发调试信息，dev 模式可选过滤（通过 `scripts/dev.ts` 选择等级）
+- `console.log`/`console.info` → 运行时关键事件
+- `console.warn` → 警告
+- `console.error` → 错误
+- 生产包（打包安装）收集所有等级日志，dev 模式通过 `WMFX_LOG_LEVEL` 环境变量过滤
+
 ## 代理模块架构约定（packages/proxy）
 
 整体架构：Electron 负责 UI 和管理，Mihomo 作为**独立进程**运行，二者通过 **REST API** 和本地文件通信。

@@ -58,6 +58,12 @@ class UpdaterManager {
     return this.status
   }
 
+  /** 退出应用并安装已下载好的更新（下载完成后由关于页「重启更新」按钮触发） */
+  restartAndInstall(): void {
+    if (!app.isPackaged) return
+    autoUpdater.quitAndInstall()
+  }
+
   /** 注册状态监听，返回取消函数 */
   onStatus(cb: Listener): () => void {
     this.listeners.add(cb)

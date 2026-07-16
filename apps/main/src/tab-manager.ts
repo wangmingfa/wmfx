@@ -2,6 +2,7 @@ import type {
   CreateTabOptions,
   MenuItem,
   PopoverAnchor,
+  SecurityState,
   TabState,
   ViewBounds,
 } from '@browser/ipc-contract'
@@ -20,6 +21,8 @@ import {
   type Session,
   WebContentsView,
 } from 'electron'
+import type { CertTrustStore } from './cert-trust-store'
+import { setFavicon } from './favicon-cache'
 import type { HistoryManager } from './history-manager'
 import { loadInternalView } from './internal-url'
 import { getPreloadPath } from './paths'
@@ -38,6 +41,12 @@ export class TabManager {
   private lastActiveTime = new Map<string, number>()
   private suspendTimer: ReturnType<typeof setInterval> | null = null
   private readonly SUSPEND_THRESHOLD = 5 * 60 * 1000 // 5 minutes
+  /** webContents id → tabId 反查（O(1)，替代 getTabIdByWebContents 线性扫描） */
+  private wcToTab = new Map<number, string>()
+  /** 等待展示的证书错误信息（cert-warning 页面 onMounted 时拉取） */
+  private certPending = new Map<string, { host: string; errorText: string; requestedUrl: string }>()
+  /** 标签打开顺序栈：关闭当前 tab 时从栈尾往前找上一个存活的 tab */
+  private openOrder: string[] = []
 
   constructor(
     private window: BrowserWindow,
@@ -45,7 +54,8 @@ export class TabManager {
     private defaultSessionName: string = 'default',
     private historyManager: HistoryManager,
     private settingsManager: SettingsManager | null = null,
-    private popoverManager: PopoverManager
+    private popoverManager: PopoverManager,
+    private certTrustStore: CertTrustStore
   ) {
     this.windowId = window.id.toString()
     window.on('close', () => this.destroy())
@@ -60,6 +70,13 @@ export class TabManager {
     const wantInternal = isWmfxUrl(resolvedUrl)
 
     const tabId = crypto.randomUUID()
+    console.debug(
+      '[TabManager] create: tabId=%s url=%s sessionId=%s isInternal=%s',
+      tabId,
+      resolvedUrl,
+      sessionId,
+      wantInternal
+    )
     const tab: Tab = {
       id: tabId,
       windowId: this.windowId,
@@ -70,14 +87,26 @@ export class TabManager {
         id: tabId,
         windowId: this.windowId,
         sessionId,
-        url: resolvedUrl,
+        navigation: {
+          displayUrl: resolvedUrl,
+          requestedUrl: resolvedUrl,
+          committedUrl: '',
+          internalUrl: '',
+          isLoading: false,
+          state: 'loading',
+          error: null,
+          securityState: isWmfxUrl(resolvedUrl)
+            ? 'internal'
+            : resolvedUrl.startsWith('https://')
+              ? 'secure'
+              : 'insecure',
+        },
         title:
           opts?.title ??
           (wantInternal
             ? internalTitleFromPath(wmfxPath(resolvedUrl), this.settingsManager?.get('currentLang'))
             : ''),
         favicon: null,
-        isLoading: false,
         canGoBack: false,
         canGoForward: false,
         zoomFactor: 1,
@@ -89,6 +118,7 @@ export class TabManager {
     }
 
     this.tabs.set(tabId, tab)
+    this.openOrder.push(tabId)
     this.spawnView(tab, wantInternal)
 
     if (opts?.activate !== false) {
@@ -121,10 +151,18 @@ export class TabManager {
     }
     const wantInternal = isWmfxUrl(url)
     if (tab.isInternal === wantInternal) {
+      console.debug(
+        '[TabManager] relaunchView: tabId=%s url=%s didRelaunch=false (skipped)',
+        tabId,
+        url
+      )
       return { view: tab.view, didRelaunch: false }
     }
 
+    console.debug('[TabManager] relaunchView: tabId=%s url=%s didRelaunch=true', tabId, url)
+
     this.window.contentView.removeChildView(tab.view)
+    this.wcToTab.delete(tab.view.webContents.id)
     tab.view.webContents.close()
     tab.isInternal = wantInternal
     this.spawnView(tab, wantInternal)
@@ -147,26 +185,50 @@ export class TabManager {
 
     const wasActive = this.activeTabId === tabId
 
+    if (!tab.view.webContents.isDestroyed()) {
+      this.wcToTab.delete(tab.view.webContents.id)
+    }
+    this.certPending.delete(tabId)
+
+    // 从打开顺序栈中移除
+    const orderIdx = this.openOrder.indexOf(tabId)
+    if (orderIdx !== -1) this.openOrder.splice(orderIdx, 1)
+
     // 先更新模型并广播移除事件：即使下方视图卸载抛错（如视图已脱离 contentView），
     // 渲染进程也能正确移除标签条，避免出现「网页已关但标签残留」的现象。
     this.tabs.delete(tabId)
+    console.debug(
+      '[TabManager] close: tabId=%s wasActive=%s remaining=%d',
+      tabId,
+      wasActive,
+      this.tabs.size
+    )
     this.window.webContents.send('tab:removed', tabId)
 
     try {
-      if (this.window.contentView.children.includes(tab.view)) {
+      const inChildren = this.window.contentView.children.includes(tab.view)
+      if (inChildren) {
         this.window.contentView.removeChildView(tab.view)
       }
       if (!tab.view.webContents.isDestroyed()) {
         tab.view.webContents.close()
       }
     } catch {
-      /* 视图卸载失败不阻塞标签移除 */
+      /* ignore */
     }
 
     if (wasActive) {
       if (this.tabs.size > 0) {
-        const nextTab = Array.from(this.tabs.values())[0]
-        this.activate(nextTab.id)
+        // 从 openOrder 尾部往前找第一个还存活的 tab
+        let nextId: string | null = null
+        for (let i = this.openOrder.length - 1; i >= 0; i--) {
+          if (this.tabs.has(this.openOrder[i])) {
+            nextId = this.openOrder[i]
+            break
+          }
+        }
+        const targetId = nextId ?? this.tabs.values().next().value!.id
+        this.activate(targetId)
       } else {
         this.activeTabId = null
       }
@@ -182,6 +244,14 @@ export class TabManager {
     if (this.activeTabId === tabId) return
 
     const previousActive = this.activeTabId ? this.tabs.get(this.activeTabId) : null
+    const wasSuspended = tab.isSuspended
+
+    console.debug(
+      '[TabManager] activate: tabId=%s prev=%s wasSuspended=%s',
+      tabId,
+      previousActive?.id ?? null,
+      wasSuspended
+    )
 
     this.activeTabId = tabId
     this.lastActiveTime.set(tabId, Date.now())
@@ -200,10 +270,16 @@ export class TabManager {
       this.resumeTab(tab)
     }
 
-    if (!this.window.contentView.children.includes(tab.view)) {
-      this.window.contentView.addChildView(tab.view)
+    // 先移除再添加：确保 Electron 强制将此 view 置顶渲染
+    try {
+      if (this.window.contentView.children.includes(tab.view)) {
+        this.window.contentView.removeChildView(tab.view)
+      }
+    } catch {
+      /* ignore */
     }
-    tab.view.setBounds({ x: 0, y: 0, width: 0, height: 0 })
+    this.window.contentView.addChildView(tab.view)
+    this.applyBounds(tab)
 
     this.broadcastAllStates()
   }
@@ -260,25 +336,44 @@ export class TabManager {
     return tab.view.webContents
   }
 
-  /** 由 WebContents 反查所属 tabId（nav:loadURLCurrent 用）。 */
+  /** 由 WebContents 反查所属 tabId（O(1)，通过 wcToTab 映射）。 */
   getTabIdByWebContents(wc: Electron.WebContents): string | null {
-    for (const tab of this.tabs.values()) {
-      if (tab.view.webContents === wc) return tab.id
-    }
-    return null
+    return this.wcToTab.get(wc.id) ?? null
+  }
+
+  getCertPending(tabId: string) {
+    return this.certPending.get(tabId) ?? null
+  }
+
+  getNavigationState(tabId: string) {
+    const tab = this.tabs.get(tabId)
+    return tab?.state.navigation ?? null
+  }
+
+  /** 每次 did-navigate 成功时按当前 URL 无条件重算，不继承上一页 */
+  private deriveSecurity(url: string): SecurityState {
+    if (isWmfxUrl(url)) return 'internal'
+    if (url.startsWith('https://')) return 'secure'
+    return 'insecure'
   }
 
   setNavigating(tabId: string, url: string): void {
     const tab = this.tabs.get(tabId)
     if (!tab) return
-    tab.state.url = url
+    console.debug('[TabManager] setNavigating: tabId=%s url=%s', tabId, url)
+    this.certPending.delete(tabId)
+    tab.state.navigation.requestedUrl = url
+    tab.state.navigation.displayUrl = url
+    tab.state.navigation.state = 'loading'
+    tab.state.navigation.error = null
+    tab.state.navigation.isLoading = true
     tab.state.title = url
     tab.state.favicon = null
-    tab.state.isLoading = true
     this.broadcastState(tab)
   }
 
   destroy(): void {
+    console.debug('[TabManager] destroy: totalTabs=%d', this.tabs.size)
     // 先持久化会话状态，再清理视图：window 'close' 时若先清空 tabs 再 save，
     // openTabs 会被写成空数组，导致重启后无法恢复标签。
     if (this.settingsManager) {
@@ -306,7 +401,10 @@ export class TabManager {
   serializeTabs(): { url: string; title: string }[] {
     const tabs: { url: string; title: string }[] = []
     for (const tab of this.tabs.values()) {
-      tabs.push({ url: tab.state.url, title: tab.state.title })
+      tabs.push({
+        url: tab.state.navigation.committedUrl || tab.state.navigation.requestedUrl,
+        title: tab.state.title,
+      })
     }
     return tabs
   }
@@ -318,6 +416,7 @@ export class TabManager {
   }
 
   restoreTabs(tabs: { url: string; title: string }[], activeIndex: number): void {
+    console.debug('[TabManager] restoreTabs: count=%d activeIndex=%d', tabs.length, activeIndex)
     if (tabs.length === 0) {
       this.createNewTab()
       return
@@ -363,6 +462,16 @@ export class TabManager {
     return isDark ? '#353535' : '#ffffff'
   }
 
+  /** 主题切换时同步所有标签页视图的背景色，避免导航时闪烁旧底色。 */
+  updateAllViewBackgrounds(): void {
+    const bg = this.resolveViewBackgroundColor()
+    for (const tab of this.tabs.values()) {
+      if (tab.view?.webContents && !tab.view.webContents.isDestroyed()) {
+        tab.view.setBackgroundColor(bg)
+      }
+    }
+  }
+
   private checkSuspendTabs(): void {
     const now = Date.now()
     for (const tab of this.tabs.values()) {
@@ -379,6 +488,11 @@ export class TabManager {
 
   private suspendTab(tab: Tab): void {
     if (tab.isSuspended) return
+    console.debug(
+      '[TabManager] suspendTab: tabId=%s url=%s',
+      tab.id,
+      tab.state.navigation.committedUrl || tab.state.navigation.requestedUrl
+    )
     this.window.contentView.removeChildView(tab.view)
     tab.view.webContents.close()
     tab.isSuspended = true
@@ -387,11 +501,16 @@ export class TabManager {
 
   private resumeTab(tab: Tab): void {
     if (!tab.isSuspended) return
+    console.debug(
+      '[TabManager] resumeTab: tabId=%s url=%s',
+      tab.id,
+      tab.state.navigation.committedUrl || tab.state.navigation.requestedUrl
+    )
 
     this.spawnView(tab, tab.isInternal)
     tab.isSuspended = false
 
-    const url = tab.state.url
+    const url = tab.state.navigation.committedUrl || tab.state.navigation.requestedUrl
     if (url && url !== 'about:blank') {
       if (tab.isInternal) {
         loadInternalView(tab.view, wmfxPath(url))
@@ -403,6 +522,7 @@ export class TabManager {
 
   private setupTabListeners(tab: Tab): void {
     const wc = tab.view.webContents
+    this.wcToTab.set(wc.id, tab.id)
 
     wc.setWindowOpenHandler(({ url, frameName }) => {
       this.create({ url, sessionId: tab.sessionId, title: frameName || url })
@@ -412,13 +532,41 @@ export class TabManager {
     wc.on('did-navigate', () => {
       const actual = wc.getURL()
       const url = wmfxFromActualUrl(actual) ?? actual
-      tab.state.url = url
+      const nav = tab.state.navigation
+
+      // error / cert-warning 页 did-navigate 特判：只更新 internalUrl，不覆盖 displayUrl/committedUrl/state
+      if (url === 'wmfx://error' || url === 'wmfx://cert-warning') {
+        nav.internalUrl = actual
+        tab.state.canGoBack = wc.navigationHistory.canGoBack()
+        tab.state.canGoForward = wc.navigationHistory.canGoForward()
+        this.broadcastState(tab)
+        return
+      }
+
+      nav.committedUrl = url
+      nav.displayUrl = url
+      nav.internalUrl = actual
+      nav.state = 'success'
+      nav.error = null
+      nav.securityState = this.deriveSecurity(url)
       tab.state.canGoBack = wc.navigationHistory.canGoBack()
       tab.state.canGoForward = wc.navigationHistory.canGoForward()
       this.broadcastState(tab)
 
-      // 内部页跳转到外部站点：异步重建为普通标签，避免在处理旧 webContents 事件时销毁自身
+      // 内部页跳转到外部站点：异步重建为普通标签
       if (tab.isInternal && !isWmfxUrl(url)) {
+        setTimeout(() => {
+          try {
+            this.relaunchView(tab.id, url)
+          } catch {
+            /* tab 已被关闭 */
+          }
+        }, 0)
+        return
+      }
+
+      // 外部页跳转到内部页（如 error/cert-warning）：重建为内部视图（带 preload）
+      if (!tab.isInternal && isWmfxUrl(url)) {
         setTimeout(() => {
           try {
             this.relaunchView(tab.id, url)
@@ -441,7 +589,11 @@ export class TabManager {
     wc.on('did-navigate-in-page', () => {
       const actual = wc.getURL()
       const url = wmfxFromActualUrl(actual) ?? actual
-      tab.state.url = url
+      const nav = tab.state.navigation
+      nav.internalUrl = actual
+      nav.committedUrl = url
+      nav.displayUrl = url
+      nav.securityState = this.deriveSecurity(url)
       tab.state.canGoBack = wc.navigationHistory.canGoBack()
       tab.state.canGoForward = wc.navigationHistory.canGoForward()
       this.broadcastState(tab)
@@ -460,22 +612,107 @@ export class TabManager {
       }
       // Use the first icon if available
       tab.state.favicon = favicons.length > 0 ? favicons[0] : null
+      // 写入 favicon 缓存（按 origin 持久化），供后续同域名标签页/历史/书签直接复用
+      if (tab.state.favicon) {
+        setFavicon(tab.state.navigation.committedUrl, tab.state.favicon)
+      }
       this.broadcastState(tab)
     })
 
     wc.on('did-start-loading', () => {
-      tab.state.isLoading = true
+      tab.state.navigation.isLoading = true
       this.broadcastState(tab)
     })
 
     wc.on('did-stop-loading', () => {
-      tab.state.isLoading = false
+      tab.state.navigation.isLoading = false
       this.broadcastState(tab)
     })
 
+    // --- 错误页：did-fail-load 拦截 ---
+    wc.on('did-fail-load', (_event, errorCode, errorDescription, _errorURL, isMainFrame) => {
+      if (!isMainFrame) return
+      // -3 = ERR_ABORTED：用户取消/重定向中断，不显示错误页
+      if (errorCode === -3) return
+      // 证书错误由 certificate-error 处理，跳过避免双重处理
+      if (this.certPending.has(tab.id)) return
+
+      console.debug(
+        '[TabManager] did-fail-load: tabId=%s errorCode=%d desc=%s',
+        tab.id,
+        errorCode,
+        errorDescription
+      )
+
+      const nav = tab.state.navigation
+      nav.error = { code: errorCode, description: errorDescription }
+      nav.state = 'error'
+      nav.securityState = 'insecure'
+      nav.displayUrl = nav.requestedUrl
+      this.broadcastState(tab)
+
+      // 存储错误信息供 ErrorView 拉取；relaunchView 会销毁旧 webContents，必须在此之前存储
+      this.certPending.set(tab.id, { host: '', errorText: '', requestedUrl: nav.requestedUrl })
+      // relaunchView 加载 wmfx://error，内部会重建视图（带 preload）并 loadInternalView
+      try {
+        this.relaunchView(tab.id, 'wmfx://error')
+      } catch {
+        /* tab 已被关闭 */
+      }
+    })
+
+    // --- SSL 证书警告：certificate-error 拦截 ---
+    wc.on('certificate-error', (event, url, errorText, _cert, callback) => {
+      let host: string
+      try {
+        host = new URL(url).host
+      } catch {
+        callback(false)
+        return
+      }
+
+      console.debug(
+        '[TabManager] certificate-error: tabId=%s url=%s host=%s error=%s',
+        tab.id,
+        url,
+        host,
+        errorText
+      )
+
+      if (this.certTrustStore.isTrusted(host, errorText)) {
+        event.preventDefault()
+        callback(true)
+        this.certTrustStore.consumeOnce(host, errorText)
+        return
+      }
+
+      // 未信任 → 阻止加载，导航到证书警告页
+      event.preventDefault()
+      callback(false)
+
+      const nav = tab.state.navigation
+      nav.error = { code: -2000, description: errorText }
+      nav.state = 'error'
+      nav.securityState = 'insecure'
+      nav.displayUrl = nav.requestedUrl
+      this.broadcastState(tab)
+
+      // 存储证书错误信息供 CertWarningView 拉取
+      this.certPending.set(tab.id, { host, errorText, requestedUrl: nav.requestedUrl })
+      try {
+        this.relaunchView(tab.id, 'wmfx://cert-warning')
+      } catch {
+        /* tab 已被关闭 */
+      }
+    })
+
     wc.on('render-process-gone', () => {
-      const url = tab.state.url || NEW_TAB_URL
-      if (tab.isInternal) {
+      console.debug('[TabManager] render-process-gone: tabId=%s', tab.id)
+      tab.state.navigation.state = 'crashed'
+      this.broadcastState(tab)
+      const url =
+        tab.state.navigation.committedUrl || tab.state.navigation.requestedUrl || NEW_TAB_URL
+      if (isWmfxUrl(url)) {
         loadInternalView(tab.view, wmfxPath(url))
       } else {
         tab.view.webContents.loadURL(url)
@@ -627,6 +864,7 @@ export class TabManager {
   }
 
   private broadcastState(tab: Tab): void {
+    if (!this.tabs.has(tab.id)) return
     const state = this.buildTabState(tab)
     this.window.webContents.send('tab:state-change', state)
   }
@@ -641,6 +879,7 @@ export class TabManager {
   setPinned(tabId: string, pinned: boolean): void {
     const tab = this.tabs.get(tabId)
     if (!tab) return
+    console.debug('[TabManager] setPinned: tabId=%s pinned=%s', tabId, pinned)
     tab.state.isPinned = pinned
     this.broadcastState(tab)
   }
@@ -649,6 +888,7 @@ export class TabManager {
   setMuted(tabId: string, muted: boolean): void {
     const tab = this.tabs.get(tabId)
     if (!tab) return
+    console.debug('[TabManager] setMuted: tabId=%s muted=%s', tabId, muted)
     tab.view.webContents.setAudioMuted(muted)
     tab.state.isMuted = muted
     this.broadcastState(tab)
@@ -656,6 +896,7 @@ export class TabManager {
 
   /** 批量关闭一组标签（逐个调用 close）。空窗口退出由 IPC 层与单次关闭保持一致。 */
   closeMany(ids: string[]): void {
+    console.debug('[TabManager] closeMany: count=%d', ids.length)
     for (const id of ids) {
       this.close(id)
     }
@@ -663,6 +904,7 @@ export class TabManager {
 
   reorder(ids: string[]): void {
     if (!this.settingsManager) return
+    console.debug('[TabManager] reorder: ids=%s', ids.join(','))
     this.settingsManager.set('tabOrder', ids)
 
     for (const tab of this.tabs.values()) {

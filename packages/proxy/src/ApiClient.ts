@@ -36,6 +36,7 @@ export class ApiClient {
       options.body = JSON.stringify(body)
     }
     const res = await fetch(url, options)
+    console.debug(`[ApiClient] request: ${method} ${path} → ${res.status}`)
     if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
     return res.json() as Promise<T>
   }
@@ -52,6 +53,7 @@ export class ApiClient {
 
   /** 切换指定代理组的当前节点 (PUT /proxies/{group}) */
   async switchNode(groupName: string, nodeName: string): Promise<void> {
+    console.debug(`[ApiClient] switchNode: group=${groupName}, node=${nodeName}`)
     await this.request('PUT', `/proxies/${encodeURIComponent(groupName)}`, { name: nodeName })
   }
 
@@ -62,6 +64,7 @@ export class ApiClient {
 
   /** 设置代理模式 (PUT /configs) */
   async setMode(mode: 'rule' | 'global' | 'direct'): Promise<void> {
+    console.debug(`[ApiClient] setMode: mode=${mode}`)
     await this.request('PUT', '/configs', { mode })
   }
 
@@ -88,8 +91,10 @@ export class ApiClient {
   async isReady(): Promise<boolean> {
     try {
       await this.request('GET', '/configs')
+      console.debug('[ApiClient] isReady: true')
       return true
     } catch {
+      console.debug('[ApiClient] isReady: false')
       return false
     }
   }

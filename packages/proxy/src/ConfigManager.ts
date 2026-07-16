@@ -91,7 +91,9 @@ export class ConfigManager {
   /** 将生成的 YAML 写入 config.yaml */
   writeConfig(): void {
     const yaml = this.generateConfig()
-    writeFileSync(this.getConfigPath(), yaml, 'utf-8')
+    const configPath = this.getConfigPath()
+    writeFileSync(configPath, yaml, 'utf-8')
+    console.debug(`[ConfigManager] writeConfig: path=${configPath}, size=${yaml.length}`)
   }
 
   getMixedPort(): number {
@@ -133,6 +135,9 @@ export class ConfigManager {
     groups: { name: string; type: string; proxies: string[] }[],
     rules: string[]
   ): void {
+    console.debug(
+      `[ConfigManager] setSubscriptionData: proxies=${proxies.length}, groups=${groups.length}, rules=${rules.length}`
+    )
     this.subscriptionProxies = proxies
     this.subscriptionGroups = groups
     this.subscriptionRules = rules
@@ -140,6 +145,7 @@ export class ConfigManager {
 
   /** 清除订阅数据，恢复到默认配置 */
   clearSubscriptionData(): void {
+    console.debug('[ConfigManager] clearSubscriptionData: resetting to defaults')
     this.subscriptionProxies = []
     this.subscriptionGroups = []
     this.subscriptionRules = []

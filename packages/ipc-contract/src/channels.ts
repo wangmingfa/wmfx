@@ -4,8 +4,8 @@
  * 后续里程碑在此扩展（tab:*, nav:*, proxy:* ...）。
  */
 
-/** Popover 类型：menu=下拉菜单, addressbar=地址栏建议面板 */
-export type PopoverType = 'menu' | 'addressbar'
+/** Popover 类型：menu=下拉菜单, addressbar=地址栏建议面板, find=页内查找栏, downloads=下载列表 */
+export type PopoverType = 'menu' | 'addressbar' | 'find' | 'downloads'
 
 /** Popover 显示模式：overlay=铺满窗口阻断交互；bounded=仅覆盖内容区、非阻断、失焦关闭 */
 export type PopoverMode = 'overlay' | 'bounded'
@@ -24,6 +24,8 @@ export interface PopoverOpenOptions {
   data?: unknown
   mode?: PopoverMode
   size?: { width?: number; height?: number }
+  /** 常驻：bounded popover 失焦不自动关闭（如页内查找栏），只能主动 close/Esc/关闭按钮关闭 */
+  persistent?: boolean
 }
 
 export type PopoverPlacement =
@@ -57,14 +59,47 @@ export interface MenuItem {
   children?: MenuItem[] // submenu -> 递归即多级菜单
 }
 
+/** 导航错误信息 */
+export interface NavigationError {
+  code: number
+  description: string
+}
+
+export type NavigationRunState = 'loading' | 'success' | 'error' | 'crashed'
+
+/** 地址栏安全标志三态 */
+export type SecurityState = 'secure' | 'insecure' | 'internal'
+
+export interface NavigationState {
+  /** 地址栏显示的 URL（成功=committedUrl；失败=requestedUrl） */
+  displayUrl: string
+  /** 用户请求访问的 URL（重试用） */
+  requestedUrl: string
+  /** 最后一次成功 commit 的 URL */
+  committedUrl: string
+  /** WebContents 当前实际加载的 URL（可能是 wmfx://error） */
+  internalUrl: string
+  isLoading: boolean
+  state: NavigationRunState
+  error: NavigationError | null
+  securityState: SecurityState
+}
+
+export type CertTrustScope = 'once' | 'session' | 'always'
+
+export interface CertWarningInfo {
+  host: string
+  errorText: string
+  requestedUrl: string
+}
+
 export interface TabState {
   id: string
   windowId: string
   sessionId: string
-  url: string
+  navigation: NavigationState
   title: string
   favicon: string | null
-  isLoading: boolean
   canGoBack: boolean
   canGoForward: boolean
   zoomFactor: number
@@ -248,7 +283,7 @@ export interface FindInPageOptions {
 
 /** 渲染进程转发到主进程的日志条目 */
 export interface LogEntry {
-  level: 'log' | 'info' | 'warn' | 'error'
+  level: 'debug' | 'log' | 'info' | 'warn' | 'error'
   message: string
 }
 
@@ -268,6 +303,16 @@ export interface UpdateInfo {
   releaseDate: string
   releaseName?: string | null
   releaseNotes?: string | Array<{ version?: string; note?: string | null }> | null
+}
+
+/** 应用基础信息：关于页展示用 */
+export interface AppInfo {
+  /** 版本号，如 1.2.0 */
+  version: string
+  /** 系统架构，如 x64 / arm64 */
+  arch: string
+  /** 平台，如 darwin / win32 / linux */
+  platform: string
 }
 
 /** 标签页查找翻页参数 */
@@ -297,8 +342,16 @@ export interface SettingsSnapshot {
   windowBounds: { x: number; y: number; width: number; height: number } | null
 }
 
+/** 设置为默认浏览器结果（setAsDefaultProtocolClient 跨平台生效，返回是否成功） */
+export interface SetDefaultBrowserResult {
+  success: boolean
+  error?: string
+}
+
 export interface IpcContract {
   'app:ping': (message: string) => string
+  /** 应用基础信息（版本号、系统架构、平台），用于关于页展示 */
+  'app:info': () => AppInfo
   'tab:create': (opts: CreateTabOptions) => TabState
   'tab:close': (tabId: string) => void
   'tab:activate': (tabId: string) => void
@@ -321,6 +374,14 @@ export interface IpcContract {
   'download:get': (id: string) => DownloadItem | null
   'download:getList': (opts?: DownloadListOptions) => DownloadItem[]
   'download:setPath': (path: string) => void
+  // Dialog：原生系统对话框
+  /** 打开系统文件夹选择对话框，返回选中的目录路径；用户取消则返回 null */
+  'dialog:selectFolder': () => string | null
+  // Favicon：网站图标缓存（按 origin / 归一化内部地址为 key）
+  /** 查询 favicon 缓存；命中返回 URL，未命中返回 null */
+  'favicon:get': (key: string) => string | null
+  /** 写入 favicon 缓存（主进程在 page-favicon-updated 时调用，渲染进程一般不直写） */
+  'favicon:set': (key: string, url: string) => void
   // History
   'history:add': (item: { url: string; title?: string | null; favicon?: string | null }) => void
   'history:delete': (id: string) => void
@@ -350,6 +411,9 @@ export interface IpcContract {
   // New Tab
   'settings:getQuickLinks': () => QuickLink[]
   'settings:setQuickLinks': (links: QuickLink[]) => void
+  // Default browser（设置为默认浏览器，交互同 Chrome）
+  'default-browser:set': () => SetDefaultBrowserResult
+  'default-browser:isDefault': () => boolean
   // Autocomplete
   'autocomplete:suggestions': (opts: AutocompleteQuery) => AutocompleteSuggestion[]
   // Bookmark
@@ -403,6 +467,8 @@ export interface IpcContract {
   // Updater
   'updater:check': () => void
   'updater:getStatus': () => UpdaterStatus
+  /** 退出并安装已下载好的更新（等价于 electron-updater 的 quitAndInstall） */
+  'updater:restart': () => void
   // Popover
   'popover:open': (popoverId: string, options: PopoverOpenOptions) => void
   'popover:close': (popoverId: string) => void
@@ -421,12 +487,18 @@ export interface IpcContract {
     size: { width: number; height: number; gutter?: number }
   ) => void
   'popover:dismiss': (popoverId: string) => void
+  // Error / Cert Warning
+  'page:getErrorInfo': () => { code: number; description: string; requestedUrl: string } | null
+  'page:retry': () => void
+  'page:getCertWarningInfo': () => CertWarningInfo | null
+  'page:trustCertAndContinue': (scope: CertTrustScope) => void
 }
 
 export type IpcChannel = keyof IpcContract
 
 export const IPC_CHANNELS: readonly IpcChannel[] = [
   'app:ping',
+  'app:info',
   'tab:create',
   'tab:close',
   'tab:activate',
@@ -449,6 +521,9 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'download:get',
   'download:getList',
   'download:setPath',
+  'dialog:selectFolder',
+  'favicon:get',
+  'favicon:set',
   // History
   'history:add',
   'history:delete',
@@ -478,6 +553,9 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   // New Tab
   'settings:getQuickLinks',
   'settings:setQuickLinks',
+  // Default browser
+  'default-browser:set',
+  'default-browser:isDefault',
   // Autocomplete
   'autocomplete:suggestions',
   // Bookmark
@@ -518,6 +596,7 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   // Updater
   'updater:check',
   'updater:getStatus',
+  'updater:restart',
   // Popover
   'popover:open',
   'popover:close',
@@ -526,6 +605,11 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'popover:event',
   'popover:render',
   'popover:dismiss',
+  // Error / Cert Warning
+  'page:getErrorInfo',
+  'page:retry',
+  'page:getCertWarningInfo',
+  'page:trustCertAndContinue',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {

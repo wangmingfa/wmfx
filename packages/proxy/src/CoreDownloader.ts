@@ -24,7 +24,9 @@ function getBaseResourcePath(): string {
 
 export function getMihomoBinaryPath(): string {
   const dir = join(getBaseResourcePath(), 'mihomo', getPlatformArchDir())
-  return join(dir, getBinaryName())
+  const path = join(dir, getBinaryName())
+  console.debug(`[CoreDownloader] getMihomoBinaryPath: ${path}`)
+  return path
 }
 
 export function isMihomoDownloaded(): boolean {
@@ -39,8 +41,12 @@ export async function downloadMihomo(resourcePath: string): Promise<string> {
   const targetPath = join(dir, binaryName)
 
   if (existsSync(targetPath)) {
+    console.debug(`[CoreDownloader] downloadMihomo: binary already exists at ${targetPath}`)
     return targetPath
   }
+
+  const downloadUrl = `${BASE_URL}/${binaryName}`
+  console.debug(`[CoreDownloader] downloadMihomo: url=${downloadUrl}, target=${targetPath}`)
 
   throw new Error(
     `Mihomo binary not found at ${targetPath}. ` +

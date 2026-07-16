@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu } from 'electron'
+import { registerDefaultBrowserHandlers } from './default-browser'
 import { registerIpcHandlers } from './ipc/register'
 import { initLogger, startLogRotation } from './logger'
 import { registerAppShortcut, toggleDevTools } from './shortcut'
@@ -6,8 +7,19 @@ import { updater } from './updater'
 import type { BrowserWindowInstance } from './window-manager'
 import { createMainWindow } from './window-manager'
 
+// 单实例锁：设为默认浏览器后，系统点击链接会尝试启动新实例，
+// 由 second-instance 在已有实例中接管并打开链接；无锁则无法正确接收链接。
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+  // 阻止后续逻辑在已退出实例上继续执行
+  throw new Error('Another instance is already running')
+}
+
 // 尽早覆写 console，使后续日志统一走文件落盘
 initLogger()
+
+// 注册协议唤起监听（open-url / second-instance），需在 ready 前注册
+registerDefaultBrowserHandlers(() => globalThis.browserInstances)
 
 declare global {
   var browserInstances: Map<string, BrowserWindowInstance>
@@ -36,6 +48,7 @@ function bootstrapWindow(instance: BrowserWindowInstance): void {
 
   const savedTabs = instance.settingsManager.get('openTabs')
   const savedActiveIndex = instance.settingsManager.get('activeTabIndex')
+  console.debug('[App] bootstrapWindow: savedTabs=%d', savedTabs?.length ?? 0)
 
   // 关窗时由 TabManager.destroy() 落盘会话（必须在清空 tabs 之前），此处不再重复注册。
 
@@ -47,6 +60,7 @@ function bootstrapWindow(instance: BrowserWindowInstance): void {
 }
 
 app.whenReady().then(async () => {
+  console.debug('[App] whenReady: app starting')
   if (process.platform !== 'darwin') {
     Menu.setApplicationMenu(null)
   }
@@ -95,6 +109,26 @@ app.whenReady().then(async () => {
     }
   })
 
+  // Cmd/Ctrl+F 打开当前标签页的页内查找栏。
+  // 用窗口级快捷键而非网页 view 的 before-input-event：只要应用在前台，
+  // 无论焦点在网页、地址栏还是其它 shell 区域都能触发，体验一致。
+  registerAppShortcut(mainWindow.window, 'CmdOrCtrl+F', () => {
+    const focused = BrowserWindow.getFocusedWindow()
+    if (!focused) return
+    const inst = globalThis.browserInstances.get(String(focused.id))
+    if (!inst) return
+    const activeTabId = inst.tabManager.getActiveTabId()
+    if (!activeTabId) return
+    focused.webContents.send('page:openFind', activeTabId)
+  })
+
+  // Cmd/Ctrl+L 聚焦地址栏（类 Chrome）。窗口级快捷键，焦点在任意区域均可触发。
+  registerAppShortcut(mainWindow.window, 'CmdOrCtrl+L', () => {
+    const focused = BrowserWindow.getFocusedWindow()
+    if (!focused) return
+    focused.webContents.send('shell:focusAddressBar')
+  })
+
   // Cmd/Ctrl+F12 打开/关闭 mainWindow 本身的 DevTools
   registerAppShortcut(mainWindow.window, 'CmdOrCtrl+F12', () => {
     toggleDevTools(mainWindow.window)
@@ -112,6 +146,17 @@ app.whenReady().then(async () => {
     if (inst.tabManager.getList().length === 0) {
       app.quit()
     }
+  })
+
+  // F5 刷新当前标签页网页（与地址栏刷新按钮同逻辑）
+  registerAppShortcut(mainWindow.window, 'F5', () => {
+    const focused = BrowserWindow.getFocusedWindow()
+    if (!focused) return
+    const inst = globalThis.browserInstances.get(String(focused.id))
+    if (!inst) return
+    const activeTabId = inst.tabManager.getActiveTabId()
+    if (!activeTabId) return
+    inst.navigationManager.reload(activeTabId)
   })
 
   app.on('activate', () => {
@@ -132,6 +177,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
+  console.debug('[App] will-quit: stopping proxy')
   for (const instance of globalThis.browserInstances.values()) {
     instance.proxyManager?.stop()
   }

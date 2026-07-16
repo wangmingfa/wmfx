@@ -10,6 +10,7 @@ import {
 } from '@wmfx/database'
 import { app, BrowserWindow, nativeImage, nativeTheme } from 'electron'
 import { BookmarkManager } from './bookmark-manager'
+import { CertTrustStore } from './cert-trust-store'
 import { DownloadManager } from './download-manager'
 import { HistoryManager } from './history-manager'
 import { NavigationManager } from './navigation-manager'
@@ -36,6 +37,7 @@ export interface BrowserWindowInstance {
   proxyManager?: ProxyManager
   subscriptionManager: SubscriptionManager
   popoverManager: PopoverManager
+  certTrustStore: CertTrustStore
 }
 
 /** 解析应用图标路径：按平台选择对应图标，统一走 resolveFromRoot 相对项目根定位 */
@@ -56,6 +58,7 @@ function resolveBackgroundColor(theme: ThemeMode): string {
 }
 
 export function createMainWindow(): BrowserWindowInstance {
+  console.debug('[WindowManager] createMainWindow: creating main window')
   // macOS 的 Dock 图标由 app.dock.setIcon 控制，BrowserWindow 的 icon 选项在 macOS 上不生效
   if (process.platform === 'darwin') {
     const appIconPath = resolveAppIcon()
@@ -66,6 +69,7 @@ export function createMainWindow(): BrowserWindowInstance {
 
   const settingsManager = SettingsManager.getInstance()
   const savedBounds = settingsManager.get('windowBounds')
+  console.debug('[WindowManager] createMainWindow: savedBounds=%o', savedBounds)
 
   const win = new BrowserWindow({
     ...(savedBounds
@@ -94,13 +98,15 @@ export function createMainWindow(): BrowserWindowInstance {
 
   const historyManager = new HistoryManager(historyRepo)
   const popoverManager = new PopoverManager(win)
+  const certTrustStore = new CertTrustStore(settingsManager)
   const tabManager = new TabManager(
     win,
     (name) => sessionManager.getSession(name),
     'default',
     historyManager,
     settingsManager,
-    popoverManager
+    popoverManager,
+    certTrustStore
   )
   const navigationManager = new NavigationManager(tabManager)
   const downloadManager = new DownloadManager(win, downloadRepo, settingsManager)
@@ -118,6 +124,7 @@ export function createMainWindow(): BrowserWindowInstance {
    * 这是"应用内代理"方案，不改系统代理，只有本浏览器走代理
    */
   sessionManager.setProxyRules(proxyManager.getProxyRules())
+  console.debug('[WindowManager] createMainWindow: proxy rules set up')
 
   win.once('ready-to-show', () => win.show())
 
@@ -151,5 +158,6 @@ export function createMainWindow(): BrowserWindowInstance {
     proxyManager,
     subscriptionManager,
     popoverManager,
+    certTrustStore,
   }
 }

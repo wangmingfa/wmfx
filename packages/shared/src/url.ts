@@ -7,6 +7,13 @@ export interface AddressBarResult {
 
 const DOMAIN_LIKE = /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i
 
+/** 各搜索引擎的搜索地址前缀（查询参数拼在后面）。 */
+export const SEARCH_ENGINE_BASE: Record<string, string> = {
+  google: 'https://www.google.com/search?q=',
+  baidu: 'https://www.baidu.com/s?wd=',
+  bing: 'https://www.bing.com/search?q=',
+}
+
 export function normalizeAddressBarInput(input: string): AddressBarResult {
   const trimmed = input.trim()
   if (/^https?:\/\//i.test(trimmed)) {
@@ -16,6 +23,19 @@ export function normalizeAddressBarInput(input: string): AddressBarResult {
     return { type: 'url', value: `https://${trimmed}` }
   }
   return { type: 'search', value: trimmed }
+}
+
+/**
+ * 把地址栏输入解析为最终要加载的 URL：
+ * - 链接（http(s) 或类域名）按原流程走；
+ * - 否则用指定搜索引擎构造搜索 URL。
+ * searchEngine 取设置值（'google' | 'baidu' | 'bing'），缺省回退 google。
+ */
+export function resolveAddressBarTarget(input: string, searchEngine: string): string {
+  const { type, value } = normalizeAddressBarInput(input)
+  if (type === 'url') return value
+  const base = SEARCH_ENGINE_BASE[searchEngine] ?? SEARCH_ENGINE_BASE.google
+  return `${base}${encodeURIComponent(value)}`
 }
 
 /**
@@ -38,6 +58,8 @@ export const INTERNAL_ROUTE_PREFIXES: readonly string[] = [
   '/downloads',
   '/proxy',
   '/newtab',
+  '/error',
+  '/cert-warning',
 ]
 
 /** 内部页标题硬编码映射：由 path 首段映射到中文菜单名（向后兼容用）。 */
@@ -92,4 +114,29 @@ export function wmfxFromActualUrl(actual: string): string | null {
   const hashPath = actual.slice(i + 1)
   if (!INTERNAL_ROUTE_PREFIXES.some((p) => hashPath.startsWith(p))) return null
   return WMFX_SCHEME + hashPath.slice(1)
+}
+
+/**
+ * 内部地址归一化：保留 wmfx:// + path，剔除 query（与 hash），用于 favicon 缓存 key。
+ * 例如 'wmfx://settings/appearance?x=1' → 'wmfx://settings/appearance'。
+ */
+export function normalizeWmfxUrl(url: string): string {
+  const path = wmfxPath(url).split('?')[0].split('#')[0]
+  return WMFX_SCHEME + path
+}
+
+/**
+ * 计算 favicon 缓存 key：
+ * - 内部地址（wmfx://）→ 归一化全链接（剔 query/hash），同一内部页不同参数共享图标
+ * - 外部 http(s) 地址 → origin（含协议），如 'https://www.google.com'，协议不同视作不同 key
+ * - 无法解析（about:blank 等）→ ''（不缓存）
+ */
+export function faviconKeyOf(url: string): string {
+  if (!url) return ''
+  if (isWmfxUrl(url)) return normalizeWmfxUrl(url)
+  try {
+    return new URL(url).origin
+  } catch {
+    return ''
+  }
 }

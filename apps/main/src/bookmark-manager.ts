@@ -49,14 +49,19 @@ export class BookmarkManager {
       parent_id: parentId,
       position: maxPos + 1,
     })
+    console.debug(
+      `[BookmarkManager] create: title=${opts.title}, url=${opts.url}, parentId=${parentId}, id=${id}`
+    )
     return { id }
   }
 
   delete(id: string): boolean {
+    console.debug(`[BookmarkManager] delete: id=${id}`)
     return this.repo.delete(id)
   }
 
   rename(id: string, title: string): void {
+    console.debug(`[BookmarkManager] rename: id=${id}, title=${title}`)
     this.repo.update(id, { title })
   }
 
@@ -78,6 +83,7 @@ export class BookmarkManager {
 
   importHTML(html: string): void {
     const links = this.parseBookmarksHTML(html)
+    console.debug(`[BookmarkManager] importHTML: parsed ${links.length} links`)
     for (const link of links) {
       this.repo.create({
         title: link.title,
@@ -91,6 +97,7 @@ export class BookmarkManager {
 
   exportHTML(): { html: string } {
     const items = this.repo.getList(null)
+    console.debug(`[BookmarkManager] exportHTML: exporting ${items.length} items`)
     const html = this.buildBookmarksHTML(items)
     return { html }
   }

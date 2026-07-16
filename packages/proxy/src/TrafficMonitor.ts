@@ -18,6 +18,7 @@ export class TrafficMonitor {
 
     const cfg = this.configManager.getConfig()
     const url = `ws://${cfg.controllerHost}:${cfg.controllerPort}/traffic`
+    console.debug(`[TrafficMonitor] connect: url=${url}`)
     this.ws = new WebSocket(url)
 
     this.ws.on('message', (data) => {
@@ -29,17 +30,20 @@ export class TrafficMonitor {
       }
     })
 
-    this.ws.on('close', () => {
+    this.ws.on('close', (code) => {
+      console.debug(`[TrafficMonitor] close: code=${code}, scheduling reconnect in 3s`)
       this.ws = null
       this.reconnectTimer = setTimeout(() => this.connect(), 3000)
     })
 
-    this.ws.on('error', () => {
+    this.ws.on('error', (err) => {
+      console.debug(`[TrafficMonitor] error: ${err.message}`)
       this.ws?.close()
     })
   }
 
   disconnect(): void {
+    console.debug('[TrafficMonitor] disconnect: closing WebSocket and clearing reconnect timer')
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null

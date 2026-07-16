@@ -30,6 +30,7 @@ export class SubscriptionManager {
   }
 
   async addSubscription(url: string, name: string): Promise<string> {
+    console.debug('[SubscriptionManager] addSubscription: url=%s name=%s', url, name)
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       throw new Error('Invalid subscription URL. Only HTTP/HTTPS URLs are supported.')
     }
@@ -59,10 +60,12 @@ export class SubscriptionManager {
   }
 
   async removeSubscription(id: string): Promise<void> {
+    console.debug('[SubscriptionManager] removeSubscription: id=%s', id)
     this.repo.delete(id)
   }
 
   async updateSubscription(id: string): Promise<void> {
+    console.debug('[SubscriptionManager] updateSubscription: id=%s', id)
     const sub = this.repo.findById(id)
     if (!sub) throw new Error(`Subscription not found: ${id}`)
 
@@ -77,11 +80,13 @@ export class SubscriptionManager {
   }
 
   activateSubscription(id: string): void {
+    console.debug('[SubscriptionManager] activateSubscription: id=%s', id)
     this.repo.deactivateAll()
     this.repo.update(id, { active: 1 })
   }
 
   deactivateSubscription(id: string): void {
+    console.debug('[SubscriptionManager] deactivateSubscription: id=%s', id)
     this.repo.update(id, { active: 0 })
   }
 
@@ -94,11 +99,19 @@ export class SubscriptionManager {
   }
 
   async fetchAndParse(url: string): Promise<SubscriptionData> {
+    console.debug('[SubscriptionManager] fetchAndParse: url=%s', url)
     const res = await fetch(url)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
     const text = await res.text()
-    return this.parseSubscriptionContent(text)
+    const result = this.parseSubscriptionContent(text)
+    console.debug(
+      '[SubscriptionManager] fetchAndParse: nodes=%d groups=%d rules=%d',
+      result.proxies.length,
+      result.proxyGroups.length,
+      result.rules.length
+    )
+    return result
   }
 
   private parseSubscriptionContent(content: string): SubscriptionData {

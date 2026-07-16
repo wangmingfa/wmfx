@@ -20,6 +20,7 @@ export default antfu(
   {
     files: ['**/*.vue'],
     rules: {
+      'no-console': 'off',
       'vue/block-order': ['error', { order: ['template', 'script', 'style'] }],
       'vue/component-name-in-template-casing': ['error', 'PascalCase'],
       'vue/multi-word-component-names': 'off',

@@ -12,9 +12,11 @@ export class HistoryManager {
   add(opts: HistoryAddOptions): void {
     const existing = this.repo.find(opts.url)
     if (existing) {
+      console.debug(`[HistoryManager] add: incrementing visit count for url=${opts.url}`)
       this.repo.incrementVisitCount(opts.url)
       return
     }
+    console.debug(`[HistoryManager] add: creating new entry url=${opts.url}`)
     this.repo.add({
       url: opts.url,
       title: opts.title ?? null,
@@ -37,10 +39,12 @@ export class HistoryManager {
   }
 
   delete(id: string): boolean {
+    console.debug(`[HistoryManager] delete: id=${id}`)
     return this.repo.delete(id)
   }
 
   clear(): void {
+    console.debug('[HistoryManager] clear: clearing all history')
     this.repo.clear()
   }
 }

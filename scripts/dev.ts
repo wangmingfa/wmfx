@@ -14,6 +14,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { ResultPromise } from 'execa'
 import { execa, execaCommand, execaCommandSync } from 'execa'
+import inquirer from 'inquirer'
 
 const require = createRequire(import.meta.url)
 
@@ -24,6 +25,35 @@ const RED = '\x1b[31m'
 const GREEN = '\x1b[32m'
 const CYAN = '\x1b[36m'
 const RESET = '\x1b[0m'
+
+const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const
+type LogLevel = (typeof LOG_LEVELS)[number]
+let selectedLogLevel: LogLevel = 'debug'
+
+async function promptLogLevel(): Promise<LogLevel> {
+  console.log(`${CYAN}[dev]${RESET} 选择日志等级 (5 秒后自动选中 ${GREEN}debug${RESET}):`)
+  const timeout = new Promise<LogLevel>((resolve) =>
+    setTimeout(() => {
+      console.log(`\n${CYAN}[dev]${RESET} ⏱️  超时，自动选择 ${GREEN}debug${RESET}`)
+      resolve('debug')
+    }, 5000)
+  )
+  const picker = inquirer
+    .prompt<{ level: LogLevel }>({
+      type: 'select',
+      name: 'level',
+      message: '日志等级:',
+      choices: [
+        { name: 'debug  (所有日志)', value: 'debug' },
+        { name: 'info   (info/warn/error)', value: 'info' },
+        { name: 'warn   (warn/error)', value: 'warn' },
+        { name: 'error  (仅 error)', value: 'error' },
+      ],
+      default: 'debug',
+    })
+    .then((a) => a.level)
+  return Promise.race([timeout, picker])
+}
 
 let devServerUrl = ''
 let electronProcess: ResultPromise | null = null
@@ -53,11 +83,15 @@ function startElectron(): void {
 
   const binary = resolveElectronBinary()
   const entry = path.join(ROOT, 'apps/main/dist/index.cjs')
-  console.log(`${CYAN}[dev]${RESET} 🖥️  启动 Electron: ${binary} ${entry}`)
+  console.log(`${CYAN}[dev]${RESET} 🖥️  启动 Electron: ${binary} ${entry} [log=${selectedLogLevel}]`)
   electronProcess = execa(binary, [entry], {
     cwd: ROOT,
     stdio: 'inherit',
-    env: { ...process.env, VITE_DEV_SERVER_URL: devServerUrl },
+    env: {
+      ...process.env,
+      VITE_DEV_SERVER_URL: devServerUrl,
+      WMFX_LOG_LEVEL: selectedLogLevel,
+    },
   })
 
   electronProcess.catch((err) => {
@@ -159,6 +193,10 @@ function linkWorkspacePackages(): void {
 }
 
 async function main(): Promise<void> {
+  // 选择日志等级
+  selectedLogLevel = await promptLogLevel()
+  console.log(`${CYAN}[dev]${RESET} 📋 日志等级: ${GREEN}${selectedLogLevel}${RESET}\n`)
+
   // 先创建 workspace 软链接，否则 Electron 无法导入 workspace 包（如 @wmfx/database）
   linkWorkspacePackages()
 

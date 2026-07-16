@@ -16,23 +16,9 @@
     </div>
 
     <ul v-else class="history-list">
-      <li
-        v-for="item in historyItems"
-        :key="item.id"
-        class="history-item"
-        @contextmenu.prevent="showContextMenu($event, item)"
-      >
+      <li v-for="item in historyItems" :key="item.id" class="history-item" @click="openInNewTab(item)">
         <div class="history-item-icon">
-          <img
-            v-if="item.favicon"
-            :src="item.favicon"
-            :alt="item.title || item.url"
-            class="history-favicon"
-            @error="handleFaviconError"
-          />
-          <div v-else class="history-favicon-placeholder">
-            {{ getDomain(item.url) }}
-          </div>
+          <Favicon :url="item.url" :favicon="item.favicon" :size="24" />
         </div>
 
         <div class="history-item-info">
@@ -47,28 +33,16 @@
             <span class="visit-count">{{ item.visitCount }}{{ t('history.visits') }}</span>
           </div>
         </div>
+
+        <IconButton
+          icon="mdi:delete-outline"
+          :btn-size="28"
+          :title="t('history.contextDelete')"
+          class="history-delete-btn"
+          @click.stop="deleteItem(item)"
+        />
       </li>
     </ul>
-
-    <div
-      v-if="contextMenu.visible"
-      class="context-menu"
-      :style="{
-        position: 'fixed',
-        top: `${contextMenu.y}px`,
-        left: `${contextMenu.x}px`,
-      }"
-      @mousedown.prevent
-    >
-      <ul>
-        <li @click="openInNewTab">
-          {{ t('history.contextOpenInNewTab') }}
-        </li>
-        <li @click="deleteItem">
-          {{ t('history.contextDelete') }}
-        </li>
-      </ul>
-    </div>
   </PageLayout>
 </template>
 
@@ -76,7 +50,9 @@
 import type { HistoryItem } from '@browser/ipc-contract'
 
 import { onMounted, onUnmounted, ref, watch } from 'vue'
+import Favicon from '@/components/Favicon.vue'
 import PageLayout from '@/components/PageLayout.vue'
+import IconButton from '@/components/ui/IconButton.vue'
 import { useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()
@@ -85,29 +61,8 @@ const historyItems = ref<HistoryItem[]>([])
 const searchQuery = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
-const contextMenu = ref({
-  visible: false,
-  x: 0,
-  y: 0,
-  item: null as HistoryItem | null,
-})
-
 async function loadHistory() {
   historyItems.value = await window.browserAPI.getHistoryList()
-}
-
-function showContextMenu(event: MouseEvent, item: HistoryItem) {
-  contextMenu.value = {
-    visible: true,
-    x: event.clientX,
-    y: event.clientY,
-    item,
-  }
-}
-
-function hideContextMenu() {
-  contextMenu.value.visible = false
-  contextMenu.value.item = null
 }
 
 function debouncedSearch() {
@@ -158,33 +113,20 @@ function formatVisitTime(visitTime: number): string {
   return date.toLocaleDateString()
 }
 
-function handleFaviconError(event: Event) {
-  const img = event.target as HTMLImageElement
-  img.style.display = 'none'
+async function openInNewTab(item: HistoryItem) {
+  await window.browserAPI.createTab({ url: item.url })
 }
 
-async function openInNewTab() {
-  if (!contextMenu.value.item) return
-  await window.browserAPI.createTab({ url: contextMenu.value.item.url })
-  hideContextMenu()
-}
-
-async function deleteItem() {
-  if (!contextMenu.value.item) return
-  await window.browserAPI.deleteHistory(contextMenu.value.item.id)
-  hideContextMenu()
+async function deleteItem(item: HistoryItem) {
+  await window.browserAPI.deleteHistory(item.id)
   await loadHistory()
 }
-
-const hideContextMenuRef = () => hideContextMenu()
 
 onMounted(async () => {
   await loadHistory()
-  document.addEventListener('click', hideContextMenuRef)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', hideContextMenuRef)
   if (searchTimer) {
     clearTimeout(searchTimer)
   }
@@ -218,7 +160,12 @@ onUnmounted(() => {
   border: 1px solid var(--border-color, #333);
   border-radius: 8px;
   background: var(--bg-secondary, #16213e);
-  cursor: context-menu;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.history-item:hover {
+  background: var(--bg-hover);
 }
 
 .history-item-icon {
@@ -228,26 +175,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.history-favicon {
-  width: 16px;
-  height: 16px;
-  border-radius: 2px;
-}
-
-.history-favicon-placeholder {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  background: var(--color-primary, #4361ee);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
 }
 
 .history-item-info {
@@ -285,6 +212,16 @@ onUnmounted(() => {
   color: var(--color-primary, #4361ee);
 }
 
+.history-delete-btn {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.history-item:hover .history-delete-btn {
+  opacity: 1;
+}
+
 .btn-sm {
   padding: 4px 10px;
   font-size: 12px;
@@ -299,31 +236,5 @@ onUnmounted(() => {
 
 .btn-sm:hover {
   opacity: 0.8;
-}
-
-.context-menu {
-  z-index: 1000;
-  min-width: 180px;
-  background: var(--bg-secondary, #16213e);
-  border: 1px solid var(--border-color, #333);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.context-menu ul {
-  list-style: none;
-  padding: 4px 0;
-  margin: 0;
-}
-
-.context-menu li {
-  padding: 8px 16px;
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--text-primary, #e0e0e0);
-}
-
-.context-menu li:hover {
-  background: var(--bg-tertiary, #0f3460);
 }
 </style>

@@ -36,6 +36,7 @@ export class ProxyManager implements ProxyProvider {
    * 4. 连接流量监控 WebSocket
    */
   async start(): Promise<void> {
+    console.debug('[ProxyManager] start: writing config and launching process')
     this.configManager.writeConfig()
     this.process.start()
     for (let i = 0; i < 30; i++) {
@@ -47,6 +48,7 @@ export class ProxyManager implements ProxyProvider {
 
   /** 停止代理核心：断开 WebSocket → 优雅关闭进程 */
   stop(): void {
+    console.debug('[ProxyManager] stop: disconnecting traffic monitor and stopping process')
     this.trafficMonitor.disconnect()
     this.process.stop()
   }
@@ -66,16 +68,20 @@ export class ProxyManager implements ProxyProvider {
   }
 
   async switchNode(groupName: string, nodeName: string): Promise<void> {
+    console.debug(`[ProxyManager] switchNode: group=${groupName}, node=${nodeName}`)
     await this.apiClient.switchNode(groupName, nodeName)
   }
 
   async setMode(mode: 'rule' | 'global' | 'direct'): Promise<void> {
+    console.debug(`[ProxyManager] setMode: mode=${mode}`)
     await this.apiClient.setMode(mode)
   }
 
   async getMode(): Promise<string> {
     const config = await this.apiClient.getConfig()
-    return String(config.mode || 'rule')
+    const mode = String(config.mode || 'rule')
+    console.debug(`[ProxyManager] getMode: mode=${mode}`)
+    return mode
   }
 
   async checkDelay(groupName: string): Promise<{ nodeName: string; delay: number }[]> {
@@ -93,6 +99,9 @@ export class ProxyManager implements ProxyProvider {
     proxyGroups: { name: string; type: string; proxies: string[] }[],
     rules: string[]
   ): Promise<void> {
+    console.debug(
+      `[ProxyManager] injectProxies: proxies=${proxies.length}, groups=${proxyGroups.length}, rules=${rules.length}`
+    )
     this.configManager.setSubscriptionData(proxies, proxyGroups, rules)
     this.configManager.writeConfig()
     this.stop()
@@ -101,6 +110,7 @@ export class ProxyManager implements ProxyProvider {
 
   /** 清除订阅数据，恢复默认配置并重启 */
   async resetConfig(): Promise<void> {
+    console.debug('[ProxyManager] resetConfig: clearing subscription data and restoring defaults')
     this.configManager.clearSubscriptionData()
     this.configManager.writeConfig()
     this.stop()

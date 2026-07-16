@@ -6,14 +6,16 @@
         <AddressBar
           v-if="activeTab"
           :tab-id="activeTab.id"
-          :url="activeTab.url"
+          :url="activeTab.navigation.displayUrl"
           :can-go-back="activeTab.canGoBack"
           :can-go-forward="activeTab.canGoForward"
-          :is-loading="activeTab.isLoading"
+          :is-loading="activeTab.navigation.isLoading"
+          :security-state="activeTab.navigation.securityState"
+          :favicon="activeTab.favicon"
         />
         <Viewport v-if="activeTab" :tab-id="activeTab.id" />
       </div>
-      <FindBar v-if="activeTab" :tab-id="activeTab.id" />
+      <FindBar :active-tab-id="activeTab?.id ?? null" />
     </div>
   </div>
 </template>
@@ -21,6 +23,7 @@
 <script setup lang="ts">
 import type { TabState } from '@browser/ipc-contract'
 import { onMounted, onUnmounted, ref } from 'vue'
+import { requestAddressBarFocus } from '../composables/useAddressBarFocus'
 import AddressBar from './AddressBar.vue'
 import FindBar from './FindBar.vue'
 import TabBar from './TabBar.vue'
@@ -48,6 +51,9 @@ onMounted(() => {
   }
 
   window.browserAPI.onTabStateChange(stateChangeHandler)
+
+  // Cmd/Ctrl+L：主进程窗口级快捷键转发到此，聚焦地址栏（复用新开标签的聚焦请求机制）
+  window.browserAPI.onFocusAddressBar(() => requestAddressBarFocus())
 })
 
 onUnmounted(() => {

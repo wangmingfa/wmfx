@@ -4,7 +4,7 @@
     <div
       ref="boxRef"
       class="popover-box"
-      :class="{ ready: boxVisible, 'is-addressbar': currentType === 'addressbar' }"
+      :class="{ ready: boxVisible, 'is-addressbar': currentType === 'addressbar', 'is-find': currentType === 'find' }"
       :style="boxStyle"
       @mouseleave="onMouseLeave"
     >
@@ -24,14 +24,35 @@
         :data="addressBarData"
         @event="onAddressBarEvent"
       />
+      <FindPanel
+        v-else-if="currentType === 'find'"
+        :popover-id="currentPopoverId"
+        :data="findData"
+        @event="onAddressBarEvent"
+      />
+      <DownloadPanel
+        v-else-if="currentType === 'downloads'"
+        :popover-id="currentPopoverId"
+        :data="downloadData"
+        @event="onAddressBarEvent"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { AutocompleteSuggestion, MenuItem, PopoverAnchor, PopoverMode, PopoverType } from '@browser/ipc-contract'
+import type {
+  AutocompleteSuggestion,
+  DownloadItem,
+  MenuItem,
+  PopoverAnchor,
+  PopoverMode,
+  PopoverType,
+} from '@browser/ipc-contract'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import AddressBarSuggestions from './AddressBarSuggestions.vue'
+import DownloadPanel from './DownloadPanel.vue'
+import FindPanel from './FindPanel.vue'
 import { findItem, getLevelItems, getSelectable, pathToItem, selectableIndexOf } from './navigation'
 import PopoverMenu from './PopoverMenu.vue'
 import { computeBoxPosition } from './position'
@@ -66,6 +87,18 @@ const addressBarData = computed(() => {
   }
   return { query: '', suggestions: [] }
 })
+const findData = computed(() => {
+  if (currentType.value === 'find' && currentData.value) {
+    return currentData.value as { query: string; matches: number; activeMatch: number }
+  }
+  return { query: '', matches: 0, activeMatch: -1 }
+})
+const downloadData = computed(() => {
+  if (currentType.value === 'downloads' && currentData.value) {
+    return currentData.value as { items: DownloadItem[] }
+  }
+  return { items: [] }
+})
 
 // 方向键导航状态：activePath = 已展开子菜单 id 链；activeIndex = 当前层可选中项下标（-1 表示未选中）
 const activePath = ref<string[]>([])
@@ -78,6 +111,7 @@ const openSubIds = computed(() => new Set(activePath.value))
 
 let renderHandler: ((...args: unknown[]) => void) | null = null
 let dismissHandler: ((...args: unknown[]) => void) | null = null
+let dataHandler: ((...args: unknown[]) => void) | null = null
 let keyHandler: ((e: KeyboardEvent) => void) | null = null
 let mouseHandler: ((e: MouseEvent) => void) | null = null
 
@@ -223,6 +257,9 @@ function onHover(itemId: string): void {
 }
 
 function onKeydown(e: KeyboardEvent): void {
+  // 键盘导航（Esc/方向键/字母助记符）仅用于菜单。addressbar 与 find 面板各自在组件内处理键盘事件
+  // （find 面板需在 IME 合成期间忽略 Esc/Enter），此处不得抢占，否则会绕过其 IME 守卫直接关闭面板。
+  if (currentType.value !== 'menu') return
   if (e.key === 'Escape') {
     e.preventDefault()
     dismiss()
@@ -275,8 +312,13 @@ onMounted(() => {
   renderHandler = ((popoverId: string, type: PopoverType, anc: PopoverAnchor, data?: unknown, mode?: PopoverMode) =>
     onRender(popoverId, type, anc, data, mode)) as (...args: unknown[]) => void
   dismissHandler = (() => reset()) as (...args: unknown[]) => void
+  // 主 renderer 通过 sendData 增量更新面板数据（如查找匹配计数、地址栏建议）
+  dataHandler = ((popoverId: string, data: unknown) => {
+    if (popoverId === currentPopoverId.value) currentData.value = data
+  }) as (...args: unknown[]) => void
   window.browserAPI.onPopoverRender(renderHandler)
   window.browserAPI.onPopoverDismiss(dismissHandler)
+  window.browserAPI.onPopoverData(dataHandler)
   keyHandler = (e: KeyboardEvent) => onKeydown(e)
   window.addEventListener('keydown', keyHandler)
   mouseHandler = (e: MouseEvent) => {
@@ -287,6 +329,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (renderHandler) window.browserAPI.removeListener('popover:render', renderHandler)
   if (dismissHandler) window.browserAPI.removeListener('popover:dismiss', dismissHandler)
+  if (dataHandler) window.browserAPI.removeListener('popover:data', dataHandler)
   if (keyHandler) window.removeEventListener('keydown', keyHandler)
   if (mouseHandler) window.removeEventListener('mousemove', mouseHandler)
   resizeObserver?.disconnect()
@@ -342,10 +385,19 @@ body,
     padding: 0;
   }
   &.is-addressbar {
-    background: #fff;
+    background: var(--url-input-bg);
     border: none;
     border-radius: 14px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+    padding: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+  &.is-find {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     padding: 0;
     min-width: 0;
     overflow: hidden;

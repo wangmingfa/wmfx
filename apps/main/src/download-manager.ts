@@ -23,9 +23,11 @@ export class DownloadManager {
   }
 
   private setupDownloadHandler(): void {
+    console.debug('[DownloadManager] setupDownloadHandler: registering will-download handler')
     session.defaultSession.on('will-download', (_e, downloadItem) => {
       const url = downloadItem.getURL()
       const filename = downloadItem.getFilename()
+      console.debug(`[DownloadManager] will-download: url=${url}, filename=${filename}`)
       const defaultPath = this.getDefaultPath()
 
       // 创建下载记录
@@ -45,6 +47,9 @@ export class DownloadManager {
 
       // 监听进度
       downloadItem.on('updated', (_e, state) => {
+        console.debug(
+          `[DownloadManager] updated: id=${id}, state=${state}, received=${downloadItem.getReceivedBytes()}`
+        )
         if (state === 'progressing') {
           const progress = downloadItem.getReceivedBytes()
           const total = downloadItem.getTotalBytes()
@@ -61,6 +66,7 @@ export class DownloadManager {
       })
 
       downloadItem.on('done', (_e, state) => {
+        console.debug(`[DownloadManager] done: id=${id}, state=${state}`)
         if (state === 'completed') {
           this.update(id, { state: 'completed' })
           this.broadcastProgress({
@@ -89,6 +95,7 @@ export class DownloadManager {
   }
 
   create(_opts: { url: string; filename?: string; path?: string }): { id: string } {
+    console.debug(`[DownloadManager] create: url=${_opts.url}, filename=${_opts.filename}`)
     // 通过 Electron downloadItem 创建下载（实际下载由 will-download 处理）
     // 这里返回一个占位 ID，实际创建由 will-download 事件触发
     return {
@@ -105,6 +112,7 @@ export class DownloadManager {
   }
 
   pause(id: string): void {
+    console.debug(`[DownloadManager] pause: id=${id}`)
     const active = this.activeDownloads.get(id)
     if (active) {
       active.download.pause()
@@ -113,6 +121,7 @@ export class DownloadManager {
   }
 
   resume(id: string): void {
+    console.debug(`[DownloadManager] resume: id=${id}`)
     const active = this.activeDownloads.get(id)
     if (active) {
       active.download.resume()
@@ -121,6 +130,7 @@ export class DownloadManager {
   }
 
   cancel(id: string): void {
+    console.debug(`[DownloadManager] cancel: id=${id}`)
     const active = this.activeDownloads.get(id)
     if (active) {
       active.download.cancel()

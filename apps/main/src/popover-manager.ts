@@ -17,6 +17,8 @@ interface OverlayState {
   data?: unknown
   mode: PopoverMode
   size?: { width?: number; height?: number }
+  /** 常驻 popover：失焦不自动关闭（如页内查找栏） */
+  persistent?: boolean
   /** 主进程侧动作回调（如网页右键菜单），渲染进程选中菜单项时触发；函数不可经 IPC 序列化，仅主进程内部调用可用 */
   onSelect?: (eventData: unknown) => void
 }
@@ -59,7 +61,9 @@ export class PopoverManager {
       // 表现为“第一次右键没反应”。用时间窗口过滤掉这类紧邻 open 的 blur。
       if (Date.now() - this.lastOpenAt < POPOVER_BLUR_GUARD_MS) return
       const top = this.stack[this.stack.length - 1]
-      if (top && this.overlays.get(top)?.mode === 'bounded') {
+      const ov = top ? this.overlays.get(top) : undefined
+      // persistent popover（如页内查找栏）失焦不关闭，仅靠主动 close/Esc/关闭按钮
+      if (ov?.mode === 'bounded' && !ov.persistent) {
         this.close(top)
       }
     })
@@ -76,9 +80,11 @@ export class PopoverManager {
     const mode = options.mode ?? 'overlay'
     // bounded 菜单互斥：打开新的下拉/右键菜单前，关闭其它已存在的 bounded 菜单。
     // 否则它们会在栈里堆叠，导致关闭新菜单后旧菜单（如三点菜单）重新出现。
-    if (mode === 'bounded') {
+    // persistent popover（查找栏）例外：既不被新菜单挤掉，打开它时也不挤掉其它菜单。
+    if (mode === 'bounded' && !options.persistent) {
       for (const id of [...this.stack]) {
-        if (id !== popoverId && this.overlays.get(id)?.mode === 'bounded') this.close(id)
+        const other = this.overlays.get(id)
+        if (id !== popoverId && other?.mode === 'bounded' && !other.persistent) this.close(id)
       }
     }
     this.overlays.set(popoverId, {
@@ -87,15 +93,20 @@ export class PopoverManager {
       data: options.data,
       mode,
       size: options.size,
+      persistent: options.persistent,
       onSelect: options.onSelect,
     })
-    if (!this.stack.includes(popoverId)) this.stack.push(popoverId)
+    const alreadyRendered = this.stack.includes(popoverId)
+    if (!alreadyRendered) this.stack.push(popoverId)
     if (mode === 'bounded') {
       // 首帧移到屏幕外但保持可见，仅用于渲染测量（避免 setVisible(false) 导致测量为 0）
       this.popoverView.setVisible(true)
       this.popoverView.setBounds({ x: -10000, y: -10000, width: 1, height: 1 })
     }
     this.renderTop()
+    // persistent popover 重新 open（如再次 Ctrl+F）：视图已 rendered，applyMeasure 不会再聚焦，
+    // 这里主动把 OS 焦点交还 popover 视图，配合面板侧 focusNonce 聚焦到输入框。
+    if (options.persistent && alreadyRendered) this.popoverView.webContents.focus()
   }
 
   /** 把栈顶 popover 推到最前，再通知面板渲染对应数据。overlay 铺满窗口并聚焦；bounded 先渲染待测量。 */

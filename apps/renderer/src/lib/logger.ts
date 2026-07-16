@@ -51,12 +51,17 @@ function send(level: Level, args: unknown[]): void {
 
 export function initRendererLogger(): void {
   const native = {
+    debug: console.debug.bind(console),
     log: console.log.bind(console),
     info: console.info.bind(console),
     warn: console.warn.bind(console),
     error: console.error.bind(console),
   }
 
+  console.debug = (...args: unknown[]): void => {
+    native.debug(...args)
+    send('debug', args)
+  }
   console.log = (...args: unknown[]): void => {
     native.log(...args)
     send('log', args)

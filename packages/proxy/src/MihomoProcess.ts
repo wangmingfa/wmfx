@@ -46,6 +46,9 @@ export class MihomoProcess {
     this.stopRequested = false
 
     const binaryPath = getMihomoBinaryPath()
+    console.debug(
+      `[MihomoProcess] start: binary=${binaryPath}, configDir=${this.configManager.configDir}`
+    )
     if (!existsSync(binaryPath)) {
       throw new Error(`Mihomo binary not found at ${binaryPath}`)
     }
@@ -63,8 +66,16 @@ export class MihomoProcess {
       this.onError?.(data.toString().trim())
     })
 
+    this.process.on('error', (err) => {
+      console.debug(`[MihomoProcess] spawn error: ${err.message}`)
+      this.onError?.(`Process error: ${err.message}`)
+    })
+
     this.process.on('exit', (code) => {
       this.process = null
+      console.debug(
+        `[MihomoProcess] exit: code=${code}, stopRequested=${this.stopRequested}, restartCount=${this.restartCount}`
+      )
       this.onLog?.(`Mihomo exited with code ${code}`)
       /** 仅在非主动停止时才自动重启 */
       if (!this.stopRequested && this.restartCount < this.maxRestarts) {
@@ -88,13 +99,17 @@ export class MihomoProcess {
     if (!this.process) return
     const secret = this.configManager.getSecret()
     const url = `${this.configManager.getControllerUrl()}/stop`
+    console.debug(`[MihomoProcess] stop: attempting API stop at ${url}`)
     fetch(url, {
       method: 'POST',
       headers: { Authorization: `Bearer ${secret}` },
     })
-      .catch(() => {})
+      .catch(() => {
+        console.debug('[MihomoProcess] stop: API stop failed, falling back to SIGTERM')
+      })
       .finally(() => {
         if (this.process) {
+          console.debug(`[MihomoProcess] stop: sending SIGTERM to pid=${this.process.pid}`)
           this.process.kill('SIGTERM')
           this.process = null
         }

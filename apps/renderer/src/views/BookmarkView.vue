@@ -177,7 +177,7 @@ async function handleRename(item: BookmarkItem) {
 }
 
 async function handleDelete(item: BookmarkItem) {
-  const confirmMsg = t('bookmark.deleteConfirm').replace('{title}', JSON.stringify(item.title))
+  const confirmMsg = t('bookmark.deleteConfirm', { title: JSON.stringify(item.title) })
   // eslint-disable-next-line no-alert
   if (!confirm(confirmMsg)) return
   await window.browserAPI.deleteBookmark(item.id)

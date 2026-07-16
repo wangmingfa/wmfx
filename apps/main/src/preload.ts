@@ -1,9 +1,11 @@
 import type {
+  AppInfo,
   AutocompleteQuery,
   AutocompleteSuggestion,
   BookmarkCheckResult,
   BookmarkCreateOptions,
   BookmarkItem,
+  CertTrustScope,
   CreateTabOptions,
   DownloadCreateOptions,
   DownloadItem,
@@ -18,6 +20,7 @@ import type {
   PopoverOpenOptions,
   PopoverType,
   QuickLink,
+  SetDefaultBrowserResult,
   SettingsSnapshot,
   TabPrintOptions,
   TabPrintToPdfOptions,
@@ -60,6 +63,8 @@ const api: {
   getDownload: (id: string) => Promise<DownloadItem | null>
   getDownloads: (opts?: DownloadListOptions) => Promise<DownloadItem[]>
   setDownloadPath: (path: string) => Promise<void>
+  // Dialog
+  selectFolder: () => Promise<string | null>
   // History
   addHistory: (item: {
     url: string
@@ -161,13 +166,23 @@ const api: {
       selection: string
     }) => void
   ) => void
+  onOpenFind: (cb: (tabId: string) => void) => void
+  onFocusAddressBar: (cb: () => void) => void
   // Log
   log: (entry: LogEntry) => void
   // Updater
   checkForUpdates: () => Promise<void>
   getUpdaterStatus: () => Promise<UpdaterStatus>
   onUpdaterStatus: (cb: (status: UpdaterStatus) => void) => void
+  restartAndInstall: () => void
+  // App info
+  getAppInfo: () => Promise<AppInfo>
   // Proxy traffic broadcast
+  // Default browser
+  setDefaultBrowser: () => Promise<SetDefaultBrowserResult>
+  isDefaultBrowser: () => Promise<boolean>
+  // Favicon cache
+  faviconGet: (key: string) => Promise<string | null>
   // Popover
   popoverOpen: (popoverId: string, options: PopoverOpenOptions) => Promise<void>
   popoverClose: (popoverId: string) => Promise<void>
@@ -186,10 +201,20 @@ const api: {
     popoverId: string,
     size: { width: number; height: number; gutter?: number }
   ) => void
+  onPopoverData: (cb: (popoverId: string, data: unknown) => void) => void
   onPopoverDismiss: (cb: (popoverId: string) => void) => void
   onPopoverEvent: (cb: (payload: PopoverEventPayload) => void) => void
   // Proxy traffic broadcast
   onProxyTraffic: (cb: (data: { up: number; down: number }) => void) => void
+  // Error / Cert Warning
+  getErrorInfo: () => Promise<{ code: number; description: string; requestedUrl: string } | null>
+  retry: () => Promise<void>
+  getCertWarningInfo: () => Promise<{
+    host: string
+    errorText: string
+    requestedUrl: string
+  } | null>
+  trustCertAndContinue: (scope: CertTrustScope) => Promise<void>
 } = {
   ping: (message) => ipcRenderer.invoke('app:ping', message),
   createTab: (opts) => ipcRenderer.invoke('tab:create', opts),
@@ -219,6 +244,8 @@ const api: {
   getDownload: (id) => ipcRenderer.invoke('download:get', id),
   getDownloads: (opts) => ipcRenderer.invoke('download:getList', opts),
   setDownloadPath: (path) => ipcRenderer.invoke('download:setPath', path),
+  // Dialog
+  selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
   // History
   addHistory: (item) => ipcRenderer.invoke('history:add', item),
   deleteHistory: (id) => ipcRenderer.invoke('history:delete', id),
@@ -303,6 +330,8 @@ const api: {
         }
       )
     ),
+  onOpenFind: (cb) => ipcRenderer.on('page:openFind', (_e, tabId) => cb(tabId as string)),
+  onFocusAddressBar: (cb) => ipcRenderer.on('shell:focusAddressBar', () => cb()),
   // Log
   log: (entry) => ipcRenderer.send('log:frontend', entry),
   // Updater
@@ -310,6 +339,9 @@ const api: {
   getUpdaterStatus: () => ipcRenderer.invoke('updater:getStatus'),
   onUpdaterStatus: (cb) =>
     ipcRenderer.on('updater:status', (_e, status) => cb(status as UpdaterStatus)),
+  restartAndInstall: () => ipcRenderer.invoke('updater:restart'),
+  // App info
+  getAppInfo: () => ipcRenderer.invoke('app:info'),
   // Popover
   popoverOpen: (popoverId, options) => ipcRenderer.invoke('popover:open', popoverId, options),
   popoverClose: (popoverId) => ipcRenderer.invoke('popover:close', popoverId),
@@ -320,11 +352,23 @@ const api: {
       cb(id, type as PopoverType, anchor as PopoverAnchor, data, mode as PopoverMode | undefined)
     ),
   popoverMeasure: (popoverId, size) => ipcRenderer.send('popover:measure', popoverId, size),
+  onPopoverData: (cb) =>
+    ipcRenderer.on('popover:data', (_e, popoverId, data) => cb(popoverId as string, data)),
   onPopoverDismiss: (cb) => ipcRenderer.on('popover:dismiss', (_e, id) => cb(id as string)),
   onPopoverEvent: (cb) =>
     ipcRenderer.on('popover:event', (_e, payload) => cb(payload as PopoverEventPayload)),
   onProxyTraffic: (cb) =>
     ipcRenderer.on('proxy:traffic', (_e, data) => cb(data as { up: number; down: number })),
+  // Error / Cert Warning
+  getErrorInfo: () => ipcRenderer.invoke('page:getErrorInfo'),
+  retry: () => ipcRenderer.invoke('page:retry'),
+  getCertWarningInfo: () => ipcRenderer.invoke('page:getCertWarningInfo'),
+  trustCertAndContinue: (scope) => ipcRenderer.invoke('page:trustCertAndContinue', scope),
+  // Default browser
+  setDefaultBrowser: () => ipcRenderer.invoke('default-browser:set'),
+  isDefaultBrowser: () => ipcRenderer.invoke('default-browser:isDefault'),
+  // Favicon
+  faviconGet: (key: string) => ipcRenderer.invoke('favicon:get', key),
 }
 
 contextBridge.exposeInMainWorld('browserAPI', api)

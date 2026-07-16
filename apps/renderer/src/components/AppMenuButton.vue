@@ -55,7 +55,7 @@ async function runMenuItem(id: string): Promise<void> {
     return
   }
   const list = await window.browserAPI.getList()
-  const existing = list.find((t) => t.url === id || t.url.startsWith(`${id}/`))
+  const existing = list.find((t) => t.navigation.displayUrl === id || t.navigation.displayUrl.startsWith(`${id}/`))
   if (existing) {
     window.browserAPI.activateTab(existing.id)
   } else {

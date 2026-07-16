@@ -4,7 +4,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *));
 
 /* ============================================================
  * Tailwind v4 主题映射：将 CSS 变量桥接到 Tailwind 工具类
@@ -82,7 +82,8 @@
 }
 
 /* ============================================================
- * 浅色主题（:root 默认浅色，oklch 色彩空间）
+ * 浅色主题（:root 为默认主题；oklch 用于设计令牌，十六进制用于外壳配色）
+ * 通用变量 + 浅色专用值都放在 :root，深色统一在 [data-theme="dark"] 覆盖
  * ============================================================ */
 :root {
   --radius: 0.625rem;
@@ -110,7 +111,7 @@
   --muted: oklch(0.97 0 0);
   /* 弱化文字（灰色） */
   --muted-foreground: oklch(0.556 0 0);
-  /* 强调背景（hover） */
+  /* 强调背景 */
   --accent: oklch(0.97 0 0);
   /* 强调文字 */
   --accent-foreground: oklch(0.205 0 0);
@@ -146,12 +147,48 @@
   --sidebar-border: oklch(0.922 0 0);
   /* 侧边栏焦点环 */
   --sidebar-ring: oklch(0.5854 0.2041 277.12);
+
+  /* ===== 浏览器外壳配色（TabBar / AddressBar / 内部页共用） ===== */
+  /* 主背景色（标签栏、地址栏区域） */
+  --bg-primary: #ffffff;
+  /* 次要背景色（设置项、卡片等） */
+  --bg-secondary: #f5f5f5;
+  /* 三级背景色（hover 态、分隔区域） */
+  --bg-tertiary: #e8e8e8;
+  /* 标签栏背景色（浅蓝） */
+  --tabbar-bg: #cddffd;
+  /* Chrome 外壳背景色（标签页区域） */
+  --chrome-bg: #ffffff;
+  /* 主文字色（正文、标签标题） */
+  --text-primary: #1a1a1a;
+  /* 次要文字色（描述、URL 等） */
+  --text-secondary: #666;
+  /* 弱化文字色（占位符、禁用态），浅色模式下需明显浅于 --text-secondary 以区分禁用 */
+  --text-muted: #aaa;
+  /* 分隔线 / 边框色 */
+  --border-color: #e0e0e0;
+  /* 品牌强调色 #6366F1 */
+  --accent-color: #6366F1;
+  /* 危险色（删除、错误提示） */
+  --danger-color: #d32f2f;
+  /* 地址栏输入框背景色 */
+  --url-input-bg: #eaf0f9;
+  /* hover / 激活态背景色（明显深于 bg-secondary 以便区分） */
+  --bg-hover: #e8e8e8;
+  /* 标签页 hover 背景色 */
+  --bg-tab-hover: #9ec0f9;
+  /* 错误提示文字色 */
+  --error-color: #d32f2f;
+  /* 成功色（安全连接等正面状态） */
+  --success-color: #27ae60;
 }
 
 /* ============================================================
- * 深色主题（.dark class 或 [data-theme="dark"]）
+ * 深色主题（[data-theme="dark"] 覆盖；oklch 用于设计令牌，十六进制用于外壳配色）
  * ============================================================ */
-.dark {
+[data-theme="dark"] {
+  /* 原生控件配色（滚动条、表单元素、光标等）跟随深色，贴合当前主题 */
+  color-scheme: dark;
   /* 页面背景（深灰） */
   --background: oklch(0.35 0 0);
   /* 正文文字（白色） */
@@ -212,25 +249,8 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   /* 侧边栏焦点环 */
   --sidebar-ring: oklch(0.6801 0.1583 276.93);
-}
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  *:focus {
-    outline: none;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
-/* ============================================================
- * 浏览器外壳配色变量（TabBar / AddressBar / 内部页共用）
- * 由 nativeTheme + data-theme 属性控制切换
- * ============================================================ */
-:root {
+  /* ===== 浏览器外壳配色（深色） ===== */
   /* 主背景色（标签栏、地址栏区域） */
   --bg-primary: #353535;
   /* 次要背景色（设置项、卡片等） */
@@ -246,7 +266,7 @@
   /* 次要文字色（描述、URL 等） */
   --text-secondary: #888;
   /* 弱化文字色（占位符、禁用态） */
-  --text-muted: #555;
+  --text-muted: #777;
   /* 分隔线 / 边框色 */
   --border-color: #3c3c3c;
   /* 品牌强调色（链接、按钮高亮）#6366F1 */
@@ -256,40 +276,25 @@
   /* 地址栏输入框背景色 */
   --url-input-bg: #242424;
   /* hover / 激活态背景色（略亮于 bg-primary） */
-  --bg-hover: #4a4a4a;
+  --bg-hover: #404040;
   /* 标签页 hover 背景色 */
   --bg-tab-hover: #1d4974;
+  /* 错误提示文字色 */
+  --error-color: #ff5555;
+  /* 成功色（安全连接等正面状态） */
+  --success-color: #4caf50;
 }
 
-[data-theme="light"] {
-  /* 主背景色 */
-  --bg-primary: #ffffff;
-  /* 次要背景色 */
-  --bg-secondary: #f5f5f5;
-  /* 三级背景色 */
-  --bg-tertiary: #e8e8e8;
-  /* 标签栏背景色（浅蓝） */
-  --tabbar-bg: #cddffd;
-  /* Chrome 外壳背景色 */
-  --chrome-bg: #ffffff;
-  /* 主文字色 */
-  --text-primary: #1a1a1a;
-  /* 次要文字色 */
-  --text-secondary: #666;
-  /* 弱化文字色（占位符、禁用态），浅色模式下需明显浅于 --text-secondary 以区分禁用 */
-  --text-muted: #aaa;
-  /* 分隔线 / 边框色 */
-  --border-color: #e0e0e0;
-  /* 品牌强调色 #6366F1 */
-  --accent-color: #6366F1;
-  /* 危险色（删除、错误提示） */
-  --danger-color: #d32f2f;
-  /* 地址栏输入框背景色 */
-  --url-input-bg: #eaf0f9;
-  /* hover / 激活态背景色（略深于 bg-primary） */
-  --bg-hover: #f2f2f2;
-  /* 标签页 hover 背景色 */
-  --bg-tab-hover: #9ec0f9;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  *:focus {
+    outline: none;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
 /* 设置表单通用样式（分组、标签等，供各设置子视图复用） */
@@ -303,21 +308,6 @@
   border-bottom: none;
 }
 
-.settings-group {
-  margin-bottom: 16px;
-}
-
-.settings-group:last-child {
-  margin-bottom: 0;
-}
-
-.settings-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: var(--text-primary);
-}
-
 .settings-radio {
   display: flex;
   align-items: center;
@@ -325,6 +315,14 @@
   cursor: pointer;
   font-size: 14px;
   color: var(--text-primary);
+}
+
+/* About：更新按钮 + 状态文案纵向堆叠在右侧 */
+.settings-update {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .zoom-control {
@@ -369,4 +367,24 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+/* 默认浏览器：按钮 + 状态文案一行 */
+.default-browser-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.default-browser-status {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.default-browser-status.muted {
+  color: var(--text-secondary);
+}
+
+.default-browser-status.error {
+  color: var(--error-color);
 }

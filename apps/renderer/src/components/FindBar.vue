@@ -1,185 +1,183 @@
 <template>
-  <div class="find-bar" :class="{ visible: isVisible }">
-    <input
-      ref="inputRef"
-      v-model="searchText"
-      class="find-input"
-      :placeholder="t('find.placeholder')"
-      @keydown.enter="findNext"
-      @keydown.esc="close"
-      @input="onInput"
-    />
-    <span class="find-counter">{{ matches > 0 ? `${activeMatch + 1}/${matches}` : '0/0' }}</span>
-    <button class="find-btn" :disabled="matches === 0" @click="findPrevious">
-      <Icon icon="ic:round-keyboard-arrow-up" width="18" height="18" />
-    </button>
-    <button class="find-btn" :disabled="matches === 0" @click="findNext">
-      <Icon icon="ic:round-keyboard-arrow-down" width="18" height="18" />
-    </button>
-    <button class="find-btn close-btn" @click="close">
-      <Icon icon="ic:sharp-close" width="20" height="20" />
-    </button>
-  </div>
+  <!-- 查找栏 UI 渲染在 PopoverManager 的独立置顶 view（panel/FindPanel.vue），此组件仅作全局控制器 -->
+  <span style="display: none" />
 </template>
 
 <script setup lang="ts">
-import { Icon } from '@iconify/vue'
-import { nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { useI18n } from '@/composables/useI18n'
+import type { PopoverAnchor } from '@browser/ipc-contract'
+import { onMounted, onUnmounted, watch } from 'vue'
+import { Popover } from '../lib/popover'
 
 const props = defineProps<{
-  tabId: string
+  /** 当前激活标签页 id；null 表示无标签页 */
+  activeTabId: string | null
 }>()
 
-const { t } = useI18n()
+// 查找栏尺寸（与 FindPanel.vue 内固定宽高一致），用于锚点定位到内容区右上角
+const FIND_WIDTH = 320
+const FIND_HEIGHT = 40
+const FIND_MARGIN = 8
 
-const isVisible = ref(false)
-const searchText = ref('')
-const matches = ref(0)
-const activeMatch = ref(-1)
-const inputRef = ref<HTMLInputElement>()
+/** 每个 tab 独立的查找状态：显示与否、关键字、匹配总数与当前位置 */
+interface FindState {
+  visible: boolean
+  query: string
+  matches: number
+  activeMatch: number
+}
 
-function onInput(): void {
-  const text = searchText.value
-  if (text) {
-    window.browserAPI.startFind({ tabId: props.tabId, searchText: text })
-  } else {
-    window.browserAPI.endFind(props.tabId)
+// tabId → 查找状态，各网页独立搜索互不干扰
+const states = new Map<string, FindState>()
+// 全局共享的单个 Popover 实例（同一时刻仅当前 tab 的查找栏可见）
+let popover: Popover | null = null
+// 每次 open 自增，随 data 下发；FindPanel watch 到变化即聚焦并全选输入框（再次 Ctrl+F 场景）
+let focusNonce = 0
+
+function getState(tabId: string): FindState {
+  let s = states.get(tabId)
+  if (!s) {
+    s = { visible: false, query: '', matches: 0, activeMatch: -1 }
+    states.set(tabId, s)
+  }
+  return s
+}
+
+// 内容区右上角锚点（类 Chrome）：cover-start 让盒子左上角对齐 rect 左上角
+function computeAnchor(): PopoverAnchor {
+  const viewport = document.getElementById('browser-viewport')
+  const vrect = viewport?.getBoundingClientRect()
+  const x = vrect ? vrect.right - FIND_WIDTH - FIND_MARGIN : window.innerWidth - FIND_WIDTH - FIND_MARGIN
+  const y = vrect ? vrect.top + FIND_MARGIN : FIND_MARGIN
+  return {
+    type: 'rect',
+    rect: { x, y, width: FIND_WIDTH, height: FIND_HEIGHT },
+    placement: 'cover-start',
   }
 }
 
-function findNext(): void {
-  window.browserAPI.findNext({ tabId: props.tabId, forward: true })
+function panelData(s: FindState): {
+  query: string
+  matches: number
+  activeMatch: number
+  focusNonce: number
+} {
+  return { query: s.query, matches: s.matches, activeMatch: s.activeMatch, focusNonce }
 }
 
-function findPrevious(): void {
-  window.browserAPI.findNext({ tabId: props.tabId, forward: false })
-}
-
-function close(): void {
-  window.browserAPI.endFind(props.tabId)
-  isVisible.value = false
-  searchText.value = ''
-  matches.value = 0
-  activeMatch.value = -1
-}
-
-function open(): void {
-  isVisible.value = true
-  nextTick(() => {
-    inputRef.value?.focus()
+// 创建（首次）持有 Popover 实例，事件按“当前激活 tab”路由
+function createPopover(s: FindState): void {
+  popover = new Popover({
+    type: 'find',
+    mode: 'bounded',
+    persistent: true,
+    anchor: computeAnchor(),
+    data: panelData(s),
+    onEvent: onPanelEvent,
+    onDismiss: () => {
+      // persistent 已阻止失焦/背景关闭；关闭按钮/Esc 走 onPanelEvent('close')，
+      // 主动 close() 不触发本回调。此处仅作外部意外关闭的兜底，清空实例引用。
+      popover = null
+    },
   })
+}
+
+function onPanelEvent(eventName: string, eventData?: unknown): void {
+  const tabId = props.activeTabId
+  if (!tabId) return
+  const s = getState(tabId)
+  if (eventName === 'update-query' && typeof eventData === 'string') {
+    s.query = eventData
+    if (s.query) {
+      window.browserAPI.startFind({ tabId, searchText: s.query })
+    } else {
+      window.browserAPI.endFind(tabId)
+      s.matches = 0
+      s.activeMatch = -1
+      popover?.sendData(panelData(s))
+    }
+  } else if (eventName === 'find-next') {
+    window.browserAPI.findNext({ tabId, forward: true })
+  } else if (eventName === 'find-prev') {
+    window.browserAPI.findNext({ tabId, forward: false })
+  } else if (eventName === 'close') {
+    close(tabId)
+  }
+}
+
+// 打开当前 tab 的查找栏：新建或复用 popover，回显该 tab 的关键字并恢复高亮
+function open(): void {
+  const tabId = props.activeTabId
+  if (!tabId) return
+  const s = getState(tabId)
+  s.visible = true
+  focusNonce++
+  if (!popover) {
+    createPopover(s)
+  } else {
+    popover.reopen(computeAnchor(), panelData(s))
+  }
+  // 有历史关键字则重新触发查找以恢复高亮
+  if (s.query) window.browserAPI.startFind({ tabId, searchText: s.query })
+}
+
+function close(tabId: string): void {
+  const s = getState(tabId)
+  s.visible = false
+  s.matches = 0
+  s.activeMatch = -1
+  window.browserAPI.endFind(tabId)
+  popover?.close()
+  popover = null
 }
 
 function onFoundInPage(data: { matches: number; activeMatch: number; tabId: string }): void {
-  if (data.tabId === props.tabId) {
-    matches.value = data.matches
-    activeMatch.value = data.activeMatch
-  }
+  const s = getState(data.tabId)
+  s.matches = data.matches
+  s.activeMatch = data.activeMatch
+  // 仅当结果属于当前激活 tab 时才回显到面板
+  if (data.tabId === props.activeTabId && s.visible) popover?.sendData(panelData(s))
 }
+
+// Ctrl/Cmd+F 由主进程窗口级快捷键（registerAppShortcut）统一处理，转发 page:openFind 到此打开查找栏
+function onOpenFind(tabId: string): void {
+  if (tabId === props.activeTabId) open()
+}
+
+// tab 关闭：清理其查找状态与高亮
+function onTabRemoved(tabId: string): void {
+  states.delete(tabId)
+  window.browserAPI.endFind(tabId)
+}
+
+// 切换 tab：按新 tab 的状态自动恢复（重定位+回显+恢复高亮）或隐藏查找栏
+watch(
+  () => props.activeTabId,
+  (tabId) => {
+    if (!tabId) {
+      popover?.close()
+      popover = null
+      return
+    }
+    const s = getState(tabId)
+    if (s.visible) {
+      if (!popover) createPopover(s)
+      else popover.reopen(computeAnchor(), panelData(s))
+      if (s.query) window.browserAPI.startFind({ tabId, searchText: s.query })
+    } else {
+      popover?.close()
+      popover = null
+    }
+  },
+)
 
 onMounted(() => {
   window.browserAPI.onFoundInPage(onFoundInPage)
-
-  document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-      e.preventDefault()
-      open()
-    } else if (e.key === 'Escape' && isVisible.value) {
-      e.preventDefault()
-      close()
-    }
-  })
+  window.browserAPI.onOpenFind(onOpenFind)
+  window.browserAPI.onTabRemoved(onTabRemoved)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', () => {})
+  popover?.close()
+  popover = null
 })
 </script>
-
-<style scoped>
-.find-bar {
-  position: absolute;
-  top: 78px;
-  right: 8px;
-  width: 320px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 8px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  opacity: 0;
-  transform: translateY(-8px);
-  transition:
-    opacity 0.2s,
-    transform 0.2s;
-  pointer-events: none;
-}
-
-.find-bar.visible {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-.find-input {
-  flex: 1;
-  height: 28px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 0 10px;
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-}
-
-.find-input:focus {
-  border-color: var(--accent-color);
-}
-
-.find-input::placeholder {
-  color: var(--text-muted, #999);
-}
-
-.find-counter {
-  font-size: 12px;
-  color: var(--text-secondary);
-  min-width: 40px;
-  text-align: center;
-}
-
-.find-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  background: none;
-  border: none;
-  color: var(--text-primary);
-  cursor: pointer;
-  border-radius: 50%;
-}
-
-.find-btn:disabled {
-  color: var(--text-muted, #999);
-  cursor: default;
-}
-
-.find-btn:not(:disabled):hover {
-  background: var(--bg-tertiary);
-}
-
-.close-btn {
-  color: var(--text-secondary);
-}
-
-.close-btn:hover {
-  color: var(--danger-color);
-}
-</style>

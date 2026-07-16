@@ -6,12 +6,15 @@
     <IconButton icon="ic:round-home" @click="goHome" />
     <IconButton icon="ic:round-print" @click="printPage" />
     <div class="url-input-wrap">
-      <input
+      <AddressInput
         ref="inputRef"
         v-model="urlInput"
-        class="url-input"
         :placeholder="ADDRESS_BAR_PLACEHOLDER"
+        :security-state="securityState"
+        :url="props.url"
+        :favicon="props.favicon"
         @focus="onFocus"
+        @keydown.enter="onEnter"
       />
       <div class="url-input-actions">
         <button class="zoom-display" @click="cycleZoom">
@@ -22,18 +25,21 @@
         </button>
       </div>
     </div>
+    <DownloadIndicator />
     <AppMenuButton />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ADDRESS_BAR_PLACEHOLDER } from '@browser/shared'
+import { ADDRESS_BAR_PLACEHOLDER, resolveAddressBarTarget } from '@browser/shared'
 import { Icon } from '@iconify/vue'
 import { onMounted, ref, watch } from 'vue'
 
 import { useAddressBarFocus } from '../composables/useAddressBarFocus'
 import { Popover } from '../lib/popover'
+import AddressInput from './AddressInput.vue'
 import AppMenuButton from './AppMenuButton.vue'
+import DownloadIndicator from './DownloadIndicator.vue'
 import IconButton from './ui/IconButton.vue'
 
 const props = defineProps<{
@@ -42,6 +48,8 @@ const props = defineProps<{
   canGoBack: boolean
   canGoForward: boolean
   isLoading: boolean
+  securityState?: 'secure' | 'insecure' | 'internal'
+  favicon?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -50,18 +58,23 @@ const emit = defineEmits<{
 
 const iconSize = 18
 
+const searchEngine = ref('google')
 const urlInput = ref('')
-const inputRef = ref<HTMLInputElement>()
+const inputRef = ref<InstanceType<typeof AddressInput>>()
 const suggestions = ref<{ type: 'history' | 'bookmark' | 'search'; title: string; url: string }[]>([])
 const activeIndex = ref(-1)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let currentPopover: Popover | null = null
 
-// 新开标签页时由创建方触发聚焦地址输入框
+// 新开标签页时由创建方触发聚焦地址输入框；Cmd/Ctrl+L 也复用此机制
 const focusNonce = useAddressBarFocus()
 watch(focusNonce, () => {
   // 需要延迟确保组件已挂载且 input 已渲染到 DOM
-  setTimeout(() => inputRef.value?.focus(), 50)
+  setTimeout(() => {
+    inputRef.value?.focus()
+    // 类 Chrome：聚焦时全选当前地址，方便直接覆盖输入（空地址栏无副作用）
+    inputRef.value?.select()
+  }, 50)
 })
 
 const isBookmarked = ref(false)
@@ -76,8 +89,12 @@ function onFocus(): void {
   openPopover()
 }
 
+function onEnter(): void {
+  navigate()
+}
+
 function openPopover(): void {
-  const rect = inputRef.value?.getBoundingClientRect()
+  const rect = inputRef.value?.getEl()?.getBoundingClientRect()
   if (!rect) return
   currentPopover = new Popover({
     type: 'addressbar',
@@ -86,10 +103,11 @@ function openPopover(): void {
     size: { width: rect.width },
     anchor: {
       type: 'rect',
+      // 顶部对齐到输入框顶部，弹出层从输入框上沿展开（原行为）
       rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
       placement: 'cover-start',
     },
-    data: { query: urlInput.value, suggestions: suggestions.value },
+    data: { query: urlInput.value, suggestions: suggestions.value, favicon: props.favicon ?? null },
     onEvent: (eventName, eventData) => {
       if (eventName === 'select' && typeof eventData === 'string') {
         selectSuggestion(eventData)
@@ -185,13 +203,14 @@ async function goHome(): Promise<void> {
 }
 
 function navigate(): void {
-  const url = urlInput.value.trim()
-  if (url) {
-    closePopover()
-    inputRef.value!.blur()
-    window.browserAPI.loadURL(props.tabId, url)
-    emit('navigate', url)
-  }
+  const raw = urlInput.value.trim()
+  if (!raw) return
+  // 识别是否为链接：是则按原流程加载，否则用默认搜索引擎搜索
+  const url = resolveAddressBarTarget(raw, searchEngine.value)
+  closePopover()
+  inputRef.value!.blur()
+  window.browserAPI.loadURL(props.tabId, url)
+  emit('navigate', url)
 }
 
 async function getZoomLevel(): Promise<number> {
@@ -259,20 +278,36 @@ watch(
 onMounted(async () => {
   currentZoomIndex.value = await getZoomLevel()
   currentZoomLevel.value = `${ZOOM_LEVELS[currentZoomIndex.value]}%`
+  const settings = await window.browserAPI.getAllSettings()
+  searchEngine.value = (settings.searchEngine as string) ?? 'google'
   await syncBookmarkStatus()
 })
 </script>
 
-<style scoped>
+<style scoped lang="less">
 .address-bar {
   position: relative;
   display: flex;
   align-items: center;
+  /* 偶数高度；底部分隔线用 ::after 伪元素绘制，不占用内容高度，
+     保证 .url-input-wrap 内容区为偶数 → 28px 输入框居中后顶部落在整数像素，
+     避免 popover 锚点亚像素偏差导致的抖动 */
+  box-sizing: border-box;
   height: 40px;
   background: var(--chrome-bg);
-  border-bottom: 1px solid var(--border-color);
   padding: 0 8px;
   gap: 4px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--border-color);
+    pointer-events: none;
+  }
 }
 
 .url-input-wrap {
@@ -280,23 +315,8 @@ onMounted(async () => {
   flex: 1;
   display: flex;
   align-items: center;
-}
-
-.url-input {
-  flex: 1;
-  width: 100%;
-  height: 28px;
   background: var(--url-input-bg);
-  border: none;
   border-radius: 14px;
-  padding: 0 76px 0 12px;
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-}
-
-.url-input::placeholder {
-  color: var(--text-muted, #999);
 }
 
 .url-input-actions {
@@ -320,11 +340,11 @@ onMounted(async () => {
   font-size: 12px;
   cursor: pointer;
   outline: none;
-}
 
-.zoom-display:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+  &:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
 }
 
 .bookmark-btn {
@@ -337,13 +357,13 @@ onMounted(async () => {
   color: var(--text-secondary);
   cursor: pointer;
   border-radius: 50%;
-}
 
-.bookmark-btn:not(:disabled):hover {
-  background: var(--bg-tertiary);
-}
+  &:not(:disabled):hover {
+    background: var(--bg-tertiary);
+  }
 
-.bookmark-btn.bookmarked {
-  color: #f5b041;
+  &.bookmarked {
+    color: #f5b041;
+  }
 }
 </style>
