@@ -47,7 +47,8 @@
 ## 日志规范
 
 ### 调试日志（console.debug）
-所有关键代码路径**必须**添加 `console.debug` 日志，便于排查问题。统一使用 `console.debug`（不用 `console.log`/`console.info`）。
+所有代码**必须**添加非常详细的调试日志，用于排查运行细节。统一使用 `console.debug`（不用 `console.log`）。
+除「不要加日志的位置」外，函数入口/出口、分支判断、关键变量、异步回调、IO 前后等都应记录，宁多勿少。
 
 **格式**：`[模块名] 方法名: 描述含关键参数`
 ```ts
@@ -56,7 +57,10 @@ console.debug('[IPC] tab:create: url=%s sessionId=%s', opts?.url, opts?.sessionI
 console.debug('[ProxyManager] start: configPath=%s', configPath)
 ```
 
-**必须加日志的位置**：
+### 关键路径日志（console.info）
+关键代码路径（生命周期、重要状态变更、流程里程碑）使用 `console.info`，在控制台以 INFO 突出显示，便于快速定位执行到哪一步：
+
+**必须加 `console.info` 的位置**：
 - **Tab 生命周期**：`create`/`close`/`activate`/`suspend`/`resume`/`relaunchView`
 - **导航**：`loadURL`/`goBack`/`goForward`/`reload`/`stop`/`setNavigating`
 - **IPC 关键 handler**：`tab:create`/`tab:close`/`tab:activate`/`nav:*`/`download:*`/`proxy:*`/`settings:set`
@@ -72,7 +76,7 @@ console.debug('[ProxyManager] start: configPath=%s', configPath)
 
 **日志等级**：
 - `console.debug` → 开发调试信息，dev 模式可选过滤（通过 `scripts/dev.ts` 选择等级）
-- `console.log`/`console.info` → 运行时关键事件
+- `console.info` → 关键代码路径/重要状态变更（见上方「必须加 console.info 的位置」）
 - `console.warn` → 警告
 - `console.error` → 错误
 - 生产包（打包安装）收集所有等级日志，dev 模式通过 `WMFX_LOG_LEVEL` 环境变量过滤
@@ -202,3 +206,4 @@ import { NInput, NSelect, NSwitch } from 'naive-ui'
 - 代码签名: macOS Apple Developer ID, Windows Authenticode
 - 自动更新: electron-updater + GitHub Releases
 - 测试覆盖扩展: Vitest 单元测试, Playwright E2E 扩展
+- 标签悬停缩略图预览 (captureThumbnail + 300ms throttle + cache)

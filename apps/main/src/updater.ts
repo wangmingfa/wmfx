@@ -47,6 +47,7 @@ class UpdaterManager {
 
   /** 供渲染进程手动触发检查 */
   checkForUpdates(): void {
+    console.debug('[updater] checkForUpdates')
     if (!app.isPackaged) return
     autoUpdater.checkForUpdatesAndNotify().catch((e) => {
       this.set({ state: 'error', message: e.message })
@@ -60,6 +61,7 @@ class UpdaterManager {
 
   /** 退出应用并安装已下载好的更新（下载完成后由关于页「重启更新」按钮触发） */
   restartAndInstall(): void {
+    console.debug('[updater] restartAndInstall')
     if (!app.isPackaged) return
     autoUpdater.quitAndInstall()
   }

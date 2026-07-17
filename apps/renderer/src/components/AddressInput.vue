@@ -57,11 +57,14 @@ const securityTitle = computed(() => {
 })
 
 function onInput(e: Event): void {
-  emit('update:modelValue', (e.target as HTMLInputElement).value)
+  const value = (e.target as HTMLInputElement).value
+  console.debug('[AddressInput] onInput: value', value)
+  emit('update:modelValue', value)
   emit('input', e)
 }
 
 function onKeydown(e: KeyboardEvent): void {
+  console.debug('[AddressInput] onKeydown: key', e.key)
   emit('keydown', e)
 }
 

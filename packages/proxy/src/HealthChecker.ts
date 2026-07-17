@@ -12,15 +12,19 @@ export class HealthChecker {
   private concurrency: number
 
   constructor(apiClient: ApiClient, concurrency = 5) {
+    console.debug(`[HealthChecker] constructor: concurrency=${concurrency}`)
     this.apiClient = apiClient
     this.concurrency = concurrency
   }
 
   async checkNode(nodeName: string): Promise<DelayResult> {
+    console.debug(`[HealthChecker] checkNode: node=${nodeName}`)
     try {
       const delay = await this.apiClient.getDelay(nodeName)
+      console.debug(`[HealthChecker] checkNode: node=${nodeName}, delay=${delay}`)
       return { nodeName, delay }
     } catch (e) {
+      console.debug(`[HealthChecker] checkNode: node=${nodeName}, error=${String(e)}`)
       return { nodeName, delay: -1, error: String(e) }
     }
   }

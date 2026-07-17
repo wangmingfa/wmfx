@@ -6,6 +6,7 @@ const focusNonce = ref(0)
 
 /** 请求地址栏在合适时机聚焦（用于“新开标签页默认聚焦地址输入框”）。 */
 export function requestAddressBarFocus(): void {
+  console.debug('[useAddressBarFocus] request: nonce', focusNonce.value + 1)
   focusNonce.value++
 }
 

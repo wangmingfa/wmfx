@@ -27,14 +27,22 @@ export class HistoryManager {
   }
 
   search(query: string, limit = 50, offset = 0) {
+    console.debug('[HistoryManager] search: query limit offset', query, limit, offset)
     return this.repo.search(query, limit, offset)
   }
 
   getList(limit = 50, offset = 0) {
+    console.debug('[HistoryManager] getList: limit offset', limit, offset)
     return this.repo.getList(limit, offset)
   }
 
+  getAll(): HistoryItem[] {
+    console.debug('[HistoryManager] getAll')
+    return this.repo.getAll()
+  }
+
   getRecent(limit = 5): HistoryItem[] {
+    console.debug('[HistoryManager] getRecent: limit', limit)
     return this.repo.getList(limit, 0)
   }
 

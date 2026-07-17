@@ -65,19 +65,52 @@ export class BookmarkManager {
     this.repo.update(id, { title })
   }
 
+  move(id: string, newParentId: string | null, newPosition: number): void {
+    // 防循环：不能移入自身或自身后代
+    if (id === newParentId) {
+      console.debug('[BookmarkManager] move: skipped self-parent, id', id)
+      return
+    }
+    const descendants = this.repo.getDescendants(id)
+    if (newParentId && descendants.includes(newParentId)) {
+      console.debug('[BookmarkManager] move: skipped cycle, id target', id, newParentId)
+      return
+    }
+    const clamped = Math.max(0, Math.floor(newPosition))
+    // 先更新父子关系
+    this.repo.update(id, { parent_id: newParentId, position: clamped })
+    // 重排目标兄弟：把落在 [clamped, +∞) 的其它兄弟 position +1
+    const siblings = this.repo.getSiblings(newParentId).filter((b) => b.id !== id)
+    siblings.forEach((sib) => {
+      if (sib.position >= clamped) {
+        this.repo.update(sib.id, { position: sib.position + 1 })
+      }
+    })
+    console.debug('[BookmarkManager] move: id newParentId newPosition', id, newParentId, clamped)
+  }
+
   getList(parentId?: string | null): BookmarkItemDto[] {
-    return this.repo.getList(parentId).map(toDto)
+    console.debug('[BookmarkManager] getList: parentId', parentId)
+    const items = this.repo.getList(parentId).map(toDto)
+    console.debug('[BookmarkManager] getList: result count', items.length)
+    return items
   }
 
   search(query: string): BookmarkItemDto[] {
-    return this.repo.search(query).map(toDto)
+    console.debug('[BookmarkManager] search: query', query)
+    const items = this.repo.search(query).map(toDto)
+    console.debug('[BookmarkManager] search: result count', items.length)
+    return items
   }
 
   isBookmarked(url: string): { isBookmarked: boolean; id: string | null } {
+    console.debug('[BookmarkManager] isBookmarked: url', url)
     const items = this.repo.search(url)
     if (items.length > 0) {
+      console.debug('[BookmarkManager] isBookmarked: hit id', items[0].id)
       return { isBookmarked: true, id: items[0].id }
     }
+    console.debug('[BookmarkManager] isBookmarked: miss')
     return { isBookmarked: false, id: null }
   }
 
@@ -103,6 +136,7 @@ export class BookmarkManager {
   }
 
   private parseBookmarksHTML(html: string): Array<{ title: string; url: string | null }> {
+    console.debug('[BookmarkManager] parseBookmarksHTML: htmlLength', html.length)
     const links: Array<{ title: string; url: string | null }> = []
     const urlRegex = /<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi
     const matches = [...html.matchAll(urlRegex)]
@@ -114,6 +148,7 @@ export class BookmarkManager {
         links.push({ title, url })
       }
     }
+    console.debug('[BookmarkManager] parseBookmarksHTML: links', links.length)
     return links
   }
 

@@ -94,6 +94,7 @@ const loading = ref(false)
 const delays = ref<Record<string, number>>({})
 
 async function loadProxies(): Promise<void> {
+  console.debug('[NodeView] loadProxies')
   proxies.value = await window.browserAPI.getProxies()
   const groups = Object.keys(proxies.value).filter((k) => proxies.value[k].type === 'Selector')
   if (groups.length > 0 && !selectedGroup.value) {
@@ -103,25 +104,36 @@ async function loadProxies(): Promise<void> {
     const g = proxies.value[selectedGroup.value]
     if (g?.now) selectedNode.value = g.now
   }
+  console.debug('[NodeView] loadProxies: selectedGroup', selectedGroup.value)
 }
 
 async function loadMode(): Promise<void> {
   mode.value = await window.browserAPI.getProxyMode()
+  console.debug('[NodeView] loadMode: mode', mode.value)
 }
 
 async function switchNode(nodeName: string): Promise<void> {
-  if (!selectedGroup.value) return
+  if (!selectedGroup.value) {
+    console.warn('[NodeView] switchNode: 未选中分组，忽略')
+    return
+  }
+  console.debug('[NodeView] switchNode: group node', selectedGroup.value, nodeName)
   selectedNode.value = nodeName
   await window.browserAPI.switchProxyNode(selectedGroup.value, nodeName)
 }
 
 async function setMode(m: 'rule' | 'global' | 'direct'): Promise<void> {
+  console.debug('[NodeView] setMode: mode', m)
   mode.value = m
   await window.browserAPI.setProxyMode(m)
 }
 
 async function checkDelay(): Promise<void> {
-  if (!selectedGroup.value) return
+  if (!selectedGroup.value) {
+    console.warn('[NodeView] checkDelay: 未选中分组，忽略')
+    return
+  }
+  console.debug('[NodeView] checkDelay: group', selectedGroup.value)
   loading.value = true
   const results = await window.browserAPI.checkProxyDelay(selectedGroup.value)
   const map: Record<string, number> = {}
@@ -136,6 +148,7 @@ function formatDelay(d: number): string {
 }
 
 onMounted(async () => {
+  console.debug('[NodeView] onMounted: 加载代理列表与模式')
   await Promise.all([loadProxies(), loadMode()])
 })
 </script>

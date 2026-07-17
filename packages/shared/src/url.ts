@@ -15,13 +15,21 @@ export const SEARCH_ENGINE_BASE: Record<string, string> = {
 }
 
 export function normalizeAddressBarInput(input: string): AddressBarResult {
+  console.debug('[url] normalizeAddressBarInput: input', input)
   const trimmed = input.trim()
   if (/^https?:\/\//i.test(trimmed)) {
+    console.debug('[url] normalizeAddressBarInput: 命中 http(s) 前缀, 按 url 处理')
+    return { type: 'url', value: trimmed }
+  }
+  if (/^wmfx:\/\//i.test(trimmed)) {
+    console.debug('[url] normalizeAddressBarInput: 命中 wmfx:// 前缀, 按 url 处理')
     return { type: 'url', value: trimmed }
   }
   if (!trimmed.includes(' ') && DOMAIN_LIKE.test(trimmed)) {
+    console.debug('[url] normalizeAddressBarInput: 类域名, 补充 https:// 前缀')
     return { type: 'url', value: `https://${trimmed}` }
   }
+  console.debug('[url] normalizeAddressBarInput: 视作搜索词, type=search')
   return { type: 'search', value: trimmed }
 }
 
@@ -32,10 +40,16 @@ export function normalizeAddressBarInput(input: string): AddressBarResult {
  * searchEngine 取设置值（'google' | 'baidu' | 'bing'），缺省回退 google。
  */
 export function resolveAddressBarTarget(input: string, searchEngine: string): string {
+  console.debug('[url] resolveAddressBarTarget: input searchEngine', input, searchEngine)
   const { type, value } = normalizeAddressBarInput(input)
-  if (type === 'url') return value
+  if (type === 'url') {
+    console.debug('[url] resolveAddressBarTarget: 直接返回 url', value)
+    return value
+  }
   const base = SEARCH_ENGINE_BASE[searchEngine] ?? SEARCH_ENGINE_BASE.google
-  return `${base}${encodeURIComponent(value)}`
+  const target = `${base}${encodeURIComponent(value)}`
+  console.debug('[url] resolveAddressBarTarget: 构造搜索 url', target)
+  return target
 }
 
 /**
@@ -74,9 +88,12 @@ const INTERNAL_TITLE_MAP: Record<string, string> = {
 
 /** 由 wmfx:// 之后的 path 推导展示标题，如 'settings/appearance' → 'Settings'（支持 i18n）。 */
 export function internalTitleFromPath(path: string, lang: string = 'zh-CN'): string {
+  console.debug('[url] internalTitleFromPath: path lang', path, lang)
   const top = path.split('/')[0] ?? ''
   if (lang === 'zh-CN') {
-    return INTERNAL_TITLE_MAP[top] ?? 'Internal'
+    const title = INTERNAL_TITLE_MAP[top] ?? 'Internal'
+    console.debug('[url] internalTitleFromPath: 中文标题', title)
+    return title
   }
   const msg = messages[lang] ?? messages['zh-CN']
   const topToKey: Record<string, string> = {
@@ -88,20 +105,31 @@ export function internalTitleFromPath(path: string, lang: string = 'zh-CN'): str
     newtab: 'newTab',
   }
   const msgKey = topToKey[top]
-  if (msgKey === 'newTab') return msg.newTab.title
+  if (msgKey === 'newTab') {
+    console.debug('[url] internalTitleFromPath: 使用 newTab 标题')
+    return msg.newTab.title
+  }
   const appMenuKey = msgKey as keyof typeof msg.appMenu
-  if (appMenuKey && msg.appMenu?.[appMenuKey]) return msg.appMenu[appMenuKey]
+  if (appMenuKey && msg.appMenu?.[appMenuKey]) {
+    console.debug('[url] internalTitleFromPath: 使用 appMenu 标题 key', appMenuKey)
+    return msg.appMenu[appMenuKey]
+  }
+  console.debug('[url] internalTitleFromPath: 未匹配, 回退 Internal')
   return 'Internal'
 }
 
 /** 判断是否为 wmfx:// 内部地址 */
 export function isWmfxUrl(url: string): boolean {
-  return url.startsWith(WMFX_SCHEME)
+  const ok = url.startsWith(WMFX_SCHEME)
+  console.debug('[url] isWmfxUrl: url result', url, ok)
+  return ok
 }
 
 /** 取 wmfx:// 之后的路径段，如 'settings/appearance' 或 'history' */
 export function wmfxPath(url: string): string {
-  return url.slice(WMFX_SCHEME.length)
+  const path = url.slice(WMFX_SCHEME.length)
+  console.debug('[url] wmfxPath: url path', url, path)
+  return path
 }
 
 /**
@@ -109,11 +137,20 @@ export function wmfxPath(url: string): string {
  * 若 hash 非内部路由前缀则返回 null（视为外部页）。
  */
 export function wmfxFromActualUrl(actual: string): string | null {
+  console.debug('[url] wmfxFromActualUrl: actual', actual)
   const i = actual.indexOf('#/')
-  if (i < 0) return null
+  if (i < 0) {
+    console.debug('[url] wmfxFromActualUrl: 无 #/ 片段, 非内部页')
+    return null
+  }
   const hashPath = actual.slice(i + 1)
-  if (!INTERNAL_ROUTE_PREFIXES.some((p) => hashPath.startsWith(p))) return null
-  return WMFX_SCHEME + hashPath.slice(1)
+  if (!INTERNAL_ROUTE_PREFIXES.some((p) => hashPath.startsWith(p))) {
+    console.debug('[url] wmfxFromActualUrl: hash 非内部路由前缀, 视为外部页')
+    return null
+  }
+  const result = WMFX_SCHEME + hashPath.slice(1)
+  console.debug('[url] wmfxFromActualUrl: 还原内部地址', result)
+  return result
 }
 
 /**
@@ -122,7 +159,9 @@ export function wmfxFromActualUrl(actual: string): string | null {
  */
 export function normalizeWmfxUrl(url: string): string {
   const path = wmfxPath(url).split('?')[0].split('#')[0]
-  return WMFX_SCHEME + path
+  const result = WMFX_SCHEME + path
+  console.debug('[url] normalizeWmfxUrl: url normalized', url, result)
+  return result
 }
 
 /**
@@ -132,11 +171,22 @@ export function normalizeWmfxUrl(url: string): string {
  * - 无法解析（about:blank 等）→ ''（不缓存）
  */
 export function faviconKeyOf(url: string): string {
-  if (!url) return ''
-  if (isWmfxUrl(url)) return normalizeWmfxUrl(url)
+  console.debug('[url] faviconKeyOf: url', url)
+  if (!url) {
+    console.debug('[url] faviconKeyOf: 空 url, 返回空 key')
+    return ''
+  }
+  if (isWmfxUrl(url)) {
+    const key = normalizeWmfxUrl(url)
+    console.debug('[url] faviconKeyOf: 内部地址 key', key)
+    return key
+  }
   try {
-    return new URL(url).origin
+    const origin = new URL(url).origin
+    console.debug('[url] faviconKeyOf: 外部地址 origin', origin)
+    return origin
   } catch {
+    console.debug('[url] faviconKeyOf: URL 解析失败, 返回空 key')
     return ''
   }
 }

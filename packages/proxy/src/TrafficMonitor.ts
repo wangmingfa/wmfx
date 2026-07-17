@@ -16,10 +16,11 @@ export class TrafficMonitor {
   connect(): void {
     if (this.ws) return
 
+    const secret = this.configManager.getSecret()
     const cfg = this.configManager.getConfig()
     const url = `ws://${cfg.controllerHost}:${cfg.controllerPort}/traffic`
     console.debug(`[TrafficMonitor] connect: url=${url}`)
-    this.ws = new WebSocket(url)
+    this.ws = new WebSocket(url, { headers: { Authorization: `Bearer ${secret}` } })
 
     this.ws.on('message', (data) => {
       try {

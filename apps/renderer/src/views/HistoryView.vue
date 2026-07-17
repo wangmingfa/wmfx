@@ -15,41 +15,46 @@
       <p>{{ t('history.empty') }}</p>
     </div>
 
-    <ul v-else class="history-list">
-      <li v-for="item in historyItems" :key="item.id" class="history-item" @click="openInNewTab(item)">
-        <div class="history-item-icon">
-          <Favicon :url="item.url" :favicon="item.favicon" :size="24" />
-        </div>
+    <div v-else class="history-grouped">
+      <div v-for="group in groupedItems" :key="group.label" class="history-group">
+        <div class="history-group-header">{{ group.label }}</div>
+        <ul class="history-list">
+          <li v-for="item in group.items" :key="item.id" class="history-item" @click="openInNewTab(item)">
+            <div class="history-item-icon">
+              <Favicon :url="item.url" :favicon="item.favicon" :size="24" />
+            </div>
 
-        <div class="history-item-info">
-          <div class="history-item-title">
-            {{ item.title || getDomain(item.url) }}
-          </div>
-          <div class="history-item-url">
-            {{ item.url }}
-          </div>
-          <div class="history-item-meta">
-            <span>{{ formatVisitTime(item.visitTime) }}</span>
-            <span class="visit-count">{{ item.visitCount }}{{ t('history.visits') }}</span>
-          </div>
-        </div>
+            <div class="history-item-info">
+              <div class="history-item-title">
+                {{ item.title || getDomain(item.url) }}
+              </div>
+              <div class="history-item-url">
+                {{ item.url }}
+              </div>
+              <div class="history-item-meta">
+                <span>{{ formatVisitTime(item.visitTime) }}</span>
+                <span class="visit-count">{{ item.visitCount }}{{ t('history.visits') }}</span>
+              </div>
+            </div>
 
-        <IconButton
-          icon="mdi:delete-outline"
-          :btn-size="28"
-          :title="t('history.contextDelete')"
-          class="history-delete-btn"
-          @click.stop="deleteItem(item)"
-        />
-      </li>
-    </ul>
+            <IconButton
+              icon="mdi:delete-outline"
+              :btn-size="28"
+              :title="t('history.contextDelete')"
+              class="history-delete-btn"
+              @click.stop="deleteItem(item)"
+            />
+          </li>
+        </ul>
+      </div>
+    </div>
   </PageLayout>
 </template>
 
 <script setup lang="ts">
 import type { HistoryItem } from '@browser/ipc-contract'
 
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import Favicon from '@/components/Favicon.vue'
 import PageLayout from '@/components/PageLayout.vue'
 import IconButton from '@/components/ui/IconButton.vue'
@@ -62,7 +67,8 @@ const searchQuery = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 async function loadHistory() {
-  historyItems.value = await window.browserAPI.getHistoryList()
+  console.debug('[History] loadHistory')
+  historyItems.value = await window.browserAPI.getAllHistory()
 }
 
 function debouncedSearch() {
@@ -70,6 +76,7 @@ function debouncedSearch() {
     clearTimeout(searchTimer)
   }
   searchTimer = setTimeout(async () => {
+    console.debug('[History] debouncedSearch: query', searchQuery.value)
     if (searchQuery.value.trim()) {
       historyItems.value = await window.browserAPI.searchHistory({ query: searchQuery.value })
     } else {
@@ -83,6 +90,7 @@ watch(searchQuery, debouncedSearch)
 async function handleClear() {
   // eslint-disable-next-line no-alert
   if (!confirm(t('history.clearConfirm'))) return
+  console.debug('[History] handleClear: 清空历史')
   await window.browserAPI.clearHistory()
   await loadHistory()
 }
@@ -113,16 +121,74 @@ function formatVisitTime(visitTime: number): string {
   return date.toLocaleDateString()
 }
 
+function getDateGroup(visitTime: number): 'today' | 'yesterday' | 'thisWeek' | 'earlier' {
+  const now = new Date()
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  if (visitTime >= startOfToday.getTime()) return 'today'
+
+  const startOfYesterday = new Date(startOfToday.getTime() - 86400000)
+  if (visitTime >= startOfYesterday.getTime()) return 'yesterday'
+
+  const dayOfWeek = now.getDay() || 7
+  const startOfWeek = new Date(startOfToday.getTime() - (dayOfWeek - 1) * 86400000)
+  if (visitTime >= startOfWeek.getTime()) return 'thisWeek'
+
+  return 'earlier'
+}
+
+interface HistoryGroup {
+  label: string
+  items: HistoryItem[]
+}
+
+const groupedItems = computed<HistoryGroup[]>(() => {
+  const groupOrder: Array<'today' | 'yesterday' | 'thisWeek' | 'earlier'> = [
+    'today',
+    'yesterday',
+    'thisWeek',
+    'earlier',
+  ]
+  const groupLabels: Record<string, string> = {
+    today: t('history.today'),
+    yesterday: t('history.yesterday'),
+    thisWeek: t('history.thisWeek'),
+    earlier: t('history.earlier'),
+  }
+
+  const buckets = new Map<string, HistoryItem[]>()
+  for (const key of groupOrder) {
+    buckets.set(key, [])
+  }
+
+  for (const item of historyItems.value) {
+    const group = getDateGroup(item.visitTime)
+    buckets.get(group)!.push(item)
+  }
+
+  const result: HistoryGroup[] = []
+  for (const key of groupOrder) {
+    const items = buckets.get(key)!
+    if (items.length > 0) {
+      result.push({ label: groupLabels[key], items })
+    }
+  }
+  return result
+})
+
 async function openInNewTab(item: HistoryItem) {
+  console.debug('[History] openInNewTab: url', item.url)
   await window.browserAPI.createTab({ url: item.url })
 }
 
 async function deleteItem(item: HistoryItem) {
+  console.debug('[History] deleteItem: id', item.id)
   await window.browserAPI.deleteHistory(item.id)
   await loadHistory()
 }
 
 onMounted(async () => {
+  console.debug('[History] onMounted: 加载历史记录')
   await loadHistory()
 })
 
@@ -141,6 +207,21 @@ onUnmounted(() => {
   flex: 1;
   color: var(--text-muted, #888);
   font-size: 15px;
+}
+
+.history-grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.history-group-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #aaa);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 4px;
 }
 
 .history-list {

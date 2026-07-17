@@ -21,6 +21,8 @@ interface OverlayState {
   persistent?: boolean
   /** 主进程侧动作回调（如网页右键菜单），渲染进程选中菜单项时触发；函数不可经 IPC 序列化，仅主进程内部调用可用 */
   onSelect?: (eventData: unknown) => void
+  /** cursor 锚点的初始窗口局部坐标，避免 re-measure 时用实时光标导致菜单跟手乱跑 */
+  initialCursor?: { x: number; y: number }
 }
 
 /**
@@ -76,6 +78,13 @@ export class PopoverManager {
     popoverId: string,
     options: PopoverOpenOptions & { onSelect?: (eventData: unknown) => void }
   ): void {
+    console.debug(
+      '[PopoverManager] open: popoverId mode type persistent',
+      popoverId,
+      options.mode ?? 'overlay',
+      options.type,
+      options.persistent ?? false
+    )
     this.lastOpenAt = Date.now()
     const mode = options.mode ?? 'overlay'
     // bounded 菜单互斥：打开新的下拉/右键菜单前，关闭其它已存在的 bounded 菜单。
@@ -114,6 +123,7 @@ export class PopoverManager {
     const id = this.stack[this.stack.length - 1]
     const ov = this.overlays.get(id)
     if (!ov) return
+    console.debug('[PopoverManager] renderTop: top mode', id ?? 'none', ov.mode)
     // WebContentsView 没有 setTopBrowserView（该 API 仅适用于已弃用的 BrowserView）；
     // 通过移除后重新 addChildView 把它放到 contentView 子视图栈顶，确保盖住所有 tab 视图。
     this.win.contentView.removeChildView(this.popoverView)
@@ -144,6 +154,12 @@ export class PopoverManager {
   applyMeasure(popoverId: string, size: { width: number; height: number; gutter?: number }): void {
     const ov = this.overlays.get(popoverId)
     if (ov?.mode !== 'bounded') return
+    console.debug(
+      '[PopoverManager] applyMeasure: popoverId sizex%d',
+      popoverId,
+      size.width,
+      size.height
+    )
     // 若调用方给定了固定尺寸，优先使用（部分维度）；否则用面板测量值
     const w = ov.size?.width ?? size.width
     const h = ov.size?.height ?? size.height
@@ -155,8 +171,14 @@ export class PopoverManager {
     const winSize = { width: win.width, height: win.height }
     let cursor: { x: number; y: number } | undefined
     if (ov.anchor.type === 'cursor') {
-      const sp = screen.getCursorScreenPoint()
-      cursor = { x: sp.x - win.x, y: sp.y - win.y }
+      if (!ov.initialCursor) {
+        // 首次测量时缓存初始光标位置；后续 re-measure（如子菜单展开）复用此值，
+        // 避免用实时光标导致菜单跟手乱跑
+        const sp = screen.getCursorScreenPoint()
+        const win = this.win.getContentBounds()
+        ov.initialCursor = { x: sp.x - win.x, y: sp.y - win.y }
+      }
+      cursor = ov.initialCursor
     }
     const pos = computePopoverBounds(ov.anchor, { width: w, height: h }, winSize, cursor)
     this.popoverView.setBounds({
@@ -175,17 +197,26 @@ export class PopoverManager {
   /** 主 renderer → popover WebContentsView 双向数据同步 */
   sendData(popoverId: string, data: unknown): void {
     if (this.stack.includes(popoverId)) {
+      console.debug('[PopoverManager] sendData: popoverId', popoverId)
       this.popoverView.webContents.send('popover:data', popoverId, data)
     }
   }
 
   /** 同步主题到 popover 面板（面板自身无 data-theme 广播，需主进程主动推送） */
   sendTheme(theme: ThemeMode): void {
+    console.debug('[PopoverManager] sendTheme: theme', theme)
     this.popoverView.webContents.send('theme:change', theme)
+  }
+
+  /** 同步书签变更到 popover 面板（面板需主进程主动推送刷新） */
+  sendBookmarksChanged(): void {
+    console.debug('[PopoverManager] sendBookmarksChanged')
+    this.popoverView.webContents.send('bookmarks:changed')
   }
 
   /** popover WebContentsView → 主 renderer 事件通知 */
   notifyEvent(popoverId: string, eventName: string, eventData?: unknown): void {
+    console.debug('[PopoverManager] notifyEvent: popoverId event', popoverId, eventName)
     if (eventName === 'select') {
       this.overlays.get(popoverId)?.onSelect?.(eventData)
     }
@@ -194,6 +225,7 @@ export class PopoverManager {
 
   /** 关闭指定 popover：出栈后若仍有未关闭项则渲染新的栈顶，否则隐藏整个 popoverView。 */
   close(popoverId: string): void {
+    console.debug('[PopoverManager] close: popoverId remaining', popoverId, this.stack.length - 1)
     this.overlays.delete(popoverId)
     this.rendered.delete(popoverId)
     this.stack = this.stack.filter((id) => id !== popoverId)

@@ -20,6 +20,7 @@ const SCHEMES = ['http', 'https'] as const
 
 /** 在已有窗口的新标签页打开外部链接（聚焦到该窗口）。 */
 function openUrlInNewTab(url: string, instances: Map<string, BrowserWindowInstance>): void {
+  console.debug('[DefaultBrowser] openUrlInNewTab: url instances', url, instances.size)
   for (const inst of instances.values()) {
     inst.tabManager.create({ url, activate: true })
   }
@@ -34,8 +35,10 @@ function openUrlInNewTab(url: string, instances: Map<string, BrowserWindowInstan
 export function registerDefaultBrowserHandlers(
   getInstances: () => Map<string, BrowserWindowInstance>
 ): void {
+  console.debug('[DefaultBrowser] registerDefaultBrowserHandlers')
   // macOS：系统通过 open-url 把链接交给已运行的应用
   app.on('open-url', (_event, url) => {
+    console.debug('[DefaultBrowser] open-url: url', url)
     if (/^https?:\/\//i.test(url)) openUrlInNewTab(url, getInstances())
   })
 
@@ -43,24 +46,30 @@ export function registerDefaultBrowserHandlers(
   // 因启用单实例锁，新实例被扼杀、参数由本回调在已有实例中处理
   app.on('second-instance', (_event, argv) => {
     const url = argv.find((a) => /^https?:\/\//i.test(a))
+    console.debug('[DefaultBrowser] second-instance: url', url ?? '(none)')
     if (url) openUrlInNewTab(url, getInstances())
   })
 }
 
 /** 设为默认浏览器：注册 http/https 协议，返回是否全部成功。 */
 export function setAsDefaultBrowser(): { success: boolean; error?: string } {
+  console.debug('[DefaultBrowser] setAsDefaultBrowser')
   try {
     let ok = true
     for (const scheme of SCHEMES) {
       if (!app.setAsDefaultProtocolClient(scheme)) ok = false
     }
+    console.debug('[DefaultBrowser] setAsDefaultBrowser: success', ok)
     return { success: ok }
   } catch (e) {
+    console.debug('[DefaultBrowser] setAsDefaultBrowser: error', (e as Error).message)
     return { success: false, error: (e as Error).message }
   }
 }
 
 /** 是否已设为默认浏览器（http/https 均注册才算）。 */
 export function isDefaultBrowser(): boolean {
-  return SCHEMES.every((s) => app.isDefaultProtocolClient(s))
+  const ok = SCHEMES.every((s) => app.isDefaultProtocolClient(s))
+  console.debug('[DefaultBrowser] isDefaultBrowser', ok)
+  return ok
 }

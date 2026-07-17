@@ -2,15 +2,23 @@
   <div class="error-page">
     <div class="error-icon">⚠️</div>
     <h1>{{ title }}</h1>
-    <p class="error-desc">{{ description }}</p>
-    <p v-if="info" class="error-url">{{ info.requestedUrl }}</p>
+    <p class="error-desc">
+      {{ description }}
+    </p>
+    <p v-if="info" class="error-url">
+      {{ info.requestedUrl }}
+    </p>
     <p v-if="info" class="error-code">{{ info.code }} / {{ info.description }}</p>
     <div v-if="info" class="error-suggestions">
       <p>{{ suggestions }}</p>
     </div>
     <div class="error-actions">
-      <NButton v-if="info" type="primary" @click="retry">{{ t('error.retry') }}</NButton>
-      <NButton v-else type="primary" @click="goBack">{{ t('error.goBack') }}</NButton>
+      <NButton v-if="info" type="primary" @click="retry">
+        {{ t('error.retry') }}
+      </NButton>
+      <NButton v-else type="primary" @click="goBack">
+        {{ t('error.goBack') }}
+      </NButton>
     </div>
   </div>
 </template>
@@ -30,13 +38,14 @@ onMounted(async () => {
   try {
     const result = await window.browserAPI.getErrorInfo()
     if (result) {
+      console.debug('[Error] onMounted: 错误码 url', result.code, result.requestedUrl)
       info.value = result
       title.value = t('error.title')
       description.value = getFriendlyDescription(result.code)
       suggestions.value = getSuggestions(result.code)
     }
   } catch {
-    // 兜底：info 为 null，显示通用错误页
+    console.error('[Error] onMounted: 获取错误信息失败，回退通用错误页')
   }
 })
 
@@ -61,10 +70,12 @@ function getSuggestions(code: number): string {
 }
 
 function retry(): void {
+  console.debug('[Error] retry')
   window.browserAPI.retry()
 }
 
 function goBack(): void {
+  console.debug('[Error] goBack')
   window.history.back()
 }
 </script>

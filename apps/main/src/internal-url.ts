@@ -13,8 +13,12 @@ export { isWmfxUrl, WMFX_SCHEME, wmfxPath }
 export function loadInternalView(view: WebContentsView, path: string): void {
   const dev = getRendererDevServerUrl()
   if (dev) {
-    view.webContents.loadURL(`${dev.replace(/\/+$/, '')}/#/${path}`)
+    const url = `${dev.replace(/\/+$/, '')}/#/${path}`
+    console.debug('[InternalUrl] loadInternalView: dev=true path url', path, url)
+    view.webContents.loadURL(url)
   } else {
-    view.webContents.loadFile(getRendererIndexHtml(), { hash: `/${path}` })
+    const file = getRendererIndexHtml()
+    console.debug('[InternalUrl] loadInternalView: dev=false path file', path, file)
+    view.webContents.loadFile(file, { hash: `/${path}` })
   }
 }

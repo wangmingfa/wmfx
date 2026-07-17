@@ -33,6 +33,9 @@
         @add="handleAddChild"
         @open="handleOpenBookmark"
         @contextmenu="handleContextMenu"
+        @dragstart="handleDragStart"
+        @dragover="handleDragOver"
+        @drop="handleDrop"
       />
     </ul>
 
@@ -69,15 +72,16 @@ import type { BookmarkCreateOptions, BookmarkItem } from '@browser/ipc-contract'
 
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import PageLayout from '@/components/PageLayout.vue'
+import { useBookmarks } from '@/composables/useBookmarks'
 import { useI18n } from '@/composables/useI18n'
 import BookmarkNode from './BookmarkNode.vue'
 
-const bookmarks = ref<BookmarkItem[]>([])
 const searchQuery = ref('')
 const searchTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const expandedFolders = ref<Set<string>>(new Set())
 
 const { t } = useI18n()
+const { bookmarks, moveBookmark, load } = useBookmarks()
 
 const contextMenu = ref({
   visible: false,
@@ -125,13 +129,10 @@ function buildTree(items: BookmarkItem[]): TreeNode[] {
   return roots
 }
 
-async function loadBookmarks() {
-  bookmarks.value = await window.browserAPI.getBookmarks(null)
-}
-
 function handleToggle(node: TreeNode) {
   if (!node.isFolder) return
   const id = node.id
+  console.debug('[BookmarkView] handleToggle: id', id)
   if (expandedFolders.value.has(id)) {
     expandedFolders.value.delete(id)
   } else {
@@ -145,8 +146,9 @@ async function handleAddBookmark() {
   if (!title) return
   // eslint-disable-next-line no-alert
   const url = prompt(t('bookmark.promptUrl')) || null
+  console.debug('[BookmarkView] handleAddBookmark: title url', title, url)
   await window.browserAPI.addBookmark({ title, url })
-  await loadBookmarks()
+  await load()
 }
 
 async function handleAddChild(parentNode: TreeNode | BookmarkItem) {
@@ -160,8 +162,9 @@ async function handleAddChild(parentNode: TreeNode | BookmarkItem) {
     url,
     parentId: parentNode.id,
   }
+  console.debug('[BookmarkView] handleAddChild: parentId title', parentNode.id, title)
   await window.browserAPI.addBookmark(options)
-  await loadBookmarks()
+  await load()
   const isTreeNode = (parentNode as any).children
   if (isTreeNode && !expandedFolders.value.has(parentNode.id)) {
     expandedFolders.value.add(parentNode.id)
@@ -172,22 +175,57 @@ async function handleRename(item: BookmarkItem) {
   // eslint-disable-next-line no-alert
   const newTitle = prompt(t('bookmark.promptNewTitle'), item.title)
   if (!newTitle) return
+  console.debug('[BookmarkView] handleRename: id newTitle', item.id, newTitle)
   await window.browserAPI.renameBookmark({ id: item.id, title: newTitle })
-  await loadBookmarks()
+  await load()
 }
 
 async function handleDelete(item: BookmarkItem) {
   const confirmMsg = t('bookmark.deleteConfirm', { title: JSON.stringify(item.title) })
   // eslint-disable-next-line no-alert
   if (!confirm(confirmMsg)) return
+  console.debug('[BookmarkView] handleDelete: id', item.id)
   await window.browserAPI.deleteBookmark(item.id)
-  await loadBookmarks()
+  await load()
 }
 
 async function handleOpenBookmark(item: BookmarkItem) {
   if (item.url) {
+    console.debug('[BookmarkView] handleOpenBookmark: url', item.url)
     await window.browserAPI.createTab({ url: item.url })
   }
+}
+
+const dragId = ref<string | null>(null)
+
+function handleDragStart(event: DragEvent, node: TreeNode) {
+  dragId.value = node.id
+  console.debug('[BookmarkView] dragstart: id isFolder', node.id, node.isFolder)
+  event.dataTransfer?.setData('text/plain', node.id)
+}
+
+function handleDragOver(event: DragEvent, _node: TreeNode) {
+  event.preventDefault()
+}
+
+async function handleDrop(event: DragEvent, node: TreeNode) {
+  event.preventDefault()
+  const id = dragId.value
+  dragId.value = null
+  if (!id || id === node.id) {
+    console.debug('[BookmarkView] drop: 忽略无效拖放 id', id)
+    return
+  }
+  // 两层分类：拖到文件夹则归到该文件夹下，拖到书签则归到其同级
+  const targetParentId = node.isFolder ? node.id : node.parentId
+  // 计算目标兄弟列表时排除被拖拽项自身（其在重插入前会被移除），避免索引偏移
+  const siblings = bookmarks.value.filter((s) => s.parentId === targetParentId && s.id !== id)
+  // 在过滤后的列表中查找落点目标节点，插入到其之前（drop-before 语义）
+  const targetIndex = siblings.findIndex((s) => s.id === node.id)
+  const finalPosition = targetIndex < 0 ? siblings.length : targetIndex
+  console.debug('[BookmarkView] drop: dragId targetParentId position', id, targetParentId, finalPosition)
+  await moveBookmark(id, targetParentId, finalPosition)
+  await load()
 }
 
 function contextAddBookmark() {
@@ -218,10 +256,11 @@ function debouncedSearch() {
     clearTimeout(searchTimer.value)
   }
   searchTimer.value = setTimeout(async () => {
+    console.debug('[BookmarkView] debouncedSearch: query', searchQuery.value)
     if (searchQuery.value.trim()) {
       bookmarks.value = await window.browserAPI.searchBookmarks({ query: searchQuery.value })
     } else {
-      await loadBookmarks()
+      await load()
     }
   }, 300)
 }
@@ -239,7 +278,7 @@ async function handleImport() {
       if (file) {
         const html = await file.text()
         await window.browserAPI.importBookmarks(html)
-        await loadBookmarks()
+        await load()
       }
     }
     input.click()
@@ -252,10 +291,11 @@ async function handleImport() {
   const file = await fileHandle.getFile()
   const html = await file.text()
   await window.browserAPI.importBookmarks(html)
-  await loadBookmarks()
+  await load()
 }
 
 async function handleExport() {
+  console.debug('[BookmarkView] handleExport: 导出书签')
   const { html } = await window.browserAPI.exportBookmarks()
   const blob = new Blob([html], { type: 'text/html' })
   const url = URL.createObjectURL(blob)
@@ -274,6 +314,7 @@ function hideContextMenu() {
 }
 
 function handleContextMenu(event: MouseEvent, item: BookmarkItem) {
+  console.debug('[BookmarkView] handleContextMenu: id', item.id)
   contextMenu.value.visible = true
   contextMenu.value.x = event.clientX
   contextMenu.value.y = event.clientY
@@ -283,7 +324,8 @@ function handleContextMenu(event: MouseEvent, item: BookmarkItem) {
 const hideContextMenuRef = () => hideContextMenu()
 
 onMounted(async () => {
-  await loadBookmarks()
+  console.debug('[BookmarkView] onMounted: 加载书签并注册全局点击关闭菜单')
+  await load()
   document.addEventListener('click', hideContextMenuRef)
 })
 

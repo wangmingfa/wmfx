@@ -76,6 +76,7 @@ const resolvedColor = computed(() => {
 
 /** 解析最终展示的 favicon：优先用传入的 favicon，否则查缓存（仅外部页） */
 async function resolve(): Promise<void> {
+  console.debug('[Favicon] resolve: url favicon', props.url, props.favicon)
   loadError.value = false
   if (props.favicon) {
     displayFavicon.value = props.favicon

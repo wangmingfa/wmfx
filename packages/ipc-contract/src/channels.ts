@@ -4,8 +4,16 @@
  * 后续里程碑在此扩展（tab:*, nav:*, proxy:* ...）。
  */
 
-/** Popover 类型：menu=下拉菜单, addressbar=地址栏建议面板, find=页内查找栏, downloads=下载列表 */
-export type PopoverType = 'menu' | 'addressbar' | 'find' | 'downloads'
+import type { NativeMenuItemDescriptor } from './menu'
+
+/** Popover 类型：menu=下拉菜单, addressbar=地址栏建议面板, find=页内查找栏, downloads=下载列表, bookmark-folder=书签文件夹下拉 */
+export type PopoverType =
+  | 'menu'
+  | 'addressbar'
+  | 'find'
+  | 'downloads'
+  | 'bookmark-folder'
+  | 'tab-thumbnail'
 
 /** Popover 显示模式：overlay=铺满窗口阻断交互；bounded=仅覆盖内容区、非阻断、失焦关闭 */
 export type PopoverMode = 'overlay' | 'bounded'
@@ -251,7 +259,8 @@ export interface QuickLink {
 
 /** 补全建议项 */
 export interface AutocompleteSuggestion {
-  type: 'history' | 'bookmark' | 'search'
+  /** history: 本地历史记录；bookmark: 本地书签；search: 地址栏"用X搜索"直达项；engine: 搜索引擎实时建议 */
+  type: 'history' | 'bookmark' | 'search' | 'engine'
   title: string
   url: string
 }
@@ -340,6 +349,8 @@ export interface SettingsSnapshot {
   openTabs: { url: string; title: string }[]
   activeTabIndex: number
   windowBounds: { x: number; y: number; width: number; height: number } | null
+  showBookmarkBar: boolean
+  openBookmarkInNewTab: boolean
 }
 
 /** 设置为默认浏览器结果（setAsDefaultProtocolClient 跨平台生效，返回是否成功） */
@@ -371,12 +382,17 @@ export interface IpcContract {
   'download:pause': (id: string) => void
   'download:resume': (id: string) => void
   'download:cancel': (id: string) => void
+  'download:delete': (id: string) => void
   'download:get': (id: string) => DownloadItem | null
   'download:getList': (opts?: DownloadListOptions) => DownloadItem[]
   'download:setPath': (path: string) => void
   // Dialog：原生系统对话框
   /** 打开系统文件夹选择对话框，返回选中的目录路径；用户取消则返回 null */
   'dialog:selectFolder': () => string | null
+  // 文件系统
+  'fs:fileExists': (path: string) => boolean
+  // 剪贴板
+  'clipboard:copy': (text: string) => void
   // Favicon：网站图标缓存（按 origin / 归一化内部地址为 key）
   /** 查询 favicon 缓存；命中返回 URL，未命中返回 null */
   'favicon:get': (key: string) => string | null
@@ -387,7 +403,11 @@ export interface IpcContract {
   'history:delete': (id: string) => void
   'history:search': (opts: SearchOptions) => HistoryItem[]
   'history:getList': (opts?: ListOptions) => HistoryItem[]
+  'history:getAll': () => HistoryItem[]
   'history:clear': () => void
+  'privacy:clearData': (opts: {
+    types: ('cookies' | 'cache' | 'localStorage' | 'formData')[]
+  }) => void
   // Bookmark
   'bookmark:add': (item: BookmarkCreateOptions) => { id: string }
   'bookmark:delete': (id: string) => void
@@ -396,6 +416,11 @@ export interface IpcContract {
   'bookmark:search': ({ query }: { query: string }) => BookmarkItem[]
   'bookmark:import': (html: string) => void
   'bookmark:export': () => { html: string }
+  'bookmark:move': (opts: { id: string; parentId?: string | null; position: number }) => void
+  'bookmark:drag-start': (id: string) => void
+  'bookmark:drag-drop': (opts: { targetParentId?: string | null; targetPosition: number }) => void
+  'bookmark:drag-get': () => string | null
+  'bookmark:openFolder': (folderId: string) => void
   // Page
   'page:print': (opts: TabPrintOptions) => void
   'page:printToPDF': (opts: TabPrintToPdfOptions) => { path: string }
@@ -418,6 +443,7 @@ export interface IpcContract {
   'autocomplete:suggestions': (opts: AutocompleteQuery) => AutocompleteSuggestion[]
   // Bookmark
   'bookmark:isBookmarked': (url: string) => BookmarkCheckResult
+  'bookmarks:changed': () => void
   // Find in Page
   'page:startFind': (opts: FindInPageOptions) => void
   'page:endFind': (tabId: string) => void
@@ -425,14 +451,33 @@ export interface IpcContract {
   'page:findPrevious': (opts: FindInPageDirection) => void
   // Tab reorder
   'tab:reorder': (ids: string[]) => void
+  // Tab thumbnail capture
+  /** 截取指定标签页的页面缩略图，返回 PNG data URL；标签不存在或已销毁时返回 null */
+  'tab:captureThumbnail': (tabId: string) => string | null
   // Tab pin / mute / batch close
   'tab:setPinned': (tabId: string, pinned: boolean) => void
   'tab:setMuted': (tabId: string, muted: boolean) => void
   'tab:closeMany': (ids: string[]) => void
+  // Undo close tab
+  /** 撤销最近一次关闭：从已关闭标签栈恢复。栈空时无操作。 */
+  'tab:reopenClosed': () => void
   // Window controls
+  /**
+   * 新建浏览器窗口。
+   * - 默认：普通窗口
+   * - `incognito: true`：独立无痕窗口（整窗内存 partition，关闭即焚）
+   */
+  'window:new': (opts?: { url?: string; incognito?: boolean }) => void
+  /** 返回当前窗口信息（是否无痕、窗口 id），供渲染端判断窗口类型 */
+  'window:getInfo': () => { isIncognito: boolean; windowId: string }
   'window:minimize': () => void
   'window:maximize': () => void
   'window:close': () => void
+  // Shell (download closure)
+  /** 在文件管理器中显示指定文件 */
+  'shell:showInFolder': (filePath: string) => void
+  /** 用系统默认应用打开文件 */
+  'shell:openFile': (filePath: string) => void
   // Proxy
   'proxy:start': () => void
   'proxy:stop': () => void
@@ -492,6 +537,15 @@ export interface IpcContract {
   'page:retry': () => void
   'page:getCertWarningInfo': () => CertWarningInfo | null
   'page:trustCertAndContinue': (scope: CertTrustScope) => void
+  // Native Menu
+  'native-menu:open': (
+    menuId: string,
+    items: NativeMenuItemDescriptor[],
+    position?: { x: number; y: number }
+  ) => Promise<void>
+  'native-menu:close': (menuId: string) => Promise<void>
+  'native-menu:action': (payload: { menuId: string; itemId: string }) => void
+  'native-menu:closed': (menuId: string) => void
 }
 
 export type IpcChannel = keyof IpcContract
@@ -521,7 +575,10 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'download:get',
   'download:getList',
   'download:setPath',
+  'download:delete',
   'dialog:selectFolder',
+  'fs:fileExists',
+  'clipboard:copy',
   'favicon:get',
   'favicon:set',
   // History
@@ -529,7 +586,9 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'history:delete',
   'history:search',
   'history:getList',
+  'history:getAll',
   'history:clear',
+  'privacy:clearData',
   // Bookmark
   'bookmark:add',
   'bookmark:delete',
@@ -538,6 +597,11 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'bookmark:search',
   'bookmark:import',
   'bookmark:export',
+  'bookmark:move',
+  'bookmark:drag-start',
+  'bookmark:drag-drop',
+  'bookmark:drag-get',
+  'bookmark:openFolder',
   // Page
   'page:print',
   'page:printToPDF',
@@ -560,6 +624,7 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'autocomplete:suggestions',
   // Bookmark
   'bookmark:isBookmarked',
+  'bookmarks:changed',
   // Find in Page
   'page:startFind',
   'page:endFind',
@@ -567,14 +632,23 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'page:findPrevious',
   // Tab reorder
   'tab:reorder',
+  // Tab thumbnail
+  'tab:captureThumbnail',
   // Tab pin / mute / batch close
   'tab:setPinned',
   'tab:setMuted',
   'tab:closeMany',
+  // Undo close tab
+  'tab:reopenClosed',
   // Window controls
+  'window:new',
+  'window:getInfo',
   'window:minimize',
   'window:maximize',
   'window:close',
+  // Shell (download closure)
+  'shell:showInFolder',
+  'shell:openFile',
   // Proxy
   'proxy:start',
   'proxy:stop',
@@ -610,10 +684,17 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'page:retry',
   'page:getCertWarningInfo',
   'page:trustCertAndContinue',
+  // Native Menu
+  'native-menu:open',
+  'native-menu:close',
+  'native-menu:action',
+  'native-menu:closed',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {
-  return (IPC_CHANNELS as readonly string[]).includes(name)
+  const ok = (IPC_CHANNELS as readonly string[]).includes(name)
+  console.debug('[IPC] isIpcChannel: name result', name, ok)
+  return ok
 }
 
 /** 渲染进程侧调用类型：invoke 返回 Promise。 */

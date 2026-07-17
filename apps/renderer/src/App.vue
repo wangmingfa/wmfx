@@ -13,8 +13,12 @@ import { computed } from 'vue'
 import { RouterView } from 'vue-router'
 import { useTheme } from '@/composables/useTheme'
 
+console.debug('[App] setup: useTheme 初始化')
+
 const { theme } = useTheme()
 const naiveTheme = computed(() => (theme.value === 'dark' ? darkTheme : undefined))
+
+console.debug('[App] resolveColor: 初始化 CSS 变量解析函数')
 
 function resolveColor(cssVar: string): string {
   const canvas = document.createElement('canvas')
@@ -29,9 +33,11 @@ function resolveColor(cssVar: string): string {
 
 const themeOverrides = computed<GlobalThemeOverrides>(() => {
   void theme.value
+  console.debug('[App] themeOverrides: 重新计算主题覆盖，theme', theme.value)
   const style = getComputedStyle(document.documentElement)
   const primary = resolveColor(style.getPropertyValue('--primary').trim())
   const primaryForeground = resolveColor(style.getPropertyValue('--primary-foreground').trim())
+  console.debug('[App] themeOverrides: primary', primary)
   return {
     common: {
       primaryColor: primary,

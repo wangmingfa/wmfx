@@ -18,13 +18,21 @@ declare const __dirname: string
 function findProjectRoot(): string {
   let dir = __dirname
   while (true) {
-    if (existsSync(path.join(dir, 'resources'))) return dir
+    if (existsSync(path.join(dir, 'resources'))) {
+      console.debug('[Paths] findProjectRoot: found root', dir)
+      return dir
+    }
     const parent = path.dirname(dir)
     if (parent === dir) break
     dir = parent
   }
-  if (process.resourcesPath && existsSync(process.resourcesPath)) return process.resourcesPath
-  return path.resolve(__dirname, '..', '..', '..')
+  if (process.resourcesPath && existsSync(process.resourcesPath)) {
+    console.debug('[Paths] findProjectRoot: fallback resourcesPath', process.resourcesPath)
+    return process.resourcesPath
+  }
+  const fallback = path.resolve(__dirname, '..', '..', '..')
+  console.debug('[Paths] findProjectRoot: fallback dir', fallback)
+  return fallback
 }
 
 /** 项目根目录（模块加载时确定一次，避免重复查找） */
@@ -39,20 +47,30 @@ const PROJECT_ROOT = findProjectRoot()
  * - 打包期：使用 process.resourcesPath
  */
 export function resolveFromRoot(relativePath: string): string {
-  return path.join(PROJECT_ROOT, relativePath)
+  const resolved = path.join(PROJECT_ROOT, relativePath)
+  console.debug('[Paths] resolveFromRoot: relative resolved', relativePath, resolved)
+  return resolved
 }
 
 /** 开发模式下由 dev 脚本注入 vite 服务地址。 */
 export function getRendererDevServerUrl(): string | undefined {
+  console.debug(
+    '[Paths] getRendererDevServerUrl: url',
+    process.env.VITE_DEV_SERVER_URL ?? 'undefined'
+  )
   return process.env.VITE_DEV_SERVER_URL
 }
 
 /** 生产/E2E：渲染进程构建产物 index.html 的绝对路径。 */
 export function getRendererIndexHtml(): string {
-  return resolveFromRoot('apps/renderer/dist/index.html')
+  const p = resolveFromRoot('apps/renderer/dist/index.html')
+  console.debug('[Paths] getRendererIndexHtml', p)
+  return p
 }
 
 /** preload 脚本产物绝对路径。 */
 export function getPreloadPath(): string {
-  return resolveFromRoot('apps/main/dist/preload.cjs')
+  const p = resolveFromRoot('apps/main/dist/preload.cjs')
+  console.debug('[Paths] getPreloadPath', p)
+  return p
 }

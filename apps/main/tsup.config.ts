@@ -1,4 +1,11 @@
 import { defineConfig } from 'tsup'
+import {
+  isInstrumentEnabled,
+  REPO_ROOT,
+  sourceLocationEsbuildPlugin,
+} from '../../scripts/source-location'
+
+const devPlugins = isInstrumentEnabled() ? [sourceLocationEsbuildPlugin(REPO_ROOT)] : []
 
 export default defineConfig({
   entry: {
@@ -9,6 +16,14 @@ export default defineConfig({
   outExtension: () => ({ js: '.cjs' }),
   platform: 'node',
   target: 'node20',
-  external: ['electron', 'better-sqlite3', '@wmfx/database', 'electron-updater'],
+  external: [
+    'electron',
+    'better-sqlite3',
+    '@wmfx/database',
+    'electron-updater',
+    '@iconify/utils',
+    /@iconify-json\/.*/,
+  ],
   noExternal: ['@browser/ipc-contract', '@browser/shared', '@browser/proxy'],
+  esbuildPlugins: devPlugins,
 })

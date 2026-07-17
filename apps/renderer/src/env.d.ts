@@ -5,6 +5,7 @@ import type {
   FindInPageOptions,
   IpcInvoke,
   LogEntry,
+  NativeMenuItemDescriptor,
   PopoverAnchor,
   PopoverEventPayload,
   PopoverMode,
@@ -39,13 +40,21 @@ declare global {
       getDownload: IpcInvoke['download:get']
       getDownloads: IpcInvoke['download:getList']
       setDownloadPath: IpcInvoke['download:setPath']
+      deleteDownload: IpcInvoke['download:delete']
+      // Dialog
       selectFolder: IpcInvoke['dialog:selectFolder']
+      // File system
+      fileExists: IpcInvoke['fs:fileExists']
+      // Clipboard
+      copyText: IpcInvoke['clipboard:copy']
       // History
       addHistory: IpcInvoke['history:add']
       deleteHistory: IpcInvoke['history:delete']
       searchHistory: IpcInvoke['history:search']
       getHistoryList: IpcInvoke['history:getList']
+      getAllHistory: IpcInvoke['history:getAll']
       clearHistory: IpcInvoke['history:clear']
+      clearPrivacyData: IpcInvoke['privacy:clearData']
       // Bookmark
       addBookmark: IpcInvoke['bookmark:add']
       deleteBookmark: IpcInvoke['bookmark:delete']
@@ -70,6 +79,8 @@ declare global {
       getAutocompleteSuggestions: IpcInvoke['autocomplete:suggestions']
       // Bookmark
       isBookmarked: IpcInvoke['bookmark:isBookmarked']
+      moveBookmark: IpcInvoke['bookmark:move']
+      onBookmarksChanged: (handler: () => void) => void
       // Find in Page
       startFind: (opts: FindInPageOptions) => void
       endFind: IpcInvoke['page:endFind']
@@ -82,10 +93,14 @@ declare global {
       onFocusAddressBar: (handler: () => void) => void
       // Tab reorder
       reorderTabs: IpcInvoke['tab:reorder']
+      // Tab thumbnail
+      captureThumbnail: IpcInvoke['tab:captureThumbnail']
       // Tab pin / mute / batch close
       setPinned: IpcInvoke['tab:setPinned']
       setMuted: IpcInvoke['tab:setMuted']
       closeTabs: IpcInvoke['tab:closeMany']
+      // Undo close tab
+      reopenClosed: IpcInvoke['tab:reopenClosed']
       // Theme
       getTheme: IpcInvoke['theme:get']
       setTheme: IpcInvoke['theme:set']
@@ -102,6 +117,9 @@ declare global {
         }) => void
       ) => void
       removeListener: (event: string, handler: (...args: unknown[]) => void) => void
+      // Shell (download closure)
+      showInFolder: IpcInvoke['shell:showInFolder']
+      openFile: IpcInvoke['shell:openFile']
       // Proxy
       startProxy: () => Promise<void>
       stopProxy: () => Promise<void>
@@ -117,6 +135,8 @@ declare global {
       minimizeWindow: IpcInvoke['window:minimize']
       maximizeWindow: IpcInvoke['window:maximize']
       closeWindow: IpcInvoke['window:close']
+      createNewWindow: IpcInvoke['window:new']
+      getWindowInfo: IpcInvoke['window:getInfo']
       // Subscription
       getSubscriptions: () => Promise<
         {
@@ -165,6 +185,15 @@ declare global {
       onPopoverData: (handler: (popoverId: string, data: unknown) => void) => void
       onPopoverDismiss: (handler: (popoverId: string) => void) => void
       onPopoverEvent: (handler: (payload: PopoverEventPayload) => void) => void
+      // Native Menu
+      nativeMenuOpen: (
+        menuId: string,
+        items: NativeMenuItemDescriptor[],
+        position?: { x: number; y: number }
+      ) => Promise<void>
+      nativeMenuClose: (menuId: string) => Promise<void>
+      onNativeMenuAction: (cb: (payload: { menuId: string; itemId: string }) => void) => void
+      onNativeMenuClosed: (cb: (menuId: string) => void) => void
       // Proxy traffic broadcast
       onProxyTraffic: (handler: (data: { up: number; down: number }) => void) => void
       // Error / Cert Warning
@@ -187,6 +216,11 @@ declare global {
       faviconGet: IpcInvoke['favicon:get']
       // Theme change broadcast
       onThemeChange: (handler: (theme: ThemeMode) => void) => void
+      // Bookmark bar extras (optional, may be undefined if not implemented)
+      openBookmarkFolder?: (folderId: string) => void
+      dragBookmarkStart?: (bookmarkId: string) => void
+      dragBookmarkDrop?: (opts: { targetParentId?: string | null; targetPosition: number }) => void
+      getDragBookmarkId?: () => Promise<string | null>
     }
   }
 }

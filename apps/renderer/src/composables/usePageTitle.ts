@@ -35,6 +35,7 @@ export function usePageTitle(initial?: WatchableValue) {
   watch(
     titleRef,
     (v) => {
+      console.debug('[usePageTitle] sync: title', v)
       document.title = v
     },
     { immediate: true }

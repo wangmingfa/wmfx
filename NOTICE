@@ -1,0 +1,17 @@
+wmfx
+Copyright (C) 2024-2026  wmfx 作者及贡献者
+
+本软件以 GNU Affero General Public License version 3（或任意后续版本，
+AGPL-3.0-or-later）发布。
+
+署名与开源要求（依据 AGPL-3.0 第 5、7、13 条）：
+1. 任何基于本软件进行修改、再分发（含以网络服务形式提供）的行为，
+   都必须以相同协议（AGPL-3.0-or-later）开源其完整对应源码（Corresponding Source）。
+2. 分发时必须在所有副本中保留本版权声明与许可声明，不得删除或修改
+   原作者/贡献者的署名信息（author attribution）。
+3. 修改版本须显著标注「已修改」及修改日期，并保留指向本 LICENSE 与
+   NOTICE 的说明。
+4. 若软件通过网络与用户交互，必须为远端用户提供获取修改后对应源码的途径。
+
+项目仓库：https://github.com/wangmingfa/wmfx
+许可证全文见同目录 LICENSE 文件。

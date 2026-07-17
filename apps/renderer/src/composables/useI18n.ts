@@ -14,6 +14,7 @@ const resolvedLang = computed(() => {
 
 /** 更新语言（同时通知所有组件重算） */
 export function setLang(lang: string): void {
+  console.debug('[useI18n] setLang: lang', lang)
   currentLang.value = lang
 }
 

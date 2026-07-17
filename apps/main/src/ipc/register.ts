@@ -1,17 +1,34 @@
+import fs from 'node:fs'
 import process from 'node:process'
 import type {
   AutocompleteSuggestion,
   IpcContract,
   QuickLink,
+  SearchEngine,
   ThemeMode,
 } from '@browser/ipc-contract'
-import { app, BrowserWindow, dialog, type Event, ipcMain, nativeTheme } from 'electron'
+import { resolveAddressBarTarget } from '@browser/shared'
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  type Event,
+  ipcMain,
+  nativeTheme,
+  shell,
+} from 'electron'
 import { isDefaultBrowser, setAsDefaultBrowser } from '../default-browser'
+import { clearDragBookmark, getDragBookmark, setDragBookmark } from '../drag-state'
 import { getFavicon, setFaviconByKey } from '../favicon-cache'
 import { handleFrontendLog } from '../logger'
+import { NativeIconManager } from '../native-icon-manager'
+import { NativeMenuManager } from '../native-menu-manager'
+import { getSearchSuggestions } from '../search-suggestions'
 import { SettingsManager } from '../settings-manager'
 import { updater } from '../updater'
 import type { BrowserWindowInstance } from '../window-manager'
+import { openIncognitoWindow, openNormalWindow } from '../window-manager'
 
 /** Type for raw WebContents event methods (TS overloads don't cover 'found-in-page') */
 interface WebContentsEventTarget {
@@ -23,6 +40,19 @@ interface WebContentsEventTarget {
 const foundHandlers = new Map<string, (_: Event, result: Electron.FoundInPageResult) => void>()
 /** 每个 webContents 当前的查找关键字，findNext/findPrevious 必须复用它（Electron findInPage 翻页要求 text 与上次一致） */
 const findQueries = new Map<string, string>()
+
+let nativeMenuManager: NativeMenuManager | null = null
+
+/** 每个窗口独立维护一个 NativeMenuManager（多窗口下菜单需按触发窗口弹出） */
+const nativeMenuManagers = new Map<number, NativeMenuManager>()
+
+export function initNativeMenu(win: BrowserWindow): void {
+  const iconManager = new NativeIconManager()
+  const manager = new NativeMenuManager(win, iconManager)
+  nativeMenuManager = manager
+  nativeMenuManagers.set(win.id, manager)
+  console.info('[IPC] initNativeMenu: initialized for window', win.id)
+}
 
 declare global {
   var browserInstances: Map<string, BrowserWindowInstance>
@@ -59,41 +89,53 @@ export function registerIpcHandlers(): void {
   handle('app:ping', (_event, message) => `pong: ${message}`)
 
   handle('tab:create', (event, opts) => {
-    console.debug('[IPC] tab:create: url=%s sessionId=%s', opts?.url, opts?.sessionId)
+    console.debug('[IPC] tab:create: url sessionId', opts?.url, opts?.sessionId)
     const inst = getInstance(event)
     if (!inst) return {} as ReturnType<IpcContract['tab:create']>
     return inst.tabManager.create(opts)
   })
 
   handle('tab:close', (event, tabId) => {
-    console.debug('[IPC] tab:close: tabId=%s', tabId)
+    console.debug('[IPC] tab:close: tabId', tabId)
     const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.close(tabId)
-    // 关闭最后一个标签页时退出应用
+    // 多窗口支持：关末标签不再强制退出应用，而是关闭当前窗口（若还有其它窗口）。
+    // macOS 下关掉最后窗口也保持应用驻留，由 Dock 重新激活。
     if (inst.tabManager.getList().length === 0) {
-      app.quit()
+      inst.window.close()
     }
   })
 
   handle('tab:activate', (event, tabId) => {
-    console.debug('[IPC] tab:activate: tabId=%s', tabId)
+    console.debug('[IPC] tab:activate: tabId', tabId)
     const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.activate(tabId)
   })
 
   handle('tab:getState', (event, tabId) => {
+    console.debug('[IPC] tab:getState: tabId', tabId)
     const inst = getInstance(event)
-    if (!inst) return {} as ReturnType<IpcContract['tab:getState']>
+    if (!inst) {
+      console.debug('[IPC] tab:getState: no instance')
+      return {} as ReturnType<IpcContract['tab:getState']>
+    }
     const state = inst.tabManager.getState(tabId)
-    if (!state) return {} as ReturnType<IpcContract['tab:getState']>
+    if (!state) {
+      console.debug('[IPC] tab:getState: no state tabId', tabId)
+      return {} as ReturnType<IpcContract['tab:getState']>
+    }
     return state
   })
 
   handle('tab:getList', (event) => {
+    console.debug('[IPC] tab:getList')
     const inst = getInstance(event)
-    if (!inst) return []
+    if (!inst) {
+      console.debug('[IPC] tab:getList: no instance')
+      return []
+    }
     const list = inst.tabManager.getList()
     // 向请求方（外壳渲染进程）重新广播全部标签，确保即便初始 tab:created
     // 在监听器注册前已发出、被错过，外壳仍能通过 getList 拿到完整标签列表。
@@ -104,97 +146,112 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.on('tab:setViewportBounds', (event, tabId, bounds) => {
+    console.debug('[IPC] tab:setViewportBounds: tabId', tabId)
     const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.setViewportBounds(tabId, bounds)
   })
 
   handle('tab:createNewTab', (event, sessionId) => {
-    console.debug('[IPC] tab:createNewTab: sessionId=%s', sessionId)
+    console.debug('[IPC] tab:createNewTab: sessionId', sessionId)
     const inst = getInstance(event)
     if (!inst) return {} as ReturnType<IpcContract['tab:create']>
     return inst.tabManager.createNewTab(sessionId)
   })
 
   handle('nav:loadURLCurrent', (event, url) => {
+    console.debug('[IPC] nav:loadURLCurrent: url', url)
     const inst = getInstance(event)
     if (!inst) return
     const tabId = inst.tabManager.getTabIdByWebContents(event.sender)
-    if (tabId) inst.navigationManager.loadURL(tabId, url)
+    if (tabId) {
+      console.debug('[IPC] nav:loadURLCurrent: tabId', tabId)
+      inst.navigationManager.loadURL(tabId, url)
+    } else {
+      console.debug('[IPC] nav:loadURLCurrent: no tabId for sender')
+    }
   })
 
   handle('nav:goBack', (event, tabId) => {
-    console.debug('[IPC] nav:goBack: tabId=%s', tabId)
+    console.debug('[IPC] nav:goBack: tabId', tabId)
     const inst = getInstance(event)
     if (!inst) return
     inst.navigationManager.goBack(tabId)
   })
 
   handle('nav:goForward', (event, tabId) => {
-    console.debug('[IPC] nav:goForward: tabId=%s', tabId)
+    console.debug('[IPC] nav:goForward: tabId', tabId)
     const inst = getInstance(event)
     if (!inst) return
     inst.navigationManager.goForward(tabId)
   })
 
   handle('nav:reload', (event, tabId) => {
-    console.debug('[IPC] nav:reload: tabId=%s', tabId)
+    console.debug('[IPC] nav:reload: tabId', tabId)
     const inst = getInstance(event)
     if (!inst) return
     inst.navigationManager.reload(tabId)
   })
 
   handle('nav:stop', (event, tabId) => {
-    console.debug('[IPC] nav:stop: tabId=%s', tabId)
+    console.debug('[IPC] nav:stop: tabId', tabId)
     const inst = getInstance(event)
     if (!inst) return
     inst.navigationManager.stop(tabId)
   })
 
   handle('nav:loadURL', (event, tabId, url) => {
-    console.debug('[IPC] nav:loadURL: tabId=%s url=%s', tabId, url)
+    console.debug('[IPC] nav:loadURL: tabId url', tabId, url)
     const inst = getInstance(event)
     if (!inst) return
     inst.navigationManager.loadURL(tabId, url)
   })
 
   handle('session:getPartitions', () => {
+    console.debug('[IPC] session:getPartitions')
     return ['default', 'incognito']
   })
 
   handle('download:create', (event, opts) => {
-    console.debug('[IPC] download:create: url=%s', opts?.url)
+    console.debug('[IPC] download:create: url', opts?.url)
     const inst = getInstance(event)
     if (!inst) return {} as ReturnType<IpcContract['download:create']>
     return inst.downloadManager.create(opts)
   })
 
   handle('download:pause', (event, id) => {
-    console.debug('[IPC] download:pause: id=%s', id)
+    console.debug('[IPC] download:pause: id', id)
     const inst = getInstance(event)
     if (!inst) return
     inst.downloadManager.pause(id)
   })
 
   handle('download:resume', (event, id) => {
-    console.debug('[IPC] download:resume: id=%s', id)
+    console.debug('[IPC] download:resume: id', id)
     const inst = getInstance(event)
     if (!inst) return
     inst.downloadManager.resume(id)
   })
 
   handle('download:cancel', (event, id) => {
-    console.debug('[IPC] download:cancel: id=%s', id)
+    console.debug('[IPC] download:cancel: id', id)
     const inst = getInstance(event)
     if (!inst) return
     inst.downloadManager.cancel(id)
   })
 
   handle('download:get', (event, id) => {
+    console.debug('[IPC] download:get: id', id)
     const inst = getInstance(event)
-    if (!inst) return null
+    if (!inst) {
+      console.debug('[IPC] download:get: no instance')
+      return null
+    }
     const item = inst.downloadManager.get(id)
-    if (!item) return null
+    if (!item) {
+      console.debug('[IPC] download:get: not found id', id)
+      return null
+    }
     return {
       id: item.id,
       url: item.url,
@@ -209,8 +266,12 @@ export function registerIpcHandlers(): void {
   })
 
   handle('download:getList', (event, opts) => {
+    console.debug('[IPC] download:getList: opts', opts)
     const inst = getInstance(event)
-    if (!inst) return []
+    if (!inst) {
+      console.debug('[IPC] download:getList: no instance')
+      return []
+    }
     return inst.downloadManager.getList(opts).map((item) => ({
       id: item.id,
       url: item.url,
@@ -225,11 +286,20 @@ export function registerIpcHandlers(): void {
   })
 
   handle('download:setPath', (_event, path) => {
+    console.debug('[IPC] download:setPath: path', path)
     SettingsManager.getInstance().set('downloadPath', path)
+  })
+
+  handle('download:delete', (_event, id) => {
+    console.debug('[IPC] download:delete: id', id)
+    const inst = getInstance()
+    if (!inst) return
+    inst.downloadManager.delete(id)
   })
 
   // Dialog：系统文件夹选择
   handle('dialog:selectFolder', (event) => {
+    console.debug('[IPC] dialog:selectFolder')
     const win = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.OpenDialogSyncOptions = {
       title: '选择下载文件夹',
@@ -241,30 +311,61 @@ export function registerIpcHandlers(): void {
     return result && result.length > 0 ? result[0] : null
   })
 
+  // 文件系统：文件存在性检查
+  handle('fs:fileExists', (_event, filePath) => {
+    console.debug('[IPC] fs:fileExists: path', filePath)
+    return fs.existsSync(filePath)
+  })
+
+  // 剪贴板：复制文本
+  handle('clipboard:copy', (_event, text) => {
+    console.debug('[IPC] clipboard:copy: text length', text.length)
+    clipboard.writeText(text)
+  })
+
   // Favicon：缓存查询 / 写入
   handle('favicon:get', (_event, key) => {
+    console.debug('[IPC] favicon:get: key', key)
     return getFavicon(key)
   })
 
   handle('favicon:set', (_event, key, url) => {
+    console.debug('[IPC] favicon:set: key url', key, url)
     setFaviconByKey(key, url)
   })
 
   handle('history:add', (event, opts) => {
+    console.debug('[IPC] history:add: url title', opts?.url, opts?.title)
     const inst = getInstance(event)
-    if (!inst) return
+    if (!inst) {
+      console.debug('[IPC] history:add: no instance')
+      return
+    }
     inst.historyManager.add(opts)
   })
 
   handle('history:delete', (event, id) => {
+    console.debug('[IPC] history:delete: id', id)
     const inst = getInstance(event)
-    if (!inst) return
+    if (!inst) {
+      console.debug('[IPC] history:delete: no instance')
+      return
+    }
     inst.historyManager.delete(id)
   })
 
   handle('history:search', (event, opts) => {
+    console.debug(
+      '[IPC] history:search: query limit offset',
+      opts?.query,
+      opts?.limit,
+      opts?.offset
+    )
     const inst = getInstance(event)
-    if (!inst) return []
+    if (!inst) {
+      console.debug('[IPC] history:search: no instance')
+      return []
+    }
     const { query = '', limit = 50, offset = 0 } = opts
     const results = inst.historyManager.search(query, limit, offset)
     return results.map((item) => ({
@@ -278,8 +379,12 @@ export function registerIpcHandlers(): void {
   })
 
   handle('history:getList', (event, opts) => {
+    console.debug('[IPC] history:getList: opts', opts)
     const inst = getInstance(event)
-    if (!inst) return []
+    if (!inst) {
+      console.debug('[IPC] history:getList: no instance')
+      return []
+    }
     const { limit = 50, offset = 0 } = opts ?? {}
     const results = inst.historyManager.getList(limit, offset)
     return results.map((item) => ({
@@ -292,99 +397,249 @@ export function registerIpcHandlers(): void {
     }))
   })
 
-  handle('history:clear', (event) => {
+  handle('history:getAll', (event) => {
+    console.debug('[IPC] history:getAll')
     const inst = getInstance(event)
-    if (!inst) return
+    if (!inst) {
+      console.debug('[IPC] history:getAll: no instance')
+      return []
+    }
+    const results = inst.historyManager.getAll()
+    return results.map((item) => ({
+      id: item.id,
+      url: item.url,
+      title: item.title,
+      favicon: item.favicon,
+      visitTime: item.visit_time,
+      visitCount: item.visit_count,
+    }))
+  })
+
+  handle('history:clear', (event) => {
+    console.debug('[IPC] history:clear')
+    const inst = getInstance(event)
+    if (!inst) {
+      console.debug('[IPC] history:clear: no instance')
+      return
+    }
     inst.historyManager.clear()
   })
 
-  handle('bookmark:add', (event, opts) => {
+  handle('privacy:clearData', async (event, opts) => {
+    console.info(`[IPC] privacy:clearData: types=${JSON.stringify(opts?.types)}`)
     const inst = getInstance(event)
-    if (!inst) return {} as ReturnType<IpcContract['bookmark:add']>
-    return inst.bookmarkManager.create(opts)
+    if (!inst) {
+      console.debug(`[IPC] privacy:clearData: no instance`)
+      return
+    }
+    await inst.privacyManager.clear(opts)
+  })
+
+  handle('bookmark:add', (event, opts) => {
+    console.debug('[IPC] bookmark:add: url title parentId', opts?.url, opts?.title, opts?.parentId)
+    const inst = getInstance(event)
+    if (!inst) {
+      console.debug('[IPC] bookmark:add: no instance')
+      return {} as ReturnType<IpcContract['bookmark:add']>
+    }
+    const result = inst.bookmarkManager.create(opts)
+    notifyBookmarksChanged()
+    return result
   })
 
   handle('bookmark:delete', (event, id) => {
+    console.debug('[IPC] bookmark:delete: id', id)
     const inst = getInstance(event)
-    if (!inst) return
+    if (!inst) {
+      console.debug('[IPC] bookmark:delete: no instance')
+      return
+    }
     inst.bookmarkManager.delete(id)
+    notifyBookmarksChanged()
   })
 
   handle('bookmark:rename', (event, opts) => {
+    console.debug('[IPC] bookmark:rename: id title', opts?.id, opts?.title)
     const inst = getInstance(event)
-    if (!inst) return
+    if (!inst) {
+      console.debug('[IPC] bookmark:rename: no instance')
+      return
+    }
     inst.bookmarkManager.rename(opts.id, opts.title)
+    notifyBookmarksChanged()
   })
 
   handle('bookmark:getList', (event, parentId) => {
+    console.debug('[IPC] bookmark:getList: parentId', parentId)
     const inst = getInstance(event)
-    if (!inst) return []
+    if (!inst) {
+      console.debug('[IPC] bookmark:getList: no instance')
+      return []
+    }
     return inst.bookmarkManager.getList(parentId)
   })
 
   handle('bookmark:search', (event, opts) => {
+    console.debug('[IPC] bookmark:search: query', opts?.query)
     const inst = getInstance(event)
-    if (!inst) return []
+    if (!inst) {
+      console.debug('[IPC] bookmark:search: no instance')
+      return []
+    }
     return inst.bookmarkManager.search(opts.query)
   })
 
   handle('bookmark:import', (event, html) => {
+    console.debug('[IPC] bookmark:import: length', html?.length)
     const inst = getInstance(event)
-    if (!inst) return
+    if (!inst) {
+      console.debug('[IPC] bookmark:import: no instance')
+      return
+    }
     inst.bookmarkManager.importHTML(html)
+    notifyBookmarksChanged()
   })
 
   handle('bookmark:export', (event) => {
+    console.debug('[IPC] bookmark:export')
     const inst = getInstance(event)
-    if (!inst) return { html: '' }
+    if (!inst) {
+      console.debug('[IPC] bookmark:export: no instance')
+      return { html: '' }
+    }
     return inst.bookmarkManager.exportHTML()
   })
 
-  handle('page:print', (event, opts) => {
+  handle('bookmark:move', (event, opts) => {
+    console.debug(
+      '[IPC] bookmark:move: id parentId position',
+      opts?.id,
+      opts?.parentId,
+      opts?.position
+    )
+    const inst = getInstance(event)
+    if (!inst) {
+      console.debug('[IPC] bookmark:move: no instance')
+      return
+    }
+    inst.bookmarkManager.move(opts.id, opts.parentId ?? null, opts.position)
+    notifyBookmarksChanged()
+  })
+
+  handle('bookmark:drag-start', (_event, id) => {
+    console.debug('[IPC] bookmark:drag-start: id', id)
+    setDragBookmark(id)
+  })
+
+  handle('bookmark:drag-drop', (_event, opts) => {
+    const id = getDragBookmark()
+    if (!id) {
+      console.debug('[IPC] bookmark:drag-drop: no drag id')
+      return
+    }
+    console.debug(
+      '[IPC] bookmark:drag-drop: id targetParentId targetPosition',
+      id,
+      opts?.targetParentId,
+      opts?.targetPosition
+    )
+    const inst = globalThis.browserInstances.values().next().value as
+      | BrowserWindowInstance
+      | undefined
+    inst?.bookmarkManager.move(id, opts.targetParentId ?? null, opts.targetPosition)
+    clearDragBookmark()
+    notifyBookmarksChanged()
+  })
+
+  handle('bookmark:drag-get', () => {
+    console.debug('[IPC] bookmark:drag-get')
+    return getDragBookmark()
+  })
+
+  handle('bookmark:openFolder', (event, folderId) => {
+    console.debug('[IPC] bookmark:openFolder: folderId', folderId)
     const inst = getInstance(event)
     if (!inst) return
+    inst.popoverManager.open('bookmark-folder', {
+      type: 'bookmark-folder',
+      anchor: { type: 'cursor' },
+      mode: 'bounded',
+      data: { folderId },
+    })
+  })
+
+  handle('page:print', (event, opts) => {
+    console.debug('[IPC] page:print: tabId', opts?.tabId)
+    const inst = getInstance(event)
+    if (!inst) {
+      console.debug('[IPC] page:print: no instance')
+      return
+    }
     const wc = inst.tabManager.getWebContents(opts.tabId)
     if (wc) wc.print(opts.options)
+    else console.debug('[IPC] page:print: no webContents tabId', opts?.tabId)
   })
 
   handle('page:printToPDF', async (event, opts) => {
+    console.debug('[IPC] page:printToPDF: tabId', opts?.tabId)
     const inst = getInstance(event)
-    if (!inst) return { path: '' }
+    if (!inst) {
+      console.debug('[IPC] page:printToPDF: no instance')
+      return { path: '' }
+    }
     const wc = inst.tabManager.getWebContents(opts.tabId)
-    if (!wc) return { path: '' }
+    if (!wc) {
+      console.debug('[IPC] page:printToPDF: no webContents tabId', opts?.tabId)
+      return { path: '' }
+    }
     const buffer = await wc.printToPDF(opts.options ?? {})
     return { path: `data:application/pdf;base64,${buffer.toString('base64')}` }
   })
 
   handle('page:setZoom', (event, opts) => {
+    console.debug('[IPC] page:setZoom: tabId factor', opts?.tabId, opts?.factor)
     const inst = getInstance(event)
-    if (!inst) return
+    if (!inst) {
+      console.debug('[IPC] page:setZoom: no instance')
+      return
+    }
     const wc = inst.tabManager.getWebContents(opts.tabId)
     if (wc) wc.setZoomFactor(opts.factor)
+    else console.debug('[IPC] page:setZoom: no webContents tabId', opts?.tabId)
   })
 
   handle('page:getZoom', (event, tabId) => {
+    console.debug('[IPC] page:getZoom: tabId', tabId)
     const inst = getInstance(event)
-    if (!inst) return { factor: 1 }
+    if (!inst) {
+      console.debug('[IPC] page:getZoom: no instance')
+      return { factor: 1 }
+    }
     const wc = inst.tabManager.getWebContents(tabId)
-    if (!wc) return { factor: 1 }
+    if (!wc) {
+      console.debug('[IPC] page:getZoom: no webContents tabId', tabId)
+      return { factor: 1 }
+    }
     return { factor: wc.getZoomFactor() }
   })
 
   handle('settings:get', (_event, key) => {
+    console.debug('[IPC] settings:get: key', key)
     return SettingsManager.getInstance().get(key as never)
   })
 
   handle('settings:set', (_event, opts) => {
-    console.debug('[IPC] settings:set: key=%s', opts.key)
+    console.debug('[IPC] settings:set: key', opts.key)
     SettingsManager.getInstance().set(opts.key as never, opts.value as never)
   })
 
   handle('settings:getAll', () => {
+    console.debug('[IPC] settings:getAll')
     return SettingsManager.getInstance().getAll()
   })
 
   handle('theme:get', () => {
+    console.debug('[IPC] theme:get')
     return SettingsManager.getInstance().get('theme')
   })
 
@@ -392,6 +647,20 @@ export function registerIpcHandlers(): void {
   function resolveBackgroundColor(t: ThemeMode): string {
     const isDark = t === 'dark' || (t === 'system' && nativeTheme.shouldUseDarkColors)
     return isDark ? '#1a1a1a' : '#ffffff'
+  }
+
+  function notifyBookmarksChanged(): void {
+    console.debug('[IPC] bookmarks:changed: broadcast')
+    for (const inst of globalThis.browserInstances.values()) {
+      for (const tab of inst.tabManager.getInternalTabs()) {
+        tab.webContents.send('bookmarks:changed')
+      }
+      inst.popoverManager.sendBookmarksChanged()
+    }
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (win.isDestroyed()) continue
+      win.webContents.send('bookmarks:changed')
+    }
   }
 
   function notifyThemeChange(theme: ThemeMode) {
@@ -415,7 +684,7 @@ export function registerIpcHandlers(): void {
   }
 
   handle('theme:set', (_event, theme) => {
-    console.debug('[IPC] theme:set: theme=%s', theme)
+    console.debug('[IPC] theme:set: theme', theme)
     SettingsManager.getInstance().set('theme', theme)
     notifyThemeChange(theme)
   })
@@ -430,27 +699,39 @@ export function registerIpcHandlers(): void {
 
   // QuickLinks
   handle('settings:getQuickLinks', () => {
+    console.debug('[IPC] settings:getQuickLinks')
     return SettingsManager.getInstance().get('quickLinks') as QuickLink[]
   })
 
   handle('settings:setQuickLinks', (_event, links) => {
+    console.debug('[IPC] settings:setQuickLinks: count', links?.length)
     SettingsManager.getInstance().set('quickLinks' as never, links as never)
   })
 
   // Default browser（设置为默认浏览器）
   handle('default-browser:set', () => {
+    console.debug('[IPC] default-browser:set')
     return setAsDefaultBrowser()
   })
 
   handle('default-browser:isDefault', () => {
+    console.debug('[IPC] default-browser:isDefault')
     return isDefaultBrowser()
   })
 
   // Autocomplete
   handle('autocomplete:suggestions', (event, opts) => {
     const inst = getInstance(event)
-    if (!inst) return []
-    const { query = '', limit = 6 } = opts
+    if (!inst) {
+      console.debug('[IPC] autocomplete:suggestions: no instance')
+      return []
+    }
+    const { query = '', limit = 8 } = opts
+    const settings = SettingsManager.getInstance()
+    const engine = (settings.get('searchEngine') as SearchEngine) ?? 'google'
+    const enabled = settings.get('searchSuggestions') !== false
+
+    // 1. 本地结果（history + bookmark），保持现有逻辑
     const historyResults = inst.historyManager.search(query, limit, 0).map((item) => ({
       type: 'history' as const,
       title: item.title ?? item.url,
@@ -461,29 +742,76 @@ export function registerIpcHandlers(): void {
       title: item.title,
       url: item.url ?? '',
     }))
-    const results = [...historyResults, ...bookmarkResults]
-    const unique = new Map<string, AutocompleteSuggestion>()
-    for (const r of results) {
-      if (!unique.has(r.url)) {
-        unique.set(r.url, r)
-      }
+    const local: AutocompleteSuggestion[] = [...historyResults, ...bookmarkResults]
+
+    // 2. 搜索引擎实时建议（受开关控制，失败/超时静默降级）
+    let engineHits: Promise<AutocompleteSuggestion[]> = Promise.resolve([])
+    if (enabled && query.trim()) {
+      engineHits = getSearchSuggestions(query, engine)
+        .then((phrases) =>
+          phrases.map((phrase) => ({
+            type: 'engine' as const,
+            title: phrase,
+            url: resolveAddressBarTarget(phrase, engine),
+          }))
+        )
+        .catch(() => {
+          console.debug(
+            '[Autocomplete] engine suggestions failed: query=%s engine=%s',
+            query,
+            engine
+          )
+          return []
+        })
     }
-    return Array.from(unique.values())
-      .slice(0, limit)
-      .filter((s) => s.url)
+
+    console.debug(
+      '[Autocomplete] suggestions: query=%s engine=%s enabled=%s limit=%s',
+      query,
+      engine,
+      enabled,
+      limit
+    )
+
+    // 3. 合并排序：本地优先，引擎其后；按 url 去重；顶部保留 search 直达项
+    const isUrlLike =
+      /^https?:\/\//i.test(query.trim()) ||
+      (!query.includes(' ') && /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i.test(query.trim()))
+    const out: AutocompleteSuggestion[] = []
+    if (!isUrlLike && query.trim()) {
+      out.push({
+        type: 'search',
+        title: `用 ${engine} 搜索 "${query.trim()}"`,
+        url: resolveAddressBarTarget(query.trim(), engine),
+      })
+    }
+    const seen = new Set<string>(out.map((s) => s.url))
+    return Promise.all([local, engineHits]).then(([localResolved, engineResolved]) => {
+      for (const s of [...localResolved, ...engineResolved]) {
+        if (s.url && !seen.has(s.url)) {
+          seen.add(s.url)
+          out.push(s)
+        }
+      }
+      return out.slice(0, limit).filter((s) => s.url)
+    })
   })
 
   // Bookmark
   handle('bookmark:isBookmarked', (event, url) => {
+    console.debug('[IPC] bookmark:isBookmarked: url', url)
     const inst = getInstance(event)
-    if (!inst) return { isBookmarked: false, id: null }
+    if (!inst) {
+      console.debug('[IPC] bookmark:isBookmarked: no instance')
+      return { isBookmarked: false, id: null }
+    }
     return inst.bookmarkManager.isBookmarked(url)
   })
 
   // Find in Page — use ipcMain.on (not handle) because found-in-page is an async event
   // that must be broadcast back to the renderer
   ipcMain.on('page:startFind', (event, opts) => {
-    console.debug('[IPC] page:startFind: tabId=%s', opts.tabId)
+    console.debug('[IPC] page:startFind: tabId', opts.tabId)
     const inst = getInstance(event)
     if (!inst) return
     const wc = inst.tabManager.getWebContents(opts.tabId)
@@ -512,7 +840,7 @@ export function registerIpcHandlers(): void {
   })
 
   handle('page:endFind', (event, tabId) => {
-    console.debug('[IPC] page:endFind: tabId=%s', tabId)
+    console.debug('[IPC] page:endFind: tabId', tabId)
     const inst = getInstance(event)
     if (!inst) return
     const wc = inst.tabManager.getWebContents(tabId)
@@ -528,28 +856,48 @@ export function registerIpcHandlers(): void {
   })
 
   handle('page:findNext', (event, opts) => {
+    console.debug('[IPC] page:findNext: tabId forward', opts?.tabId, opts?.forward)
     const inst = getInstance(event)
-    if (!inst) return
+    if (!inst) {
+      console.debug('[IPC] page:findNext: no instance')
+      return
+    }
     const wc = inst.tabManager.getWebContents(opts.tabId)
-    if (!wc) return
+    if (!wc) {
+      console.debug('[IPC] page:findNext: no webContents tabId', opts?.tabId)
+      return
+    }
     // findInPage 翻页要求 text 非空且与当前搜索一致；传空串不会翻页（旧 bug）。复用已存关键字。
     const text = findQueries.get(String(wc.id))
     if (text) wc.findInPage(text, { forward: opts.forward, findNext: true })
+    else console.debug('[IPC] page:findNext: no cached query tabId', opts?.tabId)
   })
 
   handle('page:findPrevious', (event, opts) => {
+    console.debug('[IPC] page:findPrevious: tabId forward', opts?.tabId, opts?.forward)
     const inst = getInstance(event)
-    if (!inst) return
+    if (!inst) {
+      console.debug('[IPC] page:findPrevious: no instance')
+      return
+    }
     const wc = inst.tabManager.getWebContents(opts.tabId)
-    if (!wc) return
+    if (!wc) {
+      console.debug('[IPC] page:findPrevious: no webContents tabId', opts?.tabId)
+      return
+    }
     const text = findQueries.get(String(wc.id))
     if (text) wc.findInPage(text, { forward: !opts.forward, findNext: true })
+    else console.debug('[IPC] page:findPrevious: no cached query tabId', opts?.tabId)
   })
 
   // --- Error Page ---
   handle('page:getErrorInfo', (event) => {
+    console.debug('[IPC] page:getErrorInfo')
     const inst = getInstance(event)
-    if (!inst) return null
+    if (!inst) {
+      console.debug('[IPC] page:getErrorInfo: no instance')
+      return null
+    }
     const tabId = inst.tabManager.getTabIdByWebContents(event.sender)
     if (!tabId) return null
     const nav = inst.tabManager.getNavigationState(tabId)
@@ -562,8 +910,12 @@ export function registerIpcHandlers(): void {
   })
 
   handle('page:retry', (event) => {
+    console.debug('[IPC] page:retry')
     const inst = getInstance(event)
-    if (!inst) return
+    if (!inst) {
+      console.debug('[IPC] page:retry: no instance')
+      return
+    }
     const tabId = inst.tabManager.getTabIdByWebContents(event.sender)
     if (!tabId) return
     const nav = inst.tabManager.getNavigationState(tabId)
@@ -573,16 +925,24 @@ export function registerIpcHandlers(): void {
 
   // --- Cert Warning ---
   handle('page:getCertWarningInfo', (event) => {
+    console.debug('[IPC] page:getCertWarningInfo')
     const inst = getInstance(event)
-    if (!inst) return null
+    if (!inst) {
+      console.debug('[IPC] page:getCertWarningInfo: no instance')
+      return null
+    }
     const tabId = inst.tabManager.getTabIdByWebContents(event.sender)
     if (!tabId) return null
     return inst.tabManager.getCertPending(tabId)
   })
 
   handle('page:trustCertAndContinue', (event, scope) => {
+    console.debug('[IPC] page:trustCertAndContinue: scope', scope)
     const inst = getInstance(event)
-    if (!inst) return
+    if (!inst) {
+      console.debug('[IPC] page:trustCertAndContinue: no instance')
+      return
+    }
     const tabId = inst.tabManager.getTabIdByWebContents(event.sender)
     if (!tabId) return
     const pending = inst.tabManager.getCertPending(tabId)
@@ -593,45 +953,100 @@ export function registerIpcHandlers(): void {
 
   // Tab reorder
   handle('tab:reorder', (event, ids) => {
-    console.debug('[IPC] tab:reorder: ids=%o', ids)
+    console.debug('[IPC] tab:reorder: ids', ids)
     const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.reorder(ids)
   })
 
+  // Tab thumbnail capture — 返回 PNG data URL，供标签悬停预览使用
+  handle('tab:captureThumbnail', async (event, tabId) => {
+    console.debug('[IPC] tab:captureThumbnail: tabId', tabId)
+    const inst = getInstance(event)
+    if (!inst) return null
+    const wc = inst.tabManager.getWebContents(tabId)
+    if (!wc || wc.isDestroyed()) return null
+    try {
+      const image = await wc.capturePage()
+      const size = image.getSize()
+      // 空白页 / 挂起标签 → 跳过，避免返回破图
+      if (size.width === 0 || size.height === 0) {
+        console.debug('[IPC] tab:captureThumbnail: blank image for tabId', tabId)
+        return null
+      }
+      return image.toDataURL()
+    } catch {
+      console.debug('[IPC] tab:captureThumbnail: capture failed for tabId', tabId)
+      return null
+    }
+  })
+
   // Tab pin / mute / batch close
   handle('tab:setPinned', (event, tabId, pinned) => {
-    console.debug('[IPC] tab:setPinned: tabId=%s pinned=%s', tabId, pinned)
+    console.debug('[IPC] tab:setPinned: tabId pinned', tabId, pinned)
     const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.setPinned(tabId, pinned)
   })
 
   handle('tab:setMuted', (event, tabId, muted) => {
-    console.debug('[IPC] tab:setMuted: tabId=%s muted=%s', tabId, muted)
+    console.debug('[IPC] tab:setMuted: tabId muted', tabId, muted)
     const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.setMuted(tabId, muted)
   })
 
   handle('tab:closeMany', (event, ids) => {
-    console.debug('[IPC] tab:closeMany: count=%d', ids.length)
+    console.debug('[IPC] tab:closeMany: count', ids.length)
     const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.closeMany(ids)
-    // 关闭后若无标签则退出应用（与 tab:close 一致）
+    // 关末标签不再强制退出：关闭当前窗口（与 tab:close 一致）
     if (inst.tabManager.getList().length === 0) {
-      app.quit()
+      inst.window.close()
     }
   })
 
+  handle('tab:reopenClosed', (event) => {
+    console.info('[IPC] tab:reopenClosed')
+    const inst = getInstance(event)
+    if (!inst) return
+    inst.tabManager.reopenClosed()
+  })
+
   // Window controls
+  handle('window:new', (_event, opts) => {
+    console.info(
+      '[IPC] window:new: incognito=%s url=%s',
+      opts?.incognito === true,
+      opts?.url ?? '(newtab)'
+    )
+    if (opts?.incognito) {
+      openIncognitoWindow(opts?.url)
+    } else {
+      openNormalWindow(opts?.url)
+    }
+  })
+
+  handle('window:getInfo', (event) => {
+    const inst = getInstance(event)
+    const info = {
+      isIncognito: inst?.isIncognito === true,
+      windowId: inst ? String(inst.window.id) : '',
+    }
+    console.debug('[IPC] window:getInfo: %o', info)
+    return info
+  })
+
   handle('window:minimize', (event) => {
+    console.debug('[IPC] window:minimize')
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win) win.minimize()
+    else console.debug('[IPC] window:minimize: no window')
   })
 
   handle('window:maximize', (event) => {
+    console.debug('[IPC] window:maximize')
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return
     if (win.isMaximized()) win.unmaximize()
@@ -639,8 +1054,22 @@ export function registerIpcHandlers(): void {
   })
 
   handle('window:close', (event) => {
+    console.debug('[IPC] window:close')
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win) win.close()
+    else console.debug('[IPC] window:close: no window')
+  })
+
+  // Shell — 下载闭环
+  handle('shell:showInFolder', (_event, filePath) => {
+    console.info('[IPC] shell:showInFolder: path', filePath)
+    shell.showItemInFolder(filePath)
+  })
+  handle('shell:openFile', (_event, filePath) => {
+    console.info('[IPC] shell:openFile: path', filePath)
+    shell.openPath(filePath).catch((err) => {
+      console.error('[IPC] shell:openFile: failed', filePath, err)
+    })
   })
 
   // Proxy
@@ -658,11 +1087,13 @@ export function registerIpcHandlers(): void {
   })
 
   handle('proxy:status', (event) => {
+    console.debug('[IPC] proxy:status')
     const inst = getInstance(event)
     return inst?.proxyManager?.getStatus() ?? { running: false }
   })
 
   handle('proxy:getProxies', async (event) => {
+    console.debug('[IPC] proxy:getProxies')
     try {
       const inst = getInstance(event)
       return (await inst?.proxyManager?.getProxies()) ?? {}
@@ -672,7 +1103,7 @@ export function registerIpcHandlers(): void {
   })
 
   handle('proxy:switchNode', async (event, groupName, nodeName) => {
-    console.debug('[IPC] proxy:switchNode: group=%s node=%s', groupName, nodeName)
+    console.debug('[IPC] proxy:switchNode: group node', groupName, nodeName)
     try {
       const inst = getInstance(event)
       await inst?.proxyManager?.switchNode(groupName, nodeName)
@@ -682,6 +1113,7 @@ export function registerIpcHandlers(): void {
   })
 
   handle('proxy:mode', async (event) => {
+    console.debug('[IPC] proxy:mode')
     try {
       const inst = getInstance(event)
       return (await inst?.proxyManager?.getMode()) ?? 'rule'
@@ -691,7 +1123,7 @@ export function registerIpcHandlers(): void {
   })
 
   handle('proxy:setMode', async (event, mode) => {
-    console.debug('[IPC] proxy:setMode: mode=%s', mode)
+    console.debug('[IPC] proxy:setMode: mode', mode)
     try {
       const inst = getInstance(event)
       await inst?.proxyManager?.setMode(mode)
@@ -701,6 +1133,7 @@ export function registerIpcHandlers(): void {
   })
 
   handle('proxy:checkDelay', async (event, groupName) => {
+    console.debug('[IPC] proxy:checkDelay: group', groupName)
     try {
       const inst = getInstance(event)
       return (await inst?.proxyManager?.checkDelay(groupName)) ?? []
@@ -711,12 +1144,13 @@ export function registerIpcHandlers(): void {
 
   // Subscription
   handle('proxy:getSubscriptions', (event) => {
+    console.debug('[IPC] proxy:getSubscriptions')
     const inst = getInstance(event)
     return inst?.subscriptionManager.getSubscriptions() ?? []
   })
 
   handle('proxy:addSubscription', async (event, url, name) => {
-    console.debug('[IPC] proxy:addSubscription: url=%s name=%s', url, name)
+    console.debug('[IPC] proxy:addSubscription: url name', url, name)
     const inst = getInstance(event)
     if (!inst) throw new Error('No window instance')
     const id = await inst.subscriptionManager.addSubscription(url, name)
@@ -724,17 +1158,27 @@ export function registerIpcHandlers(): void {
   })
 
   handle('proxy:removeSubscription', async (event, id) => {
+    console.debug('[IPC] proxy:removeSubscription: id', id)
     const inst = getInstance(event)
+    if (!inst) {
+      console.debug('[IPC] proxy:removeSubscription: no instance')
+      return
+    }
     await inst?.subscriptionManager.removeSubscription(id)
   })
 
   handle('proxy:updateSubscription', async (event, id) => {
+    console.debug('[IPC] proxy:updateSubscription: id', id)
     const inst = getInstance(event)
+    if (!inst) {
+      console.debug('[IPC] proxy:updateSubscription: no instance')
+      return
+    }
     await inst?.subscriptionManager.updateSubscription(id)
   })
 
   handle('proxy:activateSubscription', async (event, id) => {
-    console.debug('[IPC] proxy:activateSubscription: id=%s', id)
+    console.debug('[IPC] proxy:activateSubscription: id', id)
     const inst = getInstance(event)
     if (!inst) throw new Error('No window instance')
     inst.subscriptionManager.activateSubscription(id)
@@ -750,7 +1194,7 @@ export function registerIpcHandlers(): void {
   })
 
   handle('proxy:deactivateSubscription', async (event, id) => {
-    console.debug('[IPC] proxy:deactivateSubscription: id=%s', id)
+    console.debug('[IPC] proxy:deactivateSubscription: id', id)
     const inst = getInstance(event)
     if (!inst) throw new Error('No window instance')
     inst.subscriptionManager.deactivateSubscription(id)
@@ -765,38 +1209,51 @@ export function registerIpcHandlers(): void {
 
   // Log：渲染进程转发来的日志（fire-and-forget，无需返回值）
   ipcMain.on('log:frontend', (_event, entry) => {
+    console.debug('[IPC] log:frontend: level msg', entry?.level, entry?.message)
     handleFrontendLog(entry)
   })
 
   // 应用信息：版本号 / 架构 / 平台，关于页展示
   handle('app:info', () => {
+    console.debug('[IPC] app:info')
     return { version: app.getVersion(), arch: process.arch, platform: process.platform }
   })
 
   // Updater：自动更新状态查询 / 手动检查 / 退出安装
   handle('updater:check', () => {
+    console.debug('[IPC] updater:check')
     updater.checkForUpdates()
   })
 
   handle('updater:getStatus', () => {
+    console.debug('[IPC] updater:getStatus')
     return updater.getStatus()
   })
 
   handle('updater:restart', () => {
+    console.debug('[IPC] updater:restart')
     updater.restartAndInstall()
   })
 
   // Popover
   handle('popover:open', (event, popoverId, options) => {
+    console.debug('[IPC] popover:open: popoverId', popoverId)
     getInstance(event)?.popoverManager.open(popoverId, options)
   })
   handle('popover:close', (event, popoverId) => {
+    console.debug('[IPC] popover:close: popoverId', popoverId)
     getInstance(event)?.popoverManager.close(popoverId)
   })
   handle('popover:data', (event, popoverId, data) => {
+    console.debug('[IPC] popover:data: popoverId', popoverId)
     getInstance(event)?.popoverManager.sendData(popoverId, data)
   })
   ipcMain.on('popover:panel-event', (event, payload) => {
+    console.debug(
+      '[IPC] popover:panel-event: popoverId eventName',
+      payload?.popoverId,
+      payload?.eventName
+    )
     const { popoverId, eventName, eventData } = payload as {
       popoverId: string
       eventName: string
@@ -805,6 +1262,7 @@ export function registerIpcHandlers(): void {
     getInstance(event)?.popoverManager.notifyEvent(popoverId, eventName, eventData)
   })
   ipcMain.on('popover:measure', (event, popoverId, size) => {
+    console.debug('[IPC] popover:measure: popoverId size', popoverId, size)
     getInstance(event)?.popoverManager.applyMeasure(
       popoverId,
       size as { width: number; height: number; gutter?: number }
@@ -820,5 +1278,24 @@ export function registerIpcHandlers(): void {
         /* webContents 已销毁 */
       }
     }
+  })
+
+  // Native Menu
+  handle('native-menu:open', async (event, menuId, items, position) => {
+    // 多窗口：从触发事件的窗口解析对应的 NativeMenuManager
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const manager = (win && nativeMenuManagers.get(win.id)) || nativeMenuManager
+    if (manager) {
+      await manager.open(menuId, items, position)
+    }
+  })
+
+  handle('native-menu:close', (event, menuId) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const manager = (win && nativeMenuManagers.get(win.id)) || nativeMenuManager
+    if (manager) {
+      manager.close(menuId)
+    }
+    return Promise.resolve()
   })
 }

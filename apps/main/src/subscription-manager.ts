@@ -22,21 +22,25 @@ export class SubscriptionManager {
   private repo: SubscriptionRepository
 
   constructor(repo: SubscriptionRepository) {
+    console.debug('[SubscriptionManager] constructor')
     this.repo = repo
   }
 
   getSubscriptions(): SubscriptionRecord[] {
+    console.debug('[SubscriptionManager] getSubscriptions')
     return this.repo.findAll()
   }
 
   async addSubscription(url: string, name: string): Promise<string> {
-    console.debug('[SubscriptionManager] addSubscription: url=%s name=%s', url, name)
+    console.debug('[SubscriptionManager] addSubscription: url name', url, name)
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      console.debug('[SubscriptionManager] addSubscription: invalid url scheme')
       throw new Error('Invalid subscription URL. Only HTTP/HTTPS URLs are supported.')
     }
 
     const existing = this.repo.findByUrl(url)
     if (existing) {
+      console.debug('[SubscriptionManager] addSubscription: already exists name', existing.name)
       throw new Error(`Subscription already exists: ${existing.name}`)
     }
 
@@ -44,9 +48,11 @@ export class SubscriptionManager {
     try {
       data = await this.fetchAndParse(url)
     } catch (e) {
+      console.debug('[SubscriptionManager] addSubscription: fetch failed url error', url, e)
       throw new Error(`Failed to fetch subscription: ${e}`)
     }
 
+    console.debug('[SubscriptionManager] addSubscription: creating record name', name)
     return this.repo.create({
       name,
       url,
@@ -60,12 +66,12 @@ export class SubscriptionManager {
   }
 
   async removeSubscription(id: string): Promise<void> {
-    console.debug('[SubscriptionManager] removeSubscription: id=%s', id)
+    console.debug('[SubscriptionManager] removeSubscription: id', id)
     this.repo.delete(id)
   }
 
   async updateSubscription(id: string): Promise<void> {
-    console.debug('[SubscriptionManager] updateSubscription: id=%s', id)
+    console.debug('[SubscriptionManager] updateSubscription: id', id)
     const sub = this.repo.findById(id)
     if (!sub) throw new Error(`Subscription not found: ${id}`)
 
@@ -80,33 +86,38 @@ export class SubscriptionManager {
   }
 
   activateSubscription(id: string): void {
-    console.debug('[SubscriptionManager] activateSubscription: id=%s', id)
+    console.debug('[SubscriptionManager] activateSubscription: id', id)
     this.repo.deactivateAll()
     this.repo.update(id, { active: 1 })
   }
 
   deactivateSubscription(id: string): void {
-    console.debug('[SubscriptionManager] deactivateSubscription: id=%s', id)
+    console.debug('[SubscriptionManager] deactivateSubscription: id', id)
     this.repo.update(id, { active: 0 })
   }
 
   getActiveSubscription(): SubscriptionRecord | null {
+    console.debug('[SubscriptionManager] getActiveSubscription')
     return this.repo.findActive() ?? null
   }
 
   async fetchSubscriptionData(url: string): Promise<SubscriptionData> {
+    console.debug('[SubscriptionManager] fetchSubscriptionData: url', url)
     return this.fetchAndParse(url)
   }
 
   async fetchAndParse(url: string): Promise<SubscriptionData> {
-    console.debug('[SubscriptionManager] fetchAndParse: url=%s', url)
+    console.debug('[SubscriptionManager] fetchAndParse: url', url)
     const res = await fetch(url)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) {
+      console.debug('[SubscriptionManager] fetchAndParse: http error status', res.status)
+      throw new Error(`HTTP ${res.status}`)
+    }
 
     const text = await res.text()
     const result = this.parseSubscriptionContent(text)
     console.debug(
-      '[SubscriptionManager] fetchAndParse: nodes=%d groups=%d rules=%d',
+      '[SubscriptionManager] fetchAndParse: nodes groups rules',
       result.proxies.length,
       result.proxyGroups.length,
       result.rules.length

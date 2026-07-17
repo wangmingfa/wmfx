@@ -16,4 +16,10 @@ export const settingsSideMenu: SideMenuItem[] = [
     to: '/settings/downloads',
   },
   { key: 'about', labelKey: 'settings.navAbout', icon: 'mdi:information', to: '/settings/about' },
+  {
+    key: 'privacy',
+    labelKey: 'settings.navPrivacy',
+    icon: 'mdi:shield',
+    to: '/settings/privacy',
+  },
 ]

@@ -13,6 +13,7 @@
           :security-state="activeTab.navigation.securityState"
           :favicon="activeTab.favicon"
         />
+        <BookmarkBar v-if="showBookmarkBar" />
         <Viewport v-if="activeTab" :tab-id="activeTab.id" />
       </div>
       <FindBar :active-tab-id="activeTab?.id ?? null" />
@@ -25,28 +26,44 @@ import type { TabState } from '@browser/ipc-contract'
 import { onMounted, onUnmounted, ref } from 'vue'
 import { requestAddressBarFocus } from '../composables/useAddressBarFocus'
 import AddressBar from './AddressBar.vue'
+import BookmarkBar from './BookmarkBar.vue'
 import FindBar from './FindBar.vue'
 import TabBar from './TabBar.vue'
 import Viewport from './Viewport.vue'
 
 const activeTab = ref<TabState | null>(null)
+const showBookmarkBar = ref(false)
+
+function syncBookmarkBar(): void {
+  void window.browserAPI.getSetting('showBookmarkBar').then((v) => {
+    showBookmarkBar.value = Boolean(v)
+    console.debug('[ChromeUI] syncBookmarkBar: showBookmarkBar', showBookmarkBar.value)
+  })
+}
 
 async function syncActiveTab(): Promise<void> {
+  console.debug('[ChromeUI] syncActiveTab: enter')
   const tabs = await window.browserAPI.getList()
   const active = tabs.find((t) => t.active)
   if (active) {
     activeTab.value = active
+    console.debug('[ChromeUI] syncActiveTab: activeTabId', active.id)
   }
 }
 
 let stateChangeHandler: (state: TabState) => void
 
 onMounted(() => {
+  console.debug('[ChromeUI] onMounted: initializing')
   syncActiveTab()
+  syncBookmarkBar()
+
+  window.browserAPI.onBookmarksChanged(() => syncBookmarkBar())
 
   stateChangeHandler = (state: TabState) => {
     if (state.active) {
       activeTab.value = state
+      console.debug('[ChromeUI] tab state-change: activeTabId', state.id)
     }
   }
 

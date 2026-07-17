@@ -38,3 +38,4 @@ export type {
   ViewBounds,
 } from './channels'
 export * from './channels'
+export type { NativeMenuItemDescriptor, NativeMenuItemType } from './menu'

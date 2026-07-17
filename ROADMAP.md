@@ -65,18 +65,18 @@
 
 > 调研补齐"可用浏览器"体验缺口，除浏览器级安全/权限（证书错误、摄像头/麦克风/定位弹窗）外。
 
-- [ ] **多窗口支持** — 新建/管理多个浏览器窗口（Cmd+Shift+N），关末标签不再强制退出；复用已留的 `browserInstances` Map
-- [ ] **清除浏览数据 UI** — 清除 Cookie / 缓存 / localStorage / 表单数据的设置页与 IPC（`session.clearStorageData`）
-- [ ] **标签悬停缩略图** — 鼠标悬停标签显示页面预览（`captureThumbnail`）
-- [ ] **下载闭环** — 下载项"在文件夹中显示"（`shell.showItemInFolder`）、完成通知、安全扫描提示
-- [ ] **书签栏常驻** — 地址栏下方常驻书签栏；HTML 导入保留原文件夹层级（修复 `bookmark-manager.ts` 拍平 `parent_id: null`）
-- [ ] **历史按日期分组** — "今天/昨天/更早"分组渲染与导出
-- [ ] **启动行为 / 主页设置** — 可选手动主页、启动时打开主页/上次会话/指定页
-- [ ] **搜索实时建议（Omnibox）** — 向搜索引擎请求的实时补全，而非仅本地历史+书签
-- [ ] **独立无痕窗口** — 整窗隔离的无痕窗口，而非当前窗口内的无痕标签
+- [x] **多窗口支持** — 新建/管理多个浏览器窗口（Cmd+Shift+N 普通窗口、Cmd+N 亦可用；菜单「新建窗口」），关末标签不再强制退出；复用已留的 `browserInstances` Map，每个窗口独立 TabManager / NavigationManager / DownloadManager / PopoverManager，共享同一 Mihomo 代理核心；窗口关闭时反注册实例，macOS 关掉最后窗口保留进程供 Dock 再激活
+- [x] **清除浏览数据 UI** — 清除 Cookie / 缓存 / localStorage / 表单数据的设置页与 IPC（`session.clearStorageData`）；设置页隐私分区 + 三点菜单「清空缓存」共用弹窗（Electron 不支持时间范围过滤，故按全量清除）
+- [x] **标签悬停缩略图** — 鼠标悬停标签显示页面预览（`captureThumbnail`）
+- [x] **下载闭环** — 下载项"在文件夹中显示"（`shell.showItemInFolder`）、完成通知、安全扫描提示
+- [x] **书签栏常驻** — 地址栏下方常驻书签栏，HTML 导入保留原文件夹层级（`bookmark-manager.ts` 已修复 `parent_id: null` 拍平）
+- [x] **历史按日期分组** — "今天/昨天/本周/更早"分组渲染，搜索结果同样分组
+- [x] **启动行为 / 主页设置** — 设置页可选手动主页、启动时打开新标签页/上次会话/主页（`SettingsManager.launchBehavior`：`restore | newtab | homepage`）
+- [x] **搜索实时建议（Omnibox）** — 主进程抓取搜索引擎实时建议（Google/Baidu/Bing），与本地 history+bookmark 合并排序，带总开关（SettingsManager.searchSuggestions）
+- [x] **独立无痕窗口** — 整窗隔离的无痕窗口（Cmd+Shift+N），使用独立内存 partition（sessionId='incognito'），不落盘会话/尺寸，关闭即焚（最后一个无痕窗口关闭时清空内存 partition 存储）；由 `createWindow({incognito:true})` 与 `openIncognitoWindow` 实现
 - [ ] **远程调试端口** — `--remote-debugging-port` 支持
-- [ ] **撤销关闭标签（Cmd+Shift+T）** — 维护最近关闭标签栈，重开已关标签
-- [ ] **字体 / 编码设置** — 默认页面字体、字号、编码（当前仅全局缩放）
+- [x] **撤销关闭标签（Cmd+Shift+T）** — 维护最近关闭标签栈，重开已关标签
+- [x] **字体 / 编码设置** — 默认字体（system-ui/sans-serif/serif/monospace）、字号（12-24px）、编码（UTF-8/GBK/Big5 等），通过 `SettingsManager` 持久化，页面加载时注入 `document.documentElement.style` 与 `document.charset`
 - [ ] **阅读模式 / 页面级暗色注入** — 阅读模式与强制暗色网站 CSS 注入（当前仅外壳主题跟随系统）
 
 ## Phase 4 — 增强能力（未开始）

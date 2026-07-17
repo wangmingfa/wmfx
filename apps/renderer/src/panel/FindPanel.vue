@@ -62,12 +62,16 @@ function onCompositionEnd(): void {
 watch(
   () => props.data.query,
   (v) => {
-    if (v !== localQuery.value) localQuery.value = v
+    if (v !== localQuery.value) {
+      console.debug('[FindPanel] watch query: 同步外部关键字 v', v)
+      localQuery.value = v
+    }
   },
 )
 
 function focusInput(): void {
   // 延迟到下一帧，确保面板 WebContentsView 已获得焦点（主进程 open/renderTop 中 webContents.focus）
+  console.debug('[FindPanel] focusInput: 聚焦输入框')
   requestAnimationFrame(() => {
     inputRef.value?.focus()
     inputRef.value?.select()
@@ -90,6 +94,7 @@ function onInput(value: string): void {
   localQuery.value = value
   if (debounceTimer) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
+    console.debug('[FindPanel] onInput: debounce 提交搜索 query', value)
     emit('event', 'update-query', value)
   }, DEBOUNCE_MS)
 }
@@ -106,6 +111,7 @@ function onKeydown(e: KeyboardEvent): void {
       debounceTimer = null
       emit('event', 'update-query', localQuery.value)
     }
+    console.debug('[FindPanel] onKeydown: Enter 翻页 dir', e.shiftKey ? 'prev' : 'next')
     emit('event', e.shiftKey ? 'find-prev' : 'find-next')
   } else if (e.key === 'Escape') {
     e.preventDefault()

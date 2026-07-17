@@ -21,6 +21,7 @@ const logs = ref<string[]>([])
 const logContainer = ref<HTMLElement | null>(null)
 
 function addLog(msg: string): void {
+  console.debug('[LogView] addLog', msg)
   logs.value.push(msg)
   if (logs.value.length > 200) {
     logs.value = logs.value.slice(-200)

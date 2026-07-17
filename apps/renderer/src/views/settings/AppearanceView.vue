@@ -26,6 +26,7 @@ const themeModes: { label: string; value: ThemeMode }[] = [
 ]
 
 async function onThemeChange(theme: ThemeMode): Promise<void> {
+  console.debug('[Appearance] onThemeChange: theme', theme)
   await window.browserAPI.setTheme(theme)
 }
 </script>

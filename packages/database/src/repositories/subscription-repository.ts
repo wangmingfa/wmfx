@@ -17,42 +17,58 @@ export class SubscriptionRepository {
   constructor(private db: BetterSqlite3Db) {}
 
   findAll(): SubscriptionRecord[] {
-    return this.db
+    const rows = this.db
       .prepare(
         'SELECT id, name, url, active, last_update, expire, upload, download, total FROM subscriptions ORDER BY last_update DESC'
       )
       .all() as SubscriptionRecord[]
+    console.debug('[SubscriptionRepository] findAll: count', rows.length)
+    return rows
   }
 
   findById(id: string): SubscriptionRecord | undefined {
-    return this.db
+    const row = this.db
       .prepare(
         'SELECT id, name, url, active, last_update, expire, upload, download, total FROM subscriptions WHERE id = ?'
       )
       .get(id) as SubscriptionRecord | undefined
+    console.debug('[SubscriptionRepository] findById: id found', id, !!row)
+    return row
   }
 
   findByUrl(url: string): SubscriptionRecord | undefined {
-    return this.db
+    const row = this.db
       .prepare(
         'SELECT id, name, url, active, last_update, expire, upload, download, total FROM subscriptions WHERE url = ?'
       )
       .get(url) as SubscriptionRecord | undefined
+    console.debug('[SubscriptionRepository] findByUrl: url found', url, !!row)
+    return row
   }
 
   findActive(): SubscriptionRecord | undefined {
-    return this.db
+    const row = this.db
       .prepare(
         'SELECT id, name, url, active, last_update, expire, upload, download, total FROM subscriptions WHERE active = 1 LIMIT 1'
       )
       .get() as SubscriptionRecord | undefined
+    console.debug('[SubscriptionRepository] findActive: found', !!row)
+    return row
   }
 
   deactivateAll(): void {
+    console.debug('[SubscriptionRepository] deactivateAll: setting all subscriptions inactive')
     this.db.prepare('UPDATE subscriptions SET active = 0').run()
+    console.debug('[SubscriptionRepository] deactivateAll: done')
   }
 
   create(sub: Omit<SubscriptionRecord, 'id'>): string {
+    console.debug(
+      '[SubscriptionRepository] create: name url active',
+      sub.name,
+      sub.url,
+      sub.active ?? 0
+    )
     const id = crypto.randomUUID()
     this.db
       .prepare(
@@ -69,19 +85,25 @@ export class SubscriptionRepository {
         sub.download,
         sub.total
       )
+    console.debug('[SubscriptionRepository] create: inserted id', id)
     return id
   }
 
   update(id: string, fields: Partial<Omit<SubscriptionRecord, 'id'>>): void {
     const entries = Object.entries(fields)
-    if (entries.length === 0) return
+    if (entries.length === 0) {
+      console.debug('[SubscriptionRepository] update: id no fields to update, skip', id)
+      return
+    }
     const sets = entries.map(([k]) => `${k} = ?`).join(', ')
     const values = entries.map(([, v]) => v)
+    console.debug('[SubscriptionRepository] update: id sets', id, sets)
     this.db.prepare(`UPDATE subscriptions SET ${sets} WHERE id = ?`).run(...values, id)
   }
 
   delete(id: string): boolean {
     const result = this.db.prepare('DELETE FROM subscriptions WHERE id = ?').run(id)
+    console.debug('[SubscriptionRepository] delete: id changes', id, result.changes)
     return result.changes > 0
   }
 }

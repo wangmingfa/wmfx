@@ -14,6 +14,7 @@ import type {
   FindInPageOptions,
   HistoryItem,
   LogEntry,
+  NativeMenuItemDescriptor,
   PopoverAnchor,
   PopoverEventPayload,
   PopoverMode,
@@ -60,6 +61,7 @@ const api: {
   pauseDownload: (id: string) => Promise<void>
   resumeDownload: (id: string) => Promise<void>
   cancelDownload: (id: string) => Promise<void>
+  deleteDownload: (id: string) => Promise<void>
   getDownload: (id: string) => Promise<DownloadItem | null>
   getDownloads: (opts?: DownloadListOptions) => Promise<DownloadItem[]>
   setDownloadPath: (path: string) => Promise<void>
@@ -78,7 +80,11 @@ const api: {
     offset?: number
   }) => Promise<HistoryItem[]>
   getHistoryList: (opts?: { limit?: number; offset?: number }) => Promise<HistoryItem[]>
+  getAllHistory: () => Promise<HistoryItem[]>
   clearHistory: () => Promise<void>
+  clearPrivacyData: (opts: {
+    types: ('cookies' | 'cache' | 'localStorage' | 'formData')[]
+  }) => Promise<void>
   // Bookmark
   addBookmark: (item: BookmarkCreateOptions) => Promise<{ id: string }>
   deleteBookmark: (id: string) => Promise<void>
@@ -111,6 +117,15 @@ const api: {
   getAutocompleteSuggestions: (opts: AutocompleteQuery) => Promise<AutocompleteSuggestion[]>
   // Bookmark
   isBookmarked: (url: string) => Promise<BookmarkCheckResult>
+  moveBookmark: (opts: { id: string; parentId?: string | null; position: number }) => Promise<void>
+  dragBookmarkStart: (id: string) => Promise<void>
+  openBookmarkFolder: (folderId: string) => Promise<void>
+  dragBookmarkDrop: (opts: {
+    targetParentId?: string | null
+    targetPosition: number
+  }) => Promise<void>
+  getDragBookmarkId: () => Promise<string | null>
+  onBookmarksChanged: (cb: () => void) => void
   // Find in Page
   startFind: (opts: FindInPageOptions) => void
   endFind: (tabId: string) => Promise<void>
@@ -118,14 +133,27 @@ const api: {
   findPrevious: (opts: FindInPageDirection) => Promise<void>
   // Tab reorder
   reorderTabs: (ids: string[]) => Promise<void>
+  // Tab thumbnail
+  captureThumbnail: (tabId: string) => Promise<string | null>
   // Tab pin / mute / batch close
   setPinned: (tabId: string, pinned: boolean) => Promise<void>
   setMuted: (tabId: string, muted: boolean) => Promise<void>
   closeTabs: (ids: string[]) => Promise<void>
+  // Undo close tab
+  reopenClosed: () => Promise<void>
   // Window controls
+  getWindowInfo: () => Promise<{ isIncognito: boolean; windowId: string }>
   minimizeWindow: () => Promise<void>
   maximizeWindow: () => Promise<void>
   closeWindow: () => Promise<void>
+  createNewWindow: (opts?: { url?: string; incognito?: boolean }) => Promise<void>
+  // Shell (download closure)
+  showInFolder: (filePath: string) => Promise<void>
+  openFile: (filePath: string) => Promise<void>
+  // File system
+  fileExists: (path: string) => Promise<boolean>
+  // Clipboard
+  copyText: (text: string) => Promise<void>
   // Proxy
   startProxy: () => Promise<void>
   stopProxy: () => Promise<void>
@@ -215,6 +243,15 @@ const api: {
     requestedUrl: string
   } | null>
   trustCertAndContinue: (scope: CertTrustScope) => Promise<void>
+  // Native Menu
+  nativeMenuOpen: (
+    menuId: string,
+    items: NativeMenuItemDescriptor[],
+    position?: { x: number; y: number }
+  ) => Promise<void>
+  nativeMenuClose: (menuId: string) => Promise<void>
+  onNativeMenuAction: (cb: (payload: { menuId: string; itemId: string }) => void) => void
+  onNativeMenuClosed: (cb: (menuId: string) => void) => void
 } = {
   ping: (message) => ipcRenderer.invoke('app:ping', message),
   createTab: (opts) => ipcRenderer.invoke('tab:create', opts),
@@ -244,6 +281,7 @@ const api: {
   getDownload: (id) => ipcRenderer.invoke('download:get', id),
   getDownloads: (opts) => ipcRenderer.invoke('download:getList', opts),
   setDownloadPath: (path) => ipcRenderer.invoke('download:setPath', path),
+  deleteDownload: (id) => ipcRenderer.invoke('download:delete', id),
   // Dialog
   selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
   // History
@@ -251,7 +289,10 @@ const api: {
   deleteHistory: (id) => ipcRenderer.invoke('history:delete', id),
   searchHistory: (opts) => ipcRenderer.invoke('history:search', opts),
   getHistoryList: (opts) => ipcRenderer.invoke('history:getList', opts),
+  getAllHistory: () => ipcRenderer.invoke('history:getAll'),
   clearHistory: () => ipcRenderer.invoke('history:clear'),
+  clearPrivacyData: (opts: { types: ('cookies' | 'cache' | 'localStorage' | 'formData')[] }) =>
+    ipcRenderer.invoke('privacy:clearData', opts),
   // Bookmark
   addBookmark: (item) => ipcRenderer.invoke('bookmark:add', item),
   deleteBookmark: (id) => ipcRenderer.invoke('bookmark:delete', id),
@@ -285,6 +326,12 @@ const api: {
   getAutocompleteSuggestions: (opts) => ipcRenderer.invoke('autocomplete:suggestions', opts),
   // Bookmark
   isBookmarked: (url) => ipcRenderer.invoke('bookmark:isBookmarked', url),
+  moveBookmark: (opts) => ipcRenderer.invoke('bookmark:move', opts),
+  dragBookmarkStart: (id) => ipcRenderer.invoke('bookmark:drag-start', id),
+  openBookmarkFolder: (folderId) => ipcRenderer.invoke('bookmark:openFolder', folderId),
+  dragBookmarkDrop: (opts) => ipcRenderer.invoke('bookmark:drag-drop', opts),
+  getDragBookmarkId: () => ipcRenderer.invoke('bookmark:drag-get'),
+  onBookmarksChanged: (cb) => ipcRenderer.on('bookmarks:changed', () => cb()),
   // Find in Page
   startFind: (opts) => ipcRenderer.send('page:startFind', opts),
   endFind: (tabId) => ipcRenderer.invoke('page:endFind', tabId),
@@ -292,14 +339,25 @@ const api: {
   findPrevious: (opts) => ipcRenderer.invoke('page:findPrevious', opts),
   // Tab reorder
   reorderTabs: (ids) => ipcRenderer.invoke('tab:reorder', ids),
+  captureThumbnail: (tabId) => ipcRenderer.invoke('tab:captureThumbnail', tabId),
   // Tab pin / mute / batch close
   setPinned: (tabId, pinned) => ipcRenderer.invoke('tab:setPinned', tabId, pinned),
   setMuted: (tabId, muted) => ipcRenderer.invoke('tab:setMuted', tabId, muted),
   closeTabs: (ids) => ipcRenderer.invoke('tab:closeMany', ids),
+  reopenClosed: () => ipcRenderer.invoke('tab:reopenClosed'),
   // Window controls
+  getWindowInfo: () => ipcRenderer.invoke('window:getInfo'),
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
+  createNewWindow: (opts) => ipcRenderer.invoke('window:new', opts),
+  // Shell (download closure)
+  showInFolder: (filePath) => ipcRenderer.invoke('shell:showInFolder', filePath),
+  openFile: (filePath) => ipcRenderer.invoke('shell:openFile', filePath),
+  // File system
+  fileExists: (path) => ipcRenderer.invoke('fs:fileExists', path),
+  // Clipboard
+  copyText: (text) => ipcRenderer.invoke('clipboard:copy', text),
   // Proxy
   startProxy: () => ipcRenderer.invoke('proxy:start'),
   stopProxy: () => ipcRenderer.invoke('proxy:stop'),
@@ -364,6 +422,16 @@ const api: {
   retry: () => ipcRenderer.invoke('page:retry'),
   getCertWarningInfo: () => ipcRenderer.invoke('page:getCertWarningInfo'),
   trustCertAndContinue: (scope) => ipcRenderer.invoke('page:trustCertAndContinue', scope),
+  // Native Menu
+  nativeMenuOpen: (menuId, items, position) =>
+    ipcRenderer.invoke('native-menu:open', menuId, items, position),
+  nativeMenuClose: (menuId) => ipcRenderer.invoke('native-menu:close', menuId),
+  onNativeMenuAction: (cb) =>
+    ipcRenderer.on('native-menu:action', (_e, payload) =>
+      cb(payload as { menuId: string; itemId: string })
+    ),
+  onNativeMenuClosed: (cb) =>
+    ipcRenderer.on('native-menu:closed', (_e, menuId) => cb(menuId as string)),
   // Default browser
   setDefaultBrowser: () => ipcRenderer.invoke('default-browser:set'),
   isDefaultBrowser: () => ipcRenderer.invoke('default-browser:isDefault'),

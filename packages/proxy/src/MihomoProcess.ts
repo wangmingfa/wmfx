@@ -26,6 +26,7 @@ export class MihomoProcess {
   private onError?: (msg: string) => void
 
   constructor(configManager: ConfigManager) {
+    console.debug('[MihomoProcess] constructor: initializing')
     this.configManager = configManager
   }
 
@@ -34,6 +35,7 @@ export class MihomoProcess {
     onLog?: (msg: string) => void
     onError?: (msg: string) => void
   }): void {
+    console.debug('[MihomoProcess] setCallbacks: registering log/error callbacks')
     this.onLog = callbacks.onLog
     this.onError = callbacks.onError
   }
@@ -86,6 +88,7 @@ export class MihomoProcess {
     })
 
     this.restartCount = 0
+    console.debug(`[MihomoProcess] start: spawned pid=${this.process.pid}`)
     this.onLog?.('Mihomo started')
   }
 
@@ -97,6 +100,7 @@ export class MihomoProcess {
   stop(): void {
     this.stopRequested = true
     if (!this.process) return
+    const pid = this.process.pid
     const secret = this.configManager.getSecret()
     const url = `${this.configManager.getControllerUrl()}/stop`
     console.debug(`[MihomoProcess] stop: attempting API stop at ${url}`)
@@ -109,7 +113,15 @@ export class MihomoProcess {
       })
       .finally(() => {
         if (this.process) {
-          console.debug(`[MihomoProcess] stop: sending SIGTERM to pid=${this.process.pid}`)
+          console.debug(`[MihomoProcess] stop: sending SIGTERM to pid=${pid}`)
+          // 杀掉整个进程组（mihomo 可能 fork 子进程），防止 Ctrl+C 后残留
+          if (process.platform !== 'win32' && pid) {
+            try {
+              process.kill(-pid, 'SIGTERM')
+            } catch {
+              /* already dead */
+            }
+          }
           this.process.kill('SIGTERM')
           this.process = null
         }
@@ -121,6 +133,7 @@ export class MihomoProcess {
   }
 
   getStatus(): MihomoStatus {
+    console.debug(`[MihomoProcess] getStatus: running=${this.process !== null}`)
     return {
       running: this.isRunning(),
       pid: this.process?.pid,

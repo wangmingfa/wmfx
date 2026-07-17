@@ -24,11 +24,16 @@ export interface Message {
   }
   appMenu: {
     incognito: string
+    newWindow: string
     bookmarks: string
+    showBookmarkBar: string
+    hideBookmarkBar: string
+    allBookmarks: string
     history: string
     downloads: string
     proxy: string
     settings: string
+    clearData: string
   }
   search: {
     engines: {
@@ -58,6 +63,7 @@ export interface Message {
     promptUrl: string
     promptNewTitle: string
     deleteConfirm: string
+    more: string
   }
   find: {
     placeholder: string
@@ -79,9 +85,20 @@ export interface Message {
     }
     newTabUrl: string
     searchEngine: string
+    searchSuggestions: string
+    launchBehavior: string
+    launchBehaviorOptions: {
+      restore: string
+      newtab: string
+      homepage: string
+    }
+    defaultFont: string
+    defaultFontSize: string
+    defaultEncoding: string
     defaultZoom: string
     zoomPlaceholder: string
     openInNewTab: string
+    openBookmarkInNewTab: string
     language: string
     languageOptions: {
       system: string
@@ -92,6 +109,17 @@ export interface Message {
     navGeneral: string
     navDownloads: string
     navAbout: string
+    navPrivacy: string
+    openClearDialog: string
+    clearDataDesc: string
+    clearDataTitle: string
+    dataCookies: string
+    dataCache: string
+    dataLocalStorage: string
+    dataFormData: string
+    clearDataSuccess: string
+    clearDataError: string
+    clearDataCancel: string
     sections: {
       basic: string
       appearance: string
@@ -99,6 +127,7 @@ export interface Message {
       language: string
       downloadLocation: string
       theme: string
+      privacy: string
     }
     defaultBrowser: string
     makeDefault: string
@@ -120,6 +149,10 @@ export interface Message {
     visits: string
     clear: string
     clearConfirm: string
+    today: string
+    yesterday: string
+    thisWeek: string
+    earlier: string
   }
   proxy: {
     modeRule: string
@@ -173,6 +206,16 @@ export interface Message {
     completed: string
     cancelled: string
     error: string
+    showInFolder: string
+    openFile: string
+    dangerousWarning: string
+    copyLink: string
+    delete: string
+    deleted: string
+    today: string
+    yesterday: string
+    earlier: string
+    unknown: string
   }
   about: {
     updates: string
@@ -271,11 +314,16 @@ export const messages: Record<string, Message> = {
     },
     appMenu: {
       incognito: '新建隐身标签页',
+      newWindow: '新建窗口',
       bookmarks: '书签',
+      showBookmarkBar: '显示书签栏',
+      hideBookmarkBar: '隐藏书签栏',
+      allBookmarks: '所有书签',
       history: '历史',
       downloads: '下载',
       proxy: '代理',
       settings: '设置',
+      clearData: '清空缓存',
     },
     search: {
       engines: {
@@ -305,6 +353,7 @@ export const messages: Record<string, Message> = {
       promptUrl: '书签网址：',
       promptNewTitle: '新标题：',
       deleteConfirm: '删除 {title}？',
+      more: '更多书签',
     },
     find: {
       placeholder: '在页面中查找',
@@ -326,9 +375,20 @@ export const messages: Record<string, Message> = {
       },
       newTabUrl: '新标签页地址',
       searchEngine: '默认搜索引擎',
+      searchSuggestions: '实时搜索建议',
+      launchBehavior: '启动行为',
+      launchBehaviorOptions: {
+        restore: '恢复上次会话',
+        newtab: '打开新标签页',
+        homepage: '打开主页',
+      },
+      defaultFont: '默认字体',
+      defaultFontSize: '默认字号',
+      defaultEncoding: '默认编码',
       defaultZoom: '默认缩放',
       zoomPlaceholder: '例如 https://www.baidu.com',
       openInNewTab: '在新标签页打开链接',
+      openBookmarkInNewTab: '书签栏书签在新标签页打开',
       language: '语言',
       languageOptions: {
         system: '跟随系统',
@@ -339,6 +399,17 @@ export const messages: Record<string, Message> = {
       navGeneral: '常规',
       navDownloads: '下载',
       navAbout: '关于',
+      navPrivacy: '隐私与安全',
+      openClearDialog: '清除浏览数据',
+      clearDataDesc: '清除 Cookie、缓存等浏览数据',
+      clearDataTitle: '清除浏览数据',
+      dataCookies: 'Cookie',
+      dataCache: '缓存',
+      dataLocalStorage: '本地存储',
+      dataFormData: '表单数据（近似清除）',
+      clearDataSuccess: '已清除浏览数据',
+      clearDataError: '清除失败',
+      clearDataCancel: '取消',
       sections: {
         basic: '启动与首页',
         appearance: '外观',
@@ -346,6 +417,7 @@ export const messages: Record<string, Message> = {
         language: '语言',
         downloadLocation: '下载位置',
         theme: '主题',
+        privacy: '隐私与安全',
       },
       defaultBrowser: '默认浏览器',
       makeDefault: '设为默认浏览器',
@@ -367,6 +439,10 @@ export const messages: Record<string, Message> = {
       visits: '次访问',
       clear: '清空记录',
       clearConfirm: '确定要清空所有历史记录吗？',
+      today: '今天',
+      yesterday: '昨天',
+      thisWeek: '本周',
+      earlier: '更早',
     },
     proxy: {
       modeRule: '规则',
@@ -420,6 +496,16 @@ export const messages: Record<string, Message> = {
       completed: '已完成',
       cancelled: '已取消',
       error: '错误',
+      showInFolder: '在文件夹中显示',
+      openFile: '打开文件',
+      dangerousWarning: '此文件类型可能存在安全风险',
+      copyLink: '复制链接',
+      delete: '删除',
+      deleted: '已删除',
+      today: '今天',
+      yesterday: '昨天',
+      earlier: '更早',
+      unknown: '未知',
     },
     about: {
       updates: '更新',
@@ -488,11 +574,16 @@ export const messages: Record<string, Message> = {
     },
     appMenu: {
       incognito: 'New Incognito Tab',
+      newWindow: 'New Window',
       bookmarks: 'Bookmarks',
+      showBookmarkBar: 'Show bookmark bar',
+      hideBookmarkBar: 'Hide bookmark bar',
+      allBookmarks: 'All bookmarks',
       history: 'History',
       downloads: 'Downloads',
       proxy: 'Proxy',
       settings: 'Settings',
+      clearData: 'Clear cache',
     },
     search: {
       engines: {
@@ -522,6 +613,7 @@ export const messages: Record<string, Message> = {
       promptUrl: 'Bookmark URL:',
       promptNewTitle: 'New title:',
       deleteConfirm: 'Delete {title}?',
+      more: 'More bookmarks',
     },
     find: {
       placeholder: 'Find in page',
@@ -543,9 +635,20 @@ export const messages: Record<string, Message> = {
       },
       newTabUrl: 'New Tab URL',
       searchEngine: 'Default search engine',
+      searchSuggestions: 'Live search suggestions',
+      launchBehavior: 'On startup',
+      launchBehaviorOptions: {
+        restore: 'Restore last session',
+        newtab: 'Open a new tab',
+        homepage: 'Open homepage',
+      },
+      defaultFont: 'Default font',
+      defaultFontSize: 'Default font size',
+      defaultEncoding: 'Default encoding',
       defaultZoom: 'Default zoom',
       zoomPlaceholder: 'e.g. https://www.baidu.com',
       openInNewTab: 'Open links in new tab',
+      openBookmarkInNewTab: 'Open bookmark bar items in new tab',
       language: 'Language',
       languageOptions: {
         system: 'Follow system',
@@ -556,6 +659,17 @@ export const messages: Record<string, Message> = {
       navGeneral: 'General',
       navDownloads: 'Downloads',
       navAbout: 'About',
+      navPrivacy: 'Privacy & Security',
+      openClearDialog: 'Clear browsing data',
+      clearDataDesc: 'Clear cookies, cache and other browsing data',
+      clearDataTitle: 'Clear browsing data',
+      dataCookies: 'Cookies',
+      dataCache: 'Cache',
+      dataLocalStorage: 'Local storage',
+      dataFormData: 'Form data (approximate)',
+      clearDataSuccess: 'Browsing data cleared',
+      clearDataError: 'Failed to clear',
+      clearDataCancel: 'Cancel',
       sections: {
         basic: 'Startup & Home',
         appearance: 'Appearance',
@@ -563,6 +677,7 @@ export const messages: Record<string, Message> = {
         language: 'Language',
         downloadLocation: 'Download location',
         theme: 'Theme',
+        privacy: 'Privacy & Security',
       },
       defaultBrowser: 'Default browser',
       makeDefault: 'Make WMFX the default browser',
@@ -584,6 +699,10 @@ export const messages: Record<string, Message> = {
       visits: 'visits',
       clear: 'Clear history',
       clearConfirm: 'Clear all history records?',
+      today: 'Today',
+      yesterday: 'Yesterday',
+      thisWeek: 'This week',
+      earlier: 'Earlier',
     },
     proxy: {
       modeRule: 'Rule',
@@ -639,6 +758,16 @@ export const messages: Record<string, Message> = {
       completed: 'Completed',
       cancelled: 'Cancelled',
       error: 'Error',
+      showInFolder: 'Show in folder',
+      openFile: 'Open file',
+      dangerousWarning: 'This file type may be risky',
+      copyLink: 'Copy link',
+      delete: 'Delete',
+      deleted: 'Deleted',
+      today: 'Today',
+      yesterday: 'Yesterday',
+      earlier: 'Earlier',
+      unknown: 'Unknown',
     },
     about: {
       updates: 'Updates',

@@ -16,6 +16,7 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null
 function sendBounds(): void {
   if (!viewportRef.value) return
   const rect = viewportRef.value.getBoundingClientRect()
+  console.debug('[Viewport] sendBounds: tabId x y w h', props.tabId, rect.left, rect.top, rect.width, rect.height)
   window.browserAPI.setViewportBounds(props.tabId, {
     x: rect.left,
     y: rect.top,
@@ -27,11 +28,13 @@ function sendBounds(): void {
 watch(
   () => props.tabId,
   () => {
+    console.debug('[Viewport] tabId changed', props.tabId)
     sendBounds()
   },
 )
 
 onMounted(() => {
+  console.debug('[Viewport] onMounted: tabId', props.tabId)
   resizeObserver = new ResizeObserver(() => {
     if (debounceTimer) clearTimeout(debounceTimer)
     debounceTimer = setTimeout(sendBounds, 30)

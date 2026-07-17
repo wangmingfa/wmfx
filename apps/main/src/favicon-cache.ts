@@ -22,19 +22,32 @@ const store = new Store<FaviconSchema>({
 
 /** 按 key 查询缓存；未命中返回 null */
 export function getFavicon(key: string): string | null {
-  if (!key) return null
-  return store.get(key) ?? null
+  if (!key) {
+    console.debug('[FaviconCache] getFavicon: empty key, skip')
+    return null
+  }
+  const val = store.get(key) ?? null
+  console.debug('[FaviconCache] getFavicon: key hit', key, val !== null)
+  return val
 }
 
 /** 按页面 url 写入缓存（自动计算 key）；faviconUrl 为空则忽略 */
 export function setFavicon(url: string, faviconUrl: string | null | undefined): void {
   const key = faviconKeyOf(url)
-  if (!key || !faviconUrl) return
+  if (!key || !faviconUrl) {
+    console.debug('[FaviconCache] setFavicon: skip url key hasFavicon', url, key, !!faviconUrl)
+    return
+  }
+  console.debug('[FaviconCache] setFavicon: url key', url, key)
   store.set(key, faviconUrl)
 }
 
 /** 按已算好的 key 直接写入（供 IPC 'favicon:set' 使用） */
 export function setFaviconByKey(key: string, faviconUrl: string): void {
-  if (!key || !faviconUrl) return
+  if (!key || !faviconUrl) {
+    console.debug('[FaviconCache] setFaviconByKey: skip key hasFavicon', key, !!faviconUrl)
+    return
+  }
+  console.debug('[FaviconCache] setFaviconByKey: key', key)
   store.set(key, faviconUrl)
 }

@@ -17,6 +17,7 @@ const resolvedTheme = computed<ResolvedThemeMode>(() => {
 })
 
 function applyToDOM(theme: ResolvedThemeMode): void {
+  console.debug('[useTheme] applyToDOM: theme', theme)
   document.documentElement.setAttribute('data-theme', theme)
 }
 
@@ -44,11 +45,14 @@ function setTheme(setting: ThemeMode): void {
  * 2. 初始读取当前主题并应用
  */
 export async function syncThemeToShell(): Promise<void> {
+  console.debug('[useTheme] syncThemeToShell: registering listener')
   window.browserAPI?.onThemeChange?.((theme) => {
+    console.debug('[useTheme] onThemeChange: theme', theme)
     setTheme(theme)
   })
   return new Promise((resolve) => {
     window.browserAPI?.getTheme()?.then((theme) => {
+      console.debug('[useTheme] syncThemeToShell: initial theme', theme)
       setTheme(theme)
       resolve()
     })

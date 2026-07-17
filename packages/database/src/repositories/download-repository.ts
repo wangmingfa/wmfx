@@ -25,6 +25,12 @@ export class DownloadRepository {
   constructor(private db: BetterSqlite3Db) {}
 
   create(item: Omit<DownloadItem, 'id' | 'created_at'>): string {
+    console.debug(
+      '[DownloadRepository] create: url filename state',
+      item.url,
+      item.filename,
+      item.state
+    )
     const id = crypto.randomUUID()
     const now = Date.now()
     const stmt = this.db.prepare(`
@@ -42,6 +48,7 @@ export class DownloadRepository {
       now,
       item.error_msg
     )
+    console.debug('[DownloadRepository] create: inserted id', id)
     return id
   }
 
@@ -63,10 +70,14 @@ export class DownloadRepository {
       fields.push(`${key} = ?`)
       params.push(value)
     }
-    if (fields.length === 0) return
+    if (fields.length === 0) {
+      console.debug('[DownloadRepository] update: id no fields to update, skip', id)
+      return
+    }
     params.push(id)
     const stmt = this.db.prepare(`UPDATE downloads SET ${fields.join(', ')} WHERE id = ?`)
     stmt.run(...params)
+    console.debug('[DownloadRepository] update: id fields', id, fields.join(','))
   }
 
   getList(opts?: { state?: DownloadState; limit?: number; offset?: number }): DownloadItem[] {
@@ -83,12 +94,21 @@ export class DownloadRepository {
     sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
     params.push(limit, offset)
     const stmt = this.db.prepare(sql)
-    return stmt.all(...params) as DownloadItem[]
+    const rows = stmt.all(...params) as DownloadItem[]
+    console.debug(
+      '[DownloadRepository] getList: state limit offset count',
+      state,
+      limit,
+      offset,
+      rows.length
+    )
+    return rows
   }
 
   delete(id: string): boolean {
     const stmt = this.db.prepare('DELETE FROM downloads WHERE id = ?')
     const result = stmt.run(id)
+    console.debug('[DownloadRepository] delete: id changes', id, result.changes)
     return result.changes > 0
   }
 }

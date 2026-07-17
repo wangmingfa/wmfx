@@ -20,6 +20,14 @@ export function computeBoxPosition(
   size: BoxSize,
   win: { width: number; height: number }
 ): Point {
+  console.debug(
+    '[Position] computeBoxPosition: anchorType sizex%d winx%d',
+    anchor.type,
+    size.width,
+    size.height,
+    win.width,
+    win.height
+  )
   let refLeft = 0
   let refTop = 0
   let refRight = 0

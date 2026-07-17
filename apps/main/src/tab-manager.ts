@@ -47,6 +47,9 @@ export class TabManager {
   private certPending = new Map<string, { host: string; errorText: string; requestedUrl: string }>()
   /** 标签打开顺序栈：关闭当前 tab 时从栈尾往前找上一个存活的 tab */
   private openOrder: string[] = []
+  /** 最近关闭的标签栈：Cmd+Shift+T 撤销关闭使用（LIFO，上限 20） */
+  private closedTabs: ClosedTabInfo[] = []
+  private static readonly MAX_CLOSED_TABS = 20
 
   constructor(
     private window: BrowserWindow,
@@ -63,7 +66,11 @@ export class TabManager {
   }
 
   create(opts?: CreateTabOptions): TabState {
-    const sessionId = opts?.sessionId ?? this.defaultSessionName
+    // 无痕窗口 defaultSessionName=incognito：强制所有标签走内存分区，忽略外部传入的 default
+    let sessionId = opts?.sessionId ?? this.defaultSessionName
+    if (this.defaultSessionName === 'incognito') {
+      sessionId = 'incognito'
+    }
     // 空白/about:blank 统一当作新标签页（内部页），兼容旧会话恢复遗留的 about:blank
     const rawUrl = opts?.url ?? ''
     const resolvedUrl = !rawUrl || rawUrl === 'about:blank' ? NEW_TAB_URL : rawUrl
@@ -71,7 +78,7 @@ export class TabManager {
 
     const tabId = crypto.randomUUID()
     console.debug(
-      '[TabManager] create: tabId=%s url=%s sessionId=%s isInternal=%s',
+      '[TabManager] create: tabId url sessionId isInternal',
       tabId,
       resolvedUrl,
       sessionId,
@@ -151,15 +158,11 @@ export class TabManager {
     }
     const wantInternal = isWmfxUrl(url)
     if (tab.isInternal === wantInternal) {
-      console.debug(
-        '[TabManager] relaunchView: tabId=%s url=%s didRelaunch=false (skipped)',
-        tabId,
-        url
-      )
+      console.debug('[TabManager] relaunchView: tabId url didRelaunch=false (skipped)', tabId, url)
       return { view: tab.view, didRelaunch: false }
     }
 
-    console.debug('[TabManager] relaunchView: tabId=%s url=%s didRelaunch=true', tabId, url)
+    console.debug('[TabManager] relaunchView: tabId url didRelaunch=true', tabId, url)
 
     this.window.contentView.removeChildView(tab.view)
     this.wcToTab.delete(tab.view.webContents.id)
@@ -185,6 +188,18 @@ export class TabManager {
 
     const wasActive = this.activeTabId === tabId
 
+    // 保存已关闭标签快照（Cmd+Shift+T 撤销关闭用）
+    const url = tab.state.navigation.committedUrl || tab.state.navigation.requestedUrl
+    if (url && !isWmfxUrl(url)) {
+      this.closedTabs.push({ url, title: tab.state.title, sessionId: tab.sessionId })
+      if (this.closedTabs.length > TabManager.MAX_CLOSED_TABS) this.closedTabs.shift()
+      console.debug(
+        '[TabManager] close: saved closedTab url=%s stack=%d',
+        url,
+        this.closedTabs.length
+      )
+    }
+
     if (!tab.view.webContents.isDestroyed()) {
       this.wcToTab.delete(tab.view.webContents.id)
     }
@@ -197,12 +212,7 @@ export class TabManager {
     // 先更新模型并广播移除事件：即使下方视图卸载抛错（如视图已脱离 contentView），
     // 渲染进程也能正确移除标签条，避免出现「网页已关但标签残留」的现象。
     this.tabs.delete(tabId)
-    console.debug(
-      '[TabManager] close: tabId=%s wasActive=%s remaining=%d',
-      tabId,
-      wasActive,
-      this.tabs.size
-    )
+    console.debug('[TabManager] close: tabId wasActive remaining', tabId, wasActive, this.tabs.size)
     this.window.webContents.send('tab:removed', tabId)
 
     try {
@@ -247,7 +257,7 @@ export class TabManager {
     const wasSuspended = tab.isSuspended
 
     console.debug(
-      '[TabManager] activate: tabId=%s prev=%s wasSuspended=%s',
+      '[TabManager] activate: tabId prev wasSuspended',
       tabId,
       previousActive?.id ?? null,
       wasSuspended
@@ -360,7 +370,7 @@ export class TabManager {
   setNavigating(tabId: string, url: string): void {
     const tab = this.tabs.get(tabId)
     if (!tab) return
-    console.debug('[TabManager] setNavigating: tabId=%s url=%s', tabId, url)
+    console.debug('[TabManager] setNavigating: tabId url', tabId, url)
     this.certPending.delete(tabId)
     tab.state.navigation.requestedUrl = url
     tab.state.navigation.displayUrl = url
@@ -373,10 +383,15 @@ export class TabManager {
   }
 
   destroy(): void {
-    console.debug('[TabManager] destroy: totalTabs=%d', this.tabs.size)
+    console.debug(
+      '[TabManager] destroy: totalTabs=%d defaultSession=%s',
+      this.tabs.size,
+      this.defaultSessionName
+    )
     // 先持久化会话状态，再清理视图：window 'close' 时若先清空 tabs 再 save，
     // openTabs 会被写成空数组，导致重启后无法恢复标签。
-    if (this.settingsManager) {
+    // 无痕窗口不落盘（避免覆盖普通窗口会话 / 尺寸）。
+    if (this.settingsManager && this.defaultSessionName !== 'incognito') {
       this.settingsManager.set('openTabs', this.serializeTabs())
       this.settingsManager.set('activeTabIndex', this.getActiveTabIndex())
       this.settingsManager.set(
@@ -416,8 +431,9 @@ export class TabManager {
   }
 
   restoreTabs(tabs: { url: string; title: string }[], activeIndex: number): void {
-    console.debug('[TabManager] restoreTabs: count=%d activeIndex=%d', tabs.length, activeIndex)
+    console.debug('[TabManager] restoreTabs: count activeIndex', tabs.length, activeIndex)
     if (tabs.length === 0) {
+      console.debug('[TabManager] restoreTabs: empty, creating new tab')
       this.createNewTab()
       return
     }
@@ -437,6 +453,7 @@ export class TabManager {
    * 创建并接入一个 WebContentsView。内部页挂 preload 并标记 isPinned；外部页不挂 preload。
    */
   private spawnView(tab: Tab, wantInternal: boolean): void {
+    console.debug('[TabManager] spawnView: tabId wantInternal', tab.id, wantInternal)
     const webPreferences: Electron.WebPreferences = {
       session: this.getSession(tab.sessionId),
     }
@@ -489,7 +506,7 @@ export class TabManager {
   private suspendTab(tab: Tab): void {
     if (tab.isSuspended) return
     console.debug(
-      '[TabManager] suspendTab: tabId=%s url=%s',
+      '[TabManager] suspendTab: tabId url',
       tab.id,
       tab.state.navigation.committedUrl || tab.state.navigation.requestedUrl
     )
@@ -502,7 +519,7 @@ export class TabManager {
   private resumeTab(tab: Tab): void {
     if (!tab.isSuspended) return
     console.debug(
-      '[TabManager] resumeTab: tabId=%s url=%s',
+      '[TabManager] resumeTab: tabId url',
       tab.id,
       tab.state.navigation.committedUrl || tab.state.navigation.requestedUrl
     )
@@ -521,6 +538,7 @@ export class TabManager {
   }
 
   private setupTabListeners(tab: Tab): void {
+    console.debug('[TabManager] setupTabListeners: tabId', tab.id)
     const wc = tab.view.webContents
     this.wcToTab.set(wc.id, tab.id)
 
@@ -577,7 +595,30 @@ export class TabManager {
         return
       }
 
-      if (url && !url.startsWith('about:') && !url.startsWith('chrome:') && !isWmfxUrl(url)) {
+      // 注入字体/编码设置（仅外部页面）
+      const font = this.settingsManager?.get('defaultFont')
+      const fontSize = this.settingsManager?.get('defaultFontSize')
+      const encoding = this.settingsManager?.get('defaultEncoding')
+      if (font || fontSize !== undefined || encoding) {
+        wc.executeJavaScript(
+          `(function() {
+            const root = document.documentElement;
+            ${font ? `root.style.fontFamily = '${font.replace(/'/g, "\\'")}';` : ''}
+            ${fontSize !== undefined ? `root.style.fontSize = '${fontSize}px';` : ''}
+            ${encoding ? `document.charset = '${encoding}';` : ''}
+          })()`,
+          false
+        )
+      }
+
+      // 无痕标签不写入历史（独立无痕窗口 / 无痕 session）
+      if (
+        tab.sessionId !== 'incognito' &&
+        url &&
+        !url.startsWith('about:') &&
+        !url.startsWith('chrome:') &&
+        !isWmfxUrl(url)
+      ) {
         this.historyManager.add({
           url,
           title: tab.state.title || null,
@@ -638,7 +679,7 @@ export class TabManager {
       if (this.certPending.has(tab.id)) return
 
       console.debug(
-        '[TabManager] did-fail-load: tabId=%s errorCode=%d desc=%s',
+        '[TabManager] did-fail-load: tabId errorCode desc',
         tab.id,
         errorCode,
         errorDescription
@@ -672,7 +713,7 @@ export class TabManager {
       }
 
       console.debug(
-        '[TabManager] certificate-error: tabId=%s url=%s host=%s error=%s',
+        '[TabManager] certificate-error: tabId url host error',
         tab.id,
         url,
         host,
@@ -707,7 +748,7 @@ export class TabManager {
     })
 
     wc.on('render-process-gone', () => {
-      console.debug('[TabManager] render-process-gone: tabId=%s', tab.id)
+      console.debug('[TabManager] render-process-gone: tabId', tab.id)
       tab.state.navigation.state = 'crashed'
       this.broadcastState(tab)
       const url =
@@ -879,7 +920,7 @@ export class TabManager {
   setPinned(tabId: string, pinned: boolean): void {
     const tab = this.tabs.get(tabId)
     if (!tab) return
-    console.debug('[TabManager] setPinned: tabId=%s pinned=%s', tabId, pinned)
+    console.debug('[TabManager] setPinned: tabId pinned', tabId, pinned)
     tab.state.isPinned = pinned
     this.broadcastState(tab)
   }
@@ -888,7 +929,7 @@ export class TabManager {
   setMuted(tabId: string, muted: boolean): void {
     const tab = this.tabs.get(tabId)
     if (!tab) return
-    console.debug('[TabManager] setMuted: tabId=%s muted=%s', tabId, muted)
+    console.debug('[TabManager] setMuted: tabId muted', tabId, muted)
     tab.view.webContents.setAudioMuted(muted)
     tab.state.isMuted = muted
     this.broadcastState(tab)
@@ -896,15 +937,26 @@ export class TabManager {
 
   /** 批量关闭一组标签（逐个调用 close）。空窗口退出由 IPC 层与单次关闭保持一致。 */
   closeMany(ids: string[]): void {
-    console.debug('[TabManager] closeMany: count=%d', ids.length)
+    console.debug('[TabManager] closeMany: count', ids.length)
     for (const id of ids) {
       this.close(id)
     }
   }
 
+  /** 撤销最近一次关闭：从 closedTabs 栈顶 pop 并恢复。栈空时 no-op。 */
+  reopenClosed(): void {
+    const info = this.closedTabs.pop()
+    if (!info) {
+      console.debug('[TabManager] reopenClosed: stack empty')
+      return
+    }
+    console.debug('[TabManager] reopenClosed: url=%s sessionId=%s', info.url, info.sessionId)
+    this.create({ url: info.url, sessionId: info.sessionId, activate: true })
+  }
+
   reorder(ids: string[]): void {
     if (!this.settingsManager) return
-    console.debug('[TabManager] reorder: ids=%s', ids.join(','))
+    console.debug('[TabManager] reorder: ids', ids.join(','))
     this.settingsManager.set('tabOrder', ids)
 
     for (const tab of this.tabs.values()) {
@@ -951,4 +1003,11 @@ interface Tab {
   isInternal: boolean
   state: Omit<TabState, 'active'>
   isSuspended: boolean
+}
+
+/** 已关闭标签的快照，用于 Cmd+Shift+T 撤销关闭。 */
+interface ClosedTabInfo {
+  url: string
+  title: string
+  sessionId: string
 }

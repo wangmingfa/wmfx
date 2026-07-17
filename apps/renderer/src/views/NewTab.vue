@@ -103,6 +103,7 @@ const currentEngineIcon = computed(() => {
 })
 
 function selectEngine(key: string): void {
+  console.debug('[NewTab] selectEngine: key', key)
   currentEngine.value = key
   engineDropdownVisible.value = false
 }
@@ -129,7 +130,10 @@ const recentHistory = ref<
 
 function onSearch(): void {
   const query = searchQuery.value.trim()
-  if (!query) return
+  if (!query) {
+    console.debug('[NewTab] onSearch: 空查询，忽略')
+    return
+  }
   let url = query
   if (!query.startsWith('http://') && !query.startsWith('https://')) {
     const engineUrl = {
@@ -139,10 +143,12 @@ function onSearch(): void {
     }[currentEngine.value]
     url = `${engineUrl}${encodeURIComponent(query)}`
   }
+  console.debug('[NewTab] onSearch: query engine url', query, currentEngine.value, url)
   openLink(url)
 }
 
 function openLink(url: string): void {
+  console.debug('[NewTab] openLink: url newTab', url, openInNewTab.value)
   if (openInNewTab.value) {
     window.browserAPI.createTab({ url })
   } else {
@@ -151,10 +157,12 @@ function openLink(url: string): void {
 }
 
 async function loadQuickLinks(): Promise<void> {
+  console.debug('[NewTab] loadQuickLinks')
   quickLinks.value = await window.browserAPI.getQuickLinks()
 }
 
 async function loadRecentHistory(): Promise<void> {
+  console.debug('[NewTab] loadRecentHistory')
   recentHistory.value = await window.browserAPI.getHistoryList({ limit: 5 })
 }
 
@@ -163,6 +171,7 @@ function loadSettings(): void {
   if (saved !== null) {
     openInNewTab.value = saved === 'true'
   }
+  console.debug('[NewTab] loadSettings: openInNewTab', openInNewTab.value)
 }
 
 watch(openInNewTab, (value) => {
@@ -170,6 +179,7 @@ watch(openInNewTab, (value) => {
 })
 
 onMounted(() => {
+  console.debug('[NewTab] onMounted: 注册外部点击监听并加载数据')
   document.addEventListener('mousedown', onClickOutside)
   loadSettings()
   loadQuickLinks()

@@ -50,6 +50,7 @@ const activeTab = ref('nodes')
 const proxyRunning = ref(false)
 
 async function toggleProxy(): Promise<void> {
+  console.debug('[ProxyPanel] toggleProxy: 当前 running', proxyRunning.value)
   if (proxyRunning.value) {
     await window.browserAPI.stopProxy()
   } else {
@@ -60,10 +61,14 @@ async function toggleProxy(): Promise<void> {
 
 async function checkStatus(): Promise<void> {
   const status = await window.browserAPI.getProxyStatus()
+  console.debug('[ProxyPanel] checkStatus: running', status.running)
   proxyRunning.value = status.running
 }
 
-onMounted(checkStatus)
+onMounted(() => {
+  console.debug('[ProxyPanel] onMounted: 检查代理状态')
+  checkStatus()
+})
 </script>
 
 <style scoped>

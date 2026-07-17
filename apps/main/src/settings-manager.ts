@@ -2,6 +2,8 @@ import type { QuickLink, SearchEngine, SettingsSnapshot, ThemeMode } from '@brow
 import { nativeTheme } from 'electron'
 import Store from 'electron-store'
 
+export type LaunchBehavior = 'restore' | 'newtab' | 'homepage'
+
 interface SettingsSchema {
   theme: ThemeMode
   downloadPath: string
@@ -17,6 +19,13 @@ interface SettingsSchema {
   windowBounds: { x: number; y: number; width: number; height: number } | null
   currentLang: 'zh-CN' | 'en-US' | 'system'
   trustedCerts: { host: string; errorText: string }[]
+  showBookmarkBar: boolean
+  openBookmarkInNewTab: boolean
+  searchSuggestions: boolean
+  launchBehavior: LaunchBehavior
+  defaultFont: string
+  defaultFontSize: number
+  defaultEncoding: string
 }
 
 export const defaultSettings: SettingsSchema = {
@@ -34,6 +43,13 @@ export const defaultSettings: SettingsSchema = {
   windowBounds: null,
   currentLang: 'zh-CN',
   trustedCerts: [],
+  showBookmarkBar: false,
+  openBookmarkInNewTab: false,
+  searchSuggestions: true,
+  launchBehavior: 'restore',
+  defaultFont: 'system-ui',
+  defaultFontSize: 16,
+  defaultEncoding: 'utf-8',
 }
 
 /** 校验 theme 值 */
@@ -127,6 +143,7 @@ export class SettingsManager {
   private store: Store<SettingsSchema>
 
   private constructor() {
+    console.debug('[SettingsManager] constructor: initializing store')
     this.store = new Store<SettingsSchema>({
       name: 'wmfx-settings',
       defaults: defaultSettings,
@@ -134,6 +151,7 @@ export class SettingsManager {
   }
 
   static getInstance(): SettingsManager {
+    console.debug('[SettingsManager] getInstance')
     if (!SettingsManager.instance) {
       SettingsManager.instance = new SettingsManager()
     }
@@ -141,14 +159,17 @@ export class SettingsManager {
   }
 
   get<K extends keyof SettingsSchema>(key: K): SettingsSchema[K] {
+    console.debug('[SettingsManager] get: key', key)
     return this.store.get(key) as SettingsSchema[K]
   }
 
   set<K extends keyof SettingsSchema>(key: K, value: SettingsSchema[K]): void {
-    console.debug(`[SettingsManager] set: key=${key}`)
+    console.debug(`[SettingsManager] set: key`, key)
     const validated = this.validateValue(key, value)
+    console.debug('[SettingsManager] set: validated key', key)
     this.store.set(key, validated)
     if (key === 'theme') {
+      console.debug('[SettingsManager] set: theme changed, applying native theme')
       this.setNativeTheme()
     }
   }
@@ -157,6 +178,7 @@ export class SettingsManager {
     key: K,
     value: SettingsSchema[K]
   ): SettingsSchema[K] {
+    console.debug('[SettingsManager] validateValue: key', key)
     switch (key) {
       case 'theme':
         return validateTheme(value) as SettingsSchema[K]
@@ -202,16 +224,39 @@ export class SettingsManager {
             typeof (item as { errorText?: unknown }).errorText === 'string'
         ) as SettingsSchema[K]
       }
+      case 'showBookmarkBar':
+      case 'openBookmarkInNewTab':
+      case 'searchSuggestions':
+        return typeof value === 'boolean'
+          ? (value as SettingsSchema[K])
+          : (defaultSettings[key as keyof SettingsSchema] as SettingsSchema[K])
+      case 'launchBehavior': {
+        if (['restore', 'newtab', 'homepage'].includes(value as string))
+          return value as SettingsSchema[K]
+        return defaultSettings.launchBehavior as SettingsSchema[K]
+      }
+      case 'defaultFont':
+        return validateString(value, defaultSettings.defaultFont) as SettingsSchema[K]
+      case 'defaultFontSize':
+        return validateNumber(value, defaultSettings.defaultFontSize, 12, 24) as SettingsSchema[K]
+      case 'defaultEncoding': {
+        if (['utf-8', 'gbk', 'gb2312', 'big5', 'shift_jis', 'iso-8859-1'].includes(value as string))
+          return value as SettingsSchema[K]
+        return defaultSettings.defaultEncoding as SettingsSchema[K]
+      }
       default:
         return value
     }
   }
 
   getAll(): SettingsSnapshot {
+    console.debug('[SettingsManager] getAll')
     return { ...defaultSettings, ...this.store.store }
   }
 
   setNativeTheme() {
-    nativeTheme.themeSource = this.get('theme')
+    const theme = this.get('theme')
+    console.debug('[SettingsManager] setNativeTheme: theme', theme)
+    nativeTheme.themeSource = theme
   }
 }

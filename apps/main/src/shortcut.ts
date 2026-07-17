@@ -1,18 +1,22 @@
-import { type BrowserWindow, globalShortcut } from 'electron'
+import { type BrowserWindow, globalShortcut, type WebContents } from 'electron'
 
 export function registerAppShortcut(
   win: BrowserWindow,
   accelerator: Electron.Accelerator,
   callback: () => void
 ) {
+  console.debug('[Shortcut] registerAppShortcut: win accelerator', win.id, accelerator)
   if (String(accelerator).toUpperCase() === 'F12') {
     win.on('focus', () => {
+      console.debug('[Shortcut] F12 focus: registering')
       globalShortcut.register('F12', callback)
     })
     win.on('blur', () => {
+      console.debug('[Shortcut] F12 blur: unregistering')
       globalShortcut.unregister('F12')
     })
     win.on('closed', () => {
+      console.debug('[Shortcut] F12 closed: unregistering')
       globalShortcut.unregister('F12')
     })
     if (win.isFocused()) {
@@ -22,9 +26,11 @@ export function registerAppShortcut(
   }
 
   const register = () => {
+    console.debug('[Shortcut] focus: registering accelerator', accelerator)
     globalShortcut.register(accelerator, callback)
   }
   const unregister = () => {
+    console.debug('[Shortcut] blur/closed: unregistering accelerator', accelerator)
     globalShortcut.unregister(accelerator)
   }
 
@@ -41,10 +47,12 @@ const originalSizes = new WeakMap<BrowserWindow, { width: number; height: number
 
 export function toggleDevTools(
   win: BrowserWindow,
+  target: WebContents,
   restoreSize?: { width: number; height: number }
 ): void {
-  if (win.webContents.isDevToolsOpened()) {
-    win.webContents.closeDevTools()
+  console.debug('[Shortcut] toggleDevTools: win opened', win.id, target.isDevToolsOpened())
+  if (target.isDevToolsOpened()) {
+    target.closeDevTools()
     const saved = restoreSize || originalSizes.get(win)
     if (saved) {
       win.setSize(saved.width, saved.height)
@@ -58,6 +66,7 @@ export function toggleDevTools(
       win.setSize(1200, 800)
       win.center()
     }
-    win.webContents.openDevTools({ mode: 'bottom' })
+    // 在标签页的 WebContentsView 上打开 DevTools，Vue DevTools 扩展才会注入到 Vue 运行的页面
+    target.openDevTools({ mode: 'bottom' })
   }
 }

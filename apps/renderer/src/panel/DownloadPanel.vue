@@ -55,6 +55,25 @@
           >
             <Icon icon="ic:round-close" :width="16" :height="16" />
           </button>
+          <button
+            v-if="item.state === 'completed'"
+            class="download-row-btn"
+            :title="t('downloads.showInFolder')"
+            @click="showInFolder(item.path)"
+          >
+            <Icon icon="mdi:folder-open-outline" :width="16" :height="16" />
+          </button>
+          <button
+            v-if="item.state === 'completed'"
+            class="download-row-btn"
+            :title="t('downloads.openFile')"
+            @click="openFile(item.path)"
+          >
+            <Icon icon="mdi:open-in-app" :width="16" :height="16" />
+          </button>
+          <span v-if="item.state === 'completed'" class="download-row-danger" :title="t('downloads.dangerousWarning')">
+            ⚠
+          </span>
         </div>
       </li>
     </ul>
@@ -112,16 +131,28 @@ function stateLabel(state: DownloadState): string {
 }
 
 function showAll(): void {
+  console.debug('[DownloadPanel] showAll')
   emit('event', 'show-all')
 }
 function pause(id: string): void {
+  console.debug('[DownloadPanel] pause: id', id)
   emit('event', 'pause', id)
 }
 function resume(id: string): void {
+  console.debug('[DownloadPanel] resume: id', id)
   emit('event', 'resume', id)
 }
 function cancel(id: string): void {
+  console.debug('[DownloadPanel] cancel: id', id)
   emit('event', 'cancel', id)
+}
+function showInFolder(filePath: string): void {
+  console.debug('[DownloadPanel] showInFolder: path', filePath)
+  emit('event', 'showInFolder', filePath)
+}
+function openFile(filePath: string): void {
+  console.debug('[DownloadPanel] openFile: path', filePath)
+  emit('event', 'openFile', filePath)
 }
 </script>
 
@@ -242,5 +273,11 @@ function cancel(id: string): void {
 .download-row-btn:hover {
   background: var(--bg-primary);
   color: var(--text-primary);
+}
+
+.download-row-danger {
+  font-size: 12px;
+  color: #ff9800;
+  cursor: help;
 }
 </style>

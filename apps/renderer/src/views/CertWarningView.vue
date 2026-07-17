@@ -2,9 +2,15 @@
   <div class="cert-warning-page">
     <div class="cert-icon">🔒</div>
     <h1>{{ t('certWarning.title') }}</h1>
-    <p class="cert-desc">{{ t('certWarning.description') }}</p>
-    <p v-if="info" class="cert-url">{{ info.requestedUrl }}</p>
-    <p v-if="info" class="cert-error">{{ info.errorText }}</p>
+    <p class="cert-desc">
+      {{ t('certWarning.description') }}
+    </p>
+    <p v-if="info" class="cert-url">
+      {{ info.requestedUrl }}
+    </p>
+    <p v-if="info" class="cert-error">
+      {{ info.errorText }}
+    </p>
 
     <div v-if="showDetails && info" class="cert-details">
       <p>
@@ -18,7 +24,9 @@
     </div>
 
     <div class="cert-actions">
-      <NButton @click="goBack">{{ t('certWarning.goBack') }}</NButton>
+      <NButton @click="goBack">
+        {{ t('certWarning.goBack') }}
+      </NButton>
       <NButton @click="showDetails = !showDetails">
         {{ showDetails ? t('certWarning.hideDetails') : t('certWarning.showDetails') }}
       </NButton>
@@ -27,9 +35,15 @@
           {{ t('certWarning.continueAnyway') }}
         </NButton>
         <div v-if="showTrustOptions" class="trust-options">
-          <NButton size="small" @click="trustAndContinue('once')">{{ t('certWarning.trustOnce') }}</NButton>
-          <NButton size="small" @click="trustAndContinue('session')">{{ t('certWarning.trustSession') }}</NButton>
-          <NButton size="small" @click="trustAndContinue('always')">{{ t('certWarning.trustAlways') }}</NButton>
+          <NButton size="small" @click="trustAndContinue('once')">
+            {{ t('certWarning.trustOnce') }}
+          </NButton>
+          <NButton size="small" @click="trustAndContinue('session')">
+            {{ t('certWarning.trustSession') }}
+          </NButton>
+          <NButton size="small" @click="trustAndContinue('always')">
+            {{ t('certWarning.trustAlways') }}
+          </NButton>
         </div>
       </div>
     </div>
@@ -49,16 +63,19 @@ const showTrustOptions = ref(false)
 onMounted(async () => {
   try {
     info.value = await window.browserAPI.getCertWarningInfo()
+    console.debug('[CertWarning] onMounted: 获取到证书警告信息 host', info.value?.host)
   } catch {
-    // 兜底
+    console.error('[CertWarning] onMounted: 获取证书警告信息失败')
   }
 })
 
 function goBack(): void {
+  console.debug('[CertWarning] goBack')
   window.history.back()
 }
 
 async function trustAndContinue(scope: 'once' | 'session' | 'always'): Promise<void> {
+  console.debug('[CertWarning] trustAndContinue: scope', scope)
   await window.browserAPI.trustCertAndContinue(scope)
 }
 </script>

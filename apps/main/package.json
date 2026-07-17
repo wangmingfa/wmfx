@@ -2,6 +2,7 @@
   "name": "@browser/main",
   "version": "0.0.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "main": "./dist/index.cjs",
   "scripts": {
     "build": "tsup",
@@ -11,9 +12,13 @@
     "@browser/ipc-contract": "workspace:*",
     "@browser/proxy": "workspace:*",
     "@browser/shared": "workspace:*",
+    "@iconify/utils": "^3.1.4",
     "@wmfx/database": "workspace:*",
-    "electron-updater": "^6.8.9"
+    "dotenv": "^16.4.5",
+    "electron-updater": "^6.8.9",
+    "iconv-lite": "^0.7.3"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1"  }
+    "@types/node": "^24.10.1"
+  }
 }

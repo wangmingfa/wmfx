@@ -5,6 +5,7 @@ export interface DropdownMenuOptions {
   anchor: PopoverAnchor
   descriptor: { id: string; items: MenuItem[] }
   onAction: (payload: { menu: MenuItem; context: { close: () => void } }) => void
+  onDismiss?: () => void
   mode?: PopoverMode
   autoOpen?: boolean
 }
@@ -20,6 +21,7 @@ export class DropdownMenu {
   private onAction: DropdownMenuOptions['onAction']
 
   constructor(opts: DropdownMenuOptions) {
+    console.debug('[DropdownMenu] constructor: id', opts.descriptor.id)
     this.descriptor = opts.descriptor
     this.onAction = opts.onAction
     this.popover = new Popover({
@@ -31,10 +33,14 @@ export class DropdownMenu {
         if (eventName === 'select' && typeof eventData === 'string') {
           const menu = this.findMenuItem(this.descriptor.items, eventData)
           if (menu) {
+            console.debug('[DropdownMenu] select: id', menu.id)
             this.onAction({ menu, context: { close: () => this.close() } })
+          } else {
+            console.warn('[DropdownMenu] select: unknown menu id', eventData)
           }
         }
       },
+      onDismiss: opts.onDismiss,
       autoOpen: opts.autoOpen,
     })
   }

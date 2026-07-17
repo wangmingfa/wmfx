@@ -47,6 +47,7 @@ let unsubscribeTraffic: (() => void) | null = null
 let statusInterval: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
+  console.debug('[TrafficView] onMounted: 注册流量监听与状态轮询')
   unsubscribeTraffic = () => {
     window.browserAPI.removeListener('proxy:traffic', null as never)
   }
@@ -68,6 +69,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  console.debug('[TrafficView] onUnmounted: 注销监听与轮询')
   unsubscribeTraffic?.()
   if (statusInterval) clearInterval(statusInterval)
 })

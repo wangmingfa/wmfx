@@ -23,6 +23,7 @@ export class ApiClient {
    * 自动拼接 base URL + path，携带 Bearer 认证头
    */
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    console.debug(`[ApiClient] request: ${method} ${path}, hasBody=${!!body}`)
     const url = `${this.configManager.getControllerUrl()}${path}`
     const secret = this.configManager.getSecret()
     const options: RequestInit = {
@@ -43,11 +44,13 @@ export class ApiClient {
 
   /** 获取所有代理组和节点 (GET /proxies) */
   async getProxies(): Promise<Record<string, ProxyGroup & { all?: ProxyNode[] }>> {
+    console.debug('[ApiClient] getProxies: GET /proxies')
     return this.request('GET', '/proxies')
   }
 
   /** 获取单个代理组详情 */
   async getProxyGroup(name: string): Promise<ProxyGroup & { all?: ProxyNode[] }> {
+    console.debug(`[ApiClient] getProxyGroup: name=${name}`)
     return this.request('GET', `/proxies/${encodeURIComponent(name)}`)
   }
 
@@ -59,6 +62,7 @@ export class ApiClient {
 
   /** 获取当前配置和模式 (GET /configs) */
   async getMode(): Promise<{ mode: string }> {
+    console.debug('[ApiClient] getMode: GET /configs')
     return this.request('GET', '/configs')
   }
 
@@ -70,6 +74,7 @@ export class ApiClient {
 
   /** 测指定节点的延迟 (GET /proxies/{node}/delay) */
   async getDelay(nodeName: string, url = 'http://www.gstatic.com/generate_204'): Promise<number> {
+    console.debug(`[ApiClient] getDelay: node=${nodeName}, url=${url}`)
     const result = await this.request<{ delay: number }>(
       'GET',
       `/proxies/${encodeURIComponent(nodeName)}/delay?url=${encodeURIComponent(url)}&timeout=5000`
@@ -79,11 +84,13 @@ export class ApiClient {
 
   /** 获取当前 Mihomo 配置快照 */
   async getConfig(): Promise<Record<string, unknown>> {
+    console.debug('[ApiClient] getConfig: GET /configs')
     return this.request('GET', '/configs')
   }
 
   /** 热更新部分配置，无需重启核心 (PATCH /configs) */
   async patchConfig(config: Record<string, unknown>): Promise<void> {
+    console.debug(`[ApiClient] patchConfig: keys=${Object.keys(config).join(',')}`)
     await this.request('PATCH', '/configs', config)
   }
 

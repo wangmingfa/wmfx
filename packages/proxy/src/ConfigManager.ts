@@ -34,6 +34,9 @@ export class ConfigManager {
   private subscriptionRules: string[] = []
 
   constructor(configDir: string, overrides?: Partial<ProxyConfig>) {
+    console.debug(
+      `[ConfigManager] constructor: configDir=${configDir}, hasOverrides=${!!overrides}`
+    )
     this.configDir = configDir
     this.config = { ...DEFAULT_CONFIG, ...overrides }
     mkdirSync(configDir, { recursive: true })
@@ -49,6 +52,7 @@ export class ConfigManager {
    * 使用 yaml 库序列化，避免手动拼接带来的格式问题
    */
   generateConfig(): string {
+    console.debug('[ConfigManager] generateConfig: building YAML from internal model')
     const { mixedPort, controllerPort, controllerHost, secret, mode, allowLan, logLevel } =
       this.config
 
@@ -74,16 +78,21 @@ export class ConfigManager {
       }))
       const hasProxyGroup = this.subscriptionGroups.some((g) => g.name === 'PROXY')
       if (!hasProxyGroup) {
+        console.debug('[ConfigManager] generateConfig: no PROXY group, appending default')
         const firstName = this.subscriptionGroups[0]?.name ?? 'DIRECT'
         groups.push({ name: 'PROXY', type: 'select', proxies: [firstName, 'DIRECT'] })
       }
       config['proxy-groups'] = groups
     } else {
+      console.debug('[ConfigManager] generateConfig: no subscription groups, using default PROXY')
       config['proxy-groups'] = [{ name: 'PROXY', type: 'select', proxies: ['DIRECT'] }]
     }
 
     // 注入规则列表，无订阅规则时使用默认 MATCH,PROXY
     config.rules = this.subscriptionRules.length > 0 ? this.subscriptionRules : ['MATCH,PROXY']
+    console.debug(
+      `[ConfigManager] generateConfig: proxies=${this.subscriptionProxies.length}, groups=${this.subscriptionGroups.length}, rules=${this.subscriptionRules.length}`
+    )
 
     return YAML.stringify(config)
   }
@@ -121,6 +130,7 @@ export class ConfigManager {
 
   /** 更新内部配置模型 */
   updateConfig(overrides: Partial<ProxyConfig>): void {
+    console.debug(`[ConfigManager] updateConfig: keys=${Object.keys(overrides).join(',')}`)
     this.config = { ...this.config, ...overrides }
   }
 

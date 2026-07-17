@@ -7,13 +7,18 @@ class DatabaseManager {
   private _db: Database.Database
 
   private constructor() {
+    console.debug('[DatabaseManager] constructor: init start')
     const dbPath = path.join(app.getPath('userData'), 'wmfx.db')
+    console.debug('[DatabaseManager] constructor: dbPath', dbPath)
     this._db = new Database(dbPath)
     this._db.pragma('journal_mode = WAL')
+    console.debug('[DatabaseManager] constructor: WAL pragma set')
     this.initTables()
+    console.debug('[DatabaseManager] constructor: init done')
   }
 
   static getInstance(): DatabaseManager {
+    console.debug('[DatabaseManager] getInstance: hasInstance', !!DatabaseManager.instance)
     if (!DatabaseManager.instance) {
       DatabaseManager.instance = new DatabaseManager()
     }
@@ -25,6 +30,7 @@ class DatabaseManager {
   }
 
   private initTables(): void {
+    console.debug('[DatabaseManager] initTables: creating tables')
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS history (
         id TEXT PRIMARY KEY,
@@ -75,13 +81,17 @@ class DatabaseManager {
     try {
       this.db.prepare('SELECT active FROM subscriptions LIMIT 1').get()
     } catch {
+      console.debug('[DatabaseManager] initTables: adding missing active column to subscriptions')
       this.db.exec('ALTER TABLE subscriptions ADD COLUMN active INTEGER DEFAULT 0')
     }
+    console.debug('[DatabaseManager] initTables: done')
   }
 
   destroy(): void {
+    console.debug('[DatabaseManager] destroy: closing db')
     this.db.close()
     DatabaseManager.instance = null
+    console.debug('[DatabaseManager] destroy: done')
   }
 }
 

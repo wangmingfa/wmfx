@@ -11,10 +11,12 @@ const eventMap = new Map<string, (eventName: string, eventData?: unknown) => voi
 const dismissCallbacks = new Map<string, () => void>()
 
 window.browserAPI.onPopoverEvent((payload) => {
+  console.debug('[Popover] onPopoverEvent: popoverId event', payload.popoverId, payload.eventName)
   eventMap.get(payload.popoverId)?.(payload.eventName, payload.eventData)
 })
 
 window.browserAPI.onPopoverDismiss((popoverId) => {
+  console.debug('[Popover] onPopoverDismiss: popoverId', popoverId)
   eventMap.delete(popoverId)
   dismissCallbacks.get(popoverId)?.()
   dismissCallbacks.delete(popoverId)
@@ -49,6 +51,7 @@ export class Popover {
   private opened = false
 
   constructor(private opts: PopoverOptions) {
+    console.debug('[Popover] constructor: id type', this.popoverId, this.opts.type)
     if (opts.onDismiss) {
       dismissCallbacks.set(this.popoverId, opts.onDismiss)
     }
@@ -57,6 +60,7 @@ export class Popover {
 
   open(): void {
     if (this.opened) return
+    console.debug('[Popover] open: id type', this.popoverId, this.opts.type)
     if (this.opts.onEvent) {
       eventMap.set(this.popoverId, this.opts.onEvent)
     }
@@ -93,6 +97,7 @@ export class Popover {
 
   close(): void {
     if (!this.opened) return
+    console.debug('[Popover] close: id', this.popoverId)
     eventMap.delete(this.popoverId)
     dismissCallbacks.delete(this.popoverId)
     void window.browserAPI.popoverClose(this.popoverId)
@@ -102,6 +107,7 @@ export class Popover {
   /** 主 renderer → popover WebContentsView 双向数据同步 */
   sendData(data: unknown): void {
     if (!this.opened) return
+    console.debug('[Popover] sendData: id', this.popoverId)
     void window.browserAPI.popoverSendData(this.popoverId, toPlain(data))
   }
 

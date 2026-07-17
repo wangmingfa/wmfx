@@ -82,12 +82,14 @@ const adding = ref(false)
 const addError = ref('')
 
 async function loadSubscriptions(): Promise<void> {
+  console.debug('[SubscriptionView] loadSubscriptions')
   const items = await window.browserAPI.getSubscriptions()
   subscriptions.value = items.map((item) => ({ ...item, active: 0 }))
 }
 
 async function addSubscription(): Promise<void> {
   if (!newSubUrl.value || !newSubName.value) return
+  console.debug('[SubscriptionView] addSubscription: name', newSubName.value)
   adding.value = true
   addError.value = ''
   try {
@@ -97,27 +99,32 @@ async function addSubscription(): Promise<void> {
     await loadSubscriptions()
   } catch (e) {
     addError.value = String(e)
+    console.error('[SubscriptionView] addSubscription 失败', String(e))
   } finally {
     adding.value = false
   }
 }
 
 async function removeSubscription(id: string): Promise<void> {
+  console.debug('[SubscriptionView] removeSubscription: id', id)
   await window.browserAPI.removeSubscription(id)
   await loadSubscriptions()
 }
 
 async function updateSubscription(id: string): Promise<void> {
+  console.debug('[SubscriptionView] updateSubscription: id', id)
   await window.browserAPI.updateSubscription(id)
   await loadSubscriptions()
 }
 
 async function activateSubscription(id: string): Promise<void> {
+  console.debug('[SubscriptionView] activateSubscription: id', id)
   await window.browserAPI.activateSubscription(id)
   await loadSubscriptions()
 }
 
 async function deactivateSubscription(id: string): Promise<void> {
+  console.debug('[SubscriptionView] deactivateSubscription: id', id)
   await window.browserAPI.deactivateSubscription(id)
   await loadSubscriptions()
 }
@@ -135,7 +142,10 @@ function formatDate(ts: number): string {
   return new Date(ts * 1000).toLocaleDateString()
 }
 
-onMounted(loadSubscriptions)
+onMounted(() => {
+  console.debug('[SubscriptionView] onMounted')
+  loadSubscriptions()
+})
 </script>
 
 <style scoped>

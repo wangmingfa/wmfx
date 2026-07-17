@@ -130,6 +130,7 @@ function measure(): void {
   contentWidth.value = `${content}px`
   contentOffset.value = `${Math.max(0, (available - content) / 2)}px`
   headerHeight.value = `${headerEl.value?.offsetHeight ?? 0}px`
+  console.debug('[PageLayout] measure: available content scrollbar', available, content, scrollbar)
 }
 
 let resizeObserver: ResizeObserver | null = null

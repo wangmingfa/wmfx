@@ -3,7 +3,17 @@ import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { codeInspectorPlugin } from 'code-inspector-plugin'
 import { defineConfig } from 'vite'
-import vueDevTools from 'vite-plugin-vue-devtools'
+import {
+  isInstrumentEnabled,
+  REPO_ROOT,
+  sourceLocationEsbuildPlugin,
+  sourceLocationVuePlugin,
+} from '../../scripts/source-location'
+
+const devInstr = isInstrumentEnabled()
+const sourcePlugins = devInstr
+  ? [sourceLocationEsbuildPlugin(REPO_ROOT), sourceLocationVuePlugin(REPO_ROOT)]
+  : []
 
 export default defineConfig({
   plugins: [
@@ -13,7 +23,7 @@ export default defineConfig({
       bundler: 'vite',
       editor: 'webstorm',
     }),
-    vueDevTools(),
+    ...sourcePlugins,
   ],
   resolve: {
     alias: {

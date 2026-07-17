@@ -14,6 +14,7 @@ export class CertTrustStore {
   private alwaysCache = new Set<string>()
 
   constructor(private settingsManager: SettingsManager | null) {
+    console.debug('[CertTrustStore] constructor')
     this.loadAlways()
   }
 
@@ -24,11 +25,14 @@ export class CertTrustStore {
   /** 按 once → session → always 顺序查询 */
   isTrusted(host: string, errorText: string): boolean {
     const k = this.key(host, errorText)
-    return this.once.has(k) || this.session.has(k) || this.alwaysCache.has(k)
+    const trusted = this.once.has(k) || this.session.has(k) || this.alwaysCache.has(k)
+    console.debug('[CertTrustStore] isTrusted: host errorText trusted', host, errorText, trusted)
+    return trusted
   }
 
   add(host: string, errorText: string, scope: CertTrustScope): void {
     const k = this.key(host, errorText)
+    console.debug('[CertTrustStore] add: host errorText scope', host, errorText, scope)
     if (scope === 'once') {
       this.once.add(k)
     } else if (scope === 'session') {
@@ -41,6 +45,7 @@ export class CertTrustStore {
 
   /** once 命中后移除（certificate-error 放行后调用） */
   consumeOnce(host: string, errorText: string): void {
+    console.debug('[CertTrustStore] consumeOnce: host errorText', host, errorText)
     this.once.delete(this.key(host, errorText))
   }
 

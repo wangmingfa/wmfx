@@ -4,7 +4,12 @@
     <div
       ref="boxRef"
       class="popover-box"
-      :class="{ ready: boxVisible, 'is-addressbar': currentType === 'addressbar', 'is-find': currentType === 'find' }"
+      :class="{
+        ready: boxVisible,
+        'is-addressbar': currentType === 'addressbar',
+        'is-find': currentType === 'find',
+        'is-tab-thumbnail': currentType === 'tab-thumbnail',
+      }"
       :style="boxStyle"
       @mouseleave="onMouseLeave"
     >
@@ -36,6 +41,16 @@
         :data="downloadData"
         @event="onAddressBarEvent"
       />
+      <BookmarkFolderPanel
+        v-else-if="currentType === 'bookmark-folder'"
+        :popover-id="currentPopoverId"
+        :folder-id="bookmarkFolderId"
+      />
+      <TabThumbnailPanel
+        v-else-if="currentType === 'tab-thumbnail'"
+        :popover-id="currentPopoverId"
+        :data="tabThumbnailData"
+      />
     </div>
   </div>
 </template>
@@ -50,12 +65,14 @@ import type {
   PopoverType,
 } from '@browser/ipc-contract'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import BookmarkFolderPanel from '../components/BookmarkFolderPanel.vue'
 import AddressBarSuggestions from './AddressBarSuggestions.vue'
 import DownloadPanel from './DownloadPanel.vue'
 import FindPanel from './FindPanel.vue'
 import { findItem, getLevelItems, getSelectable, pathToItem, selectableIndexOf } from './navigation'
 import PopoverMenu from './PopoverMenu.vue'
 import { computeBoxPosition } from './position'
+import TabThumbnailPanel from './TabThumbnailPanel.vue'
 
 // bounded popover 四周预留的透明边距（px），用于容纳 box-shadow，避免视图恰好贴合盒子
 // 而把外投阴影裁成直角。需 ≥ 阴影 offsetY + blur。
@@ -73,6 +90,7 @@ const boxStyle = ref<Record<string, string>>({})
 const showMnemonics = ref(false)
 const lastPointer = ref({ x: 0, y: 0 })
 let resizeObserver: ResizeObserver | null = null
+let mutationObserver: MutationObserver | null = null
 
 // 菜单数据：仅当 type=menu 时从 currentData 解析
 const menuItems = computed(() => {
@@ -99,6 +117,18 @@ const downloadData = computed(() => {
   }
   return { items: [] }
 })
+const bookmarkFolderId = computed(() => {
+  if (currentType.value === 'bookmark-folder' && currentData.value) {
+    return (currentData.value as { folderId: string }).folderId
+  }
+  return ''
+})
+const tabThumbnailData = computed(() => {
+  if (currentType.value === 'tab-thumbnail' && currentData.value) {
+    return currentData.value as { src: string | null; title: string; url: string }
+  }
+  return { src: null, title: '', url: '' }
+})
 
 // 方向键导航状态：activePath = 已展开子菜单 id 链；activeIndex = 当前层可选中项下标（-1 表示未选中）
 const activePath = ref<string[]>([])
@@ -116,10 +146,12 @@ let keyHandler: ((e: KeyboardEvent) => void) | null = null
 let mouseHandler: ((e: MouseEvent) => void) | null = null
 
 function dismiss(): void {
+  console.debug('[PanelRoot] dismiss: popoverId', currentPopoverId.value)
   if (currentPopoverId.value) window.browserAPI.popoverClose(currentPopoverId.value)
   reset()
 }
 function reset(): void {
+  console.debug('[PanelRoot] reset: 清空面板状态')
   currentType.value = null
   currentData.value = null
   anchor.value = null
@@ -128,11 +160,14 @@ function reset(): void {
   boxVisible.value = false
   resizeObserver?.disconnect()
   resizeObserver = null
+  mutationObserver?.disconnect()
+  mutationObserver = null
   activePath.value = []
   activeIndex.value = -1
 }
 
 function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data?: unknown, mode?: PopoverMode): void {
+  console.debug('[PanelRoot] onRender: popoverId type mode', popoverId, type, mode)
   currentPopoverId.value = popoverId
   currentType.value = type
   currentData.value = data ?? null
@@ -146,35 +181,78 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
     const el = boxRef.value
     if (!el || !anchor.value) return
     if (currentMode.value === 'bounded') {
+      console.debug('[PanelRoot] onRender: bounded 模式，测量并上报盒子尺寸')
       // 内容自然尺寸上报；仅地址栏 popover 用 rect 宽度约束（覆盖原输入框宽度），
       // 菜单等其它 popover 用内容自然宽度，否则会被锚点按钮宽度挤成一条溢出窗口。
       const useRectWidth = currentType.value === 'addressbar' && anchor.value.type === 'rect'
-      const w = useRectWidth && anchor.value.type === 'rect' ? anchor.value.rect.width : el.offsetWidth
+      const gutter = currentType.value === 'tab-thumbnail' ? 0 : SHADOW_GUTTER
       // 盒子在放大后的视图内偏移 gutter，使四周留出阴影空间；视图由主进程按 gutter 放大并外移，
       // 盒子最终仍精确落在锚点位置。地址栏 popover 显式约束盒子宽度与原输入框一致，
       // 否则盒子只按内容（min-width）收缩，导致面板输入框比地址栏输入框窄。
       boxStyle.value = {
-        left: `${SHADOW_GUTTER}px`,
-        top: `${SHADOW_GUTTER}px`,
-        ...(useRectWidth ? { width: `${w}px` } : {}),
+        left: `${gutter}px`,
+        top: `${gutter}px`,
+        ...(useRectWidth && anchor.value.type === 'rect' ? { width: `${anchor.value.rect.width}px` } : {}),
       }
+      const initialW = useRectWidth && anchor.value.type === 'rect' ? anchor.value.rect.width : el.offsetWidth
       window.browserAPI.popoverMeasure(currentPopoverId.value, {
-        width: w,
+        width: initialW,
         height: el.offsetHeight,
-        gutter: SHADOW_GUTTER,
+        gutter,
       })
+
+      // 菜单的 box 用 max-content，但 max-content 不计算绝对定位后代（子菜单 flyout），
+      // 当子菜单打开时 box 不撑大，导致 WebContentsView 边界不变、子菜单被裁切。
+      // 用 MutationObserver 检测菜单 DOM 变化（子菜单打开/关闭），用 getBoundingClientRect
+      // 测量菜单的实际渲染范围（含子菜单），据此撑大外层 WebContentsView。
+      let menuEl: HTMLElement | null = null
+      let mutationObserver: MutationObserver | null = null
+      const measureMenuExtent = () => {
+        if (!boxRef.value || !menuEl || !boxVisible.value || currentMode.value !== 'bounded') return
+        const menuRect = menuEl.getBoundingClientRect()
+        const bw = menuRect.width
+        const bh = menuRect.height
+        window.browserAPI.popoverMeasure(currentPopoverId.value, { width: bw, height: bh, gutter })
+      }
+
+      // 查找菜单 ul 元素（PopoverMenu 的根节点）
+      const findMenuEl = () => {
+        return el.querySelector('.popover-menu') as HTMLElement | null
+      }
+
       resizeObserver?.disconnect()
       resizeObserver = new ResizeObserver(() => {
-        if (boxRef.value) {
+        if (boxRef.value && boxVisible.value) {
           const bw = useRectWidth && anchor.value?.type === 'rect' ? anchor.value.rect.width : boxRef.value.offsetWidth
           window.browserAPI.popoverMeasure(currentPopoverId.value, {
             width: bw,
             height: boxRef.value.offsetHeight,
-            gutter: SHADOW_GUTTER,
+            gutter,
           })
         }
       })
       resizeObserver.observe(el)
+
+      // 检测子菜单展开/收起，重新测量菜单范围并撑大 WebContentsView
+      mutationObserver = new MutationObserver(() => {
+        // 子菜单打开/关闭时会触发 DOM 变化，此时测量菜单的 bounding rect
+        // bounding rect 包含绝对定位子菜单，可获取含子菜单的实际渲染范围
+        menuEl = findMenuEl()
+        if (menuEl) {
+          measureMenuExtent()
+        }
+      })
+      mutationObserver.observe(el, { childList: true, subtree: true, attributes: true })
+
+      // 延迟一帧确保菜单渲染完毕后再注册 mutation observer（避免初始渲染时菜单不存在）
+      nextTick(() => {
+        menuEl = findMenuEl()
+        if (menuEl && mutationObserver) {
+          // 初始测量一次，确保 WebContentsView 边界正确
+          measureMenuExtent()
+        }
+      })
+
       boxVisible.value = true
       return
     }
@@ -194,6 +272,7 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
           ? { type: 'point', x: lastPointer.value.x, y: lastPointer.value.y, placement: anchor.value.placement }
           : anchor.value
       const pos = computeBoxPosition(resolved, size, { width: window.innerWidth, height: window.innerHeight })
+      console.debug('[PanelRoot] onRender: overlay 定位 x y', pos.x, pos.y)
       boxStyle.value = { left: `${pos.x}px`, top: `${pos.y}px` }
     }
     boxVisible.value = true
@@ -201,6 +280,7 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
 }
 
 function onMenuSelect(itemId: string): void {
+  console.debug('[PanelRoot] onMenuSelect: itemId', itemId)
   window.browserAPI.popoverEvent({
     popoverId: currentPopoverId.value,
     eventName: 'select',
@@ -211,6 +291,7 @@ function onMenuSelect(itemId: string): void {
 }
 
 function onAddressBarEvent(eventName: string, eventData?: unknown): void {
+  console.debug('[PanelRoot] onAddressBarEvent: event', eventName)
   window.browserAPI.popoverEvent({
     popoverId: currentPopoverId.value,
     eventName,
@@ -221,6 +302,7 @@ function onAddressBarEvent(eventName: string, eventData?: unknown): void {
 function openCurrentSub(): void {
   const item = activeItem.value
   if (item?.type === 'submenu' && item.children) {
+    console.debug('[PanelRoot] openCurrentSub: itemId', item.id)
     activePath.value = [...activePath.value, item.id]
     activeIndex.value = 0
   }
@@ -228,6 +310,7 @@ function openCurrentSub(): void {
 function closeCurrentSub(): void {
   if (activePath.value.length === 0) return // 根层级无上一级，无操作
   const popped = activePath.value[activePath.value.length - 1]
+  console.debug('[PanelRoot] closeCurrentSub: popped', popped)
   activePath.value = activePath.value.slice(0, -1)
   const parentItems = getLevelItems(menuItems.value, activePath.value)
   const idx = selectableIndexOf(parentItems, popped)
@@ -236,6 +319,7 @@ function closeCurrentSub(): void {
 function activateCurrent(): void {
   const item = activeItem.value
   if (!item || item.disabled) return
+  console.debug('[PanelRoot] activateCurrent: itemId type', item.id, item.type)
   if (item.type === 'submenu') openCurrentSub()
   else onMenuSelect(item.id)
 }
@@ -272,6 +356,7 @@ function onKeydown(e: KeyboardEvent): void {
   if (e.altKey) return
   const n = selectable.value.length
   if (n === 0) return
+  console.debug('[PanelRoot] onKeydown: key selectable', e.key, n)
   switch (e.key) {
     case 'ArrowDown':
       e.preventDefault()
@@ -309,6 +394,7 @@ function onKeydown(e: KeyboardEvent): void {
 }
 
 onMounted(() => {
+  console.debug('[PanelRoot] onMounted: 注册 popover 与全局事件监听')
   renderHandler = ((popoverId: string, type: PopoverType, anc: PopoverAnchor, data?: unknown, mode?: PopoverMode) =>
     onRender(popoverId, type, anc, data, mode)) as (...args: unknown[]) => void
   dismissHandler = (() => reset()) as (...args: unknown[]) => void
@@ -327,6 +413,7 @@ onMounted(() => {
   window.addEventListener('mousemove', mouseHandler)
 })
 onBeforeUnmount(() => {
+  console.debug('[PanelRoot] onBeforeUnmount: 注销事件监听与 observer')
   if (renderHandler) window.browserAPI.removeListener('popover:render', renderHandler)
   if (dismissHandler) window.browserAPI.removeListener('popover:dismiss', dismissHandler)
   if (dataHandler) window.browserAPI.removeListener('popover:data', dataHandler)
@@ -334,6 +421,8 @@ onBeforeUnmount(() => {
   if (mouseHandler) window.removeEventListener('mousemove', mouseHandler)
   resizeObserver?.disconnect()
   resizeObserver = null
+  mutationObserver?.disconnect()
+  mutationObserver = null
 })
 </script>
 
@@ -346,11 +435,6 @@ body,
   background: transparent !important;
   margin: 0;
 }
-/* 隐藏 vite-plugin-vue-devtools 注入到 panel webContents 的悬浮图标，
-   否则它会浮在铺满窗口的 popover 覆盖层之上 */
-#__vue-devtools-container__ {
-  display: none !important;
-}
 </style>
 
 <style lang="less" scoped>
@@ -358,6 +442,7 @@ body,
   position: fixed;
   inset: 0;
   pointer-events: none;
+  overflow: hidden;
 }
 .popover-backdrop {
   position: fixed;
@@ -383,6 +468,8 @@ body,
     width: max-content;
     height: max-content;
     padding: 0;
+    /* 允许绝对定位的子菜单（flyout）溢出盒子而不被裁切 */
+    overflow: visible;
   }
   &.is-addressbar {
     background: var(--url-input-bg);
@@ -398,6 +485,15 @@ body,
     border: 1px solid var(--border-color);
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+  &.is-tab-thumbnail {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     padding: 0;
     min-width: 0;
     overflow: hidden;

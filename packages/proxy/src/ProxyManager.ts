@@ -5,6 +5,8 @@
  * 对外提供统一接口。上层 UI 只调用 ProxyManager，
  * 无需关心底层是 Mihomo 还是其他核心。
  */
+
+import { join } from 'node:path'
 import { ApiClient } from './ApiClient'
 import { ConfigManager } from './ConfigManager'
 import { HealthChecker } from './HealthChecker'
@@ -12,6 +14,18 @@ import { MihomoProcess } from './MihomoProcess'
 import type { ProxyProvider } from './ProxyProvider'
 import { TrafficMonitor } from './TrafficMonitor'
 import type { MihomoStatus, ProxyConfig, ProxyGroup, TrafficData } from './types'
+
+/**
+ * 解析代理配置目录：放在用户数据目录（<userData>/proxy），而非应用包内，
+ * 避免只读限制导致无法写入 config.yaml。
+ *
+ * 注意：此处不再直接 import `electron`（保持 proxy 包与渲染/主进程解耦，
+ * 也避免主进程打包时把 electron 的 index.js 内联进 bundle 导致运行时报错）。
+ * userData 路径由调用方（主进程）通过 `app.getPath('userData')` 传入。
+ */
+export function resolveProxyConfigDir(userDataPath: string): string {
+  return join(userDataPath, 'proxy')
+}
 
 export class ProxyManager implements ProxyProvider {
   private process: MihomoProcess
@@ -21,6 +35,7 @@ export class ProxyManager implements ProxyProvider {
   private trafficMonitor: TrafficMonitor
 
   constructor(configDir: string, overrides?: Partial<ProxyConfig>) {
+    console.debug(`[ProxyManager] constructor: configDir=${configDir}, hasOverrides=${!!overrides}`)
     this.configManager = new ConfigManager(configDir, overrides)
     this.process = new MihomoProcess(this.configManager)
     this.apiClient = new ApiClient(this.configManager)
@@ -39,10 +54,16 @@ export class ProxyManager implements ProxyProvider {
     console.debug('[ProxyManager] start: writing config and launching process')
     this.configManager.writeConfig()
     this.process.start()
+    let ready = false
     for (let i = 0; i < 30; i++) {
-      if (await this.apiClient.isReady()) break
+      if (await this.apiClient.isReady()) {
+        ready = true
+        console.debug(`[ProxyManager] start: API ready after ${i + 1} attempts`)
+        break
+      }
       await new Promise((r) => setTimeout(r, 200))
     }
+    if (!ready) console.debug('[ProxyManager] start: API not ready after 30 attempts')
     this.trafficMonitor.connect()
   }
 
@@ -58,12 +79,15 @@ export class ProxyManager implements ProxyProvider {
   }
 
   getProxyRules(): string {
-    return this.configManager.getProxyRules()
+    const rules = this.configManager.getProxyRules()
+    console.debug(`[ProxyManager] getProxyRules: ${rules}`)
+    return rules
   }
 
   async getProxies(): Promise<
     Record<string, ProxyGroup & { all?: { name: string; type: string }[] }>
   > {
+    console.debug('[ProxyManager] getProxies: fetching from apiClient')
     return this.apiClient.getProxies()
   }
 
@@ -85,6 +109,7 @@ export class ProxyManager implements ProxyProvider {
   }
 
   async checkDelay(groupName: string): Promise<{ nodeName: string; delay: number }[]> {
+    console.debug(`[ProxyManager] checkDelay: group=${groupName}`)
     return this.healthChecker.checkGroup(groupName)
   }
 

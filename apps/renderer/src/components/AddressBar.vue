@@ -15,6 +15,7 @@
         :favicon="props.favicon"
         @focus="onFocus"
         @keydown.enter="onEnter"
+        @keydown.escape="onEscape"
       />
       <div class="url-input-actions">
         <button class="zoom-display" @click="cycleZoom">
@@ -61,19 +62,27 @@ const iconSize = 18
 const searchEngine = ref('google')
 const urlInput = ref('')
 const inputRef = ref<InstanceType<typeof AddressInput>>()
-const suggestions = ref<{ type: 'history' | 'bookmark' | 'search'; title: string; url: string }[]>([])
+const suggestions = ref<{ type: 'history' | 'bookmark' | 'search' | 'engine'; title: string; url: string }[]>([])
 const activeIndex = ref(-1)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let currentPopover: Popover | null = null
 
+// Cmd+L 聚焦时跳过 popover：panel 的 applyMeasure 会 focus() 抢走键盘焦点，
+// 导致主输入框看似选中但实际无法输入。
+let suppressPopover = false
+
 // 新开标签页时由创建方触发聚焦地址输入框；Cmd/Ctrl+L 也复用此机制
 const focusNonce = useAddressBarFocus()
 watch(focusNonce, () => {
+  console.debug('[AddressBar] watch focusNonce: nonce', focusNonce.value)
   // 需要延迟确保组件已挂载且 input 已渲染到 DOM
+  suppressPopover = true
   setTimeout(() => {
     inputRef.value?.focus()
     // 类 Chrome：聚焦时全选当前地址，方便直接覆盖输入（空地址栏无副作用）
     inputRef.value?.select()
+    suppressPopover = false
+    console.debug('[AddressBar] focusNonce applied: focused and selected')
   }, 50)
 })
 
@@ -85,17 +94,34 @@ const currentZoomIndex = ref(2)
 const currentZoomLevel = ref('100%')
 
 function onFocus(): void {
+  if (suppressPopover) {
+    console.debug('[AddressBar] onFocus: suppressed (Cmd+L focus)')
+    return
+  }
+  console.debug('[AddressBar] onFocus: opening suggestions popover')
   fetchSuggestions()
   openPopover()
 }
 
 function onEnter(): void {
+  console.debug('[AddressBar] onEnter: navigating')
   navigate()
 }
 
+function onEscape(): void {
+  console.debug('[AddressBar] onEscape: reverting and blurring')
+  closePopover()
+  urlInput.value = props.url ?? ''
+  inputRef.value?.blur()
+}
+
 function openPopover(): void {
+  console.debug('[AddressBar] openPopover: enter')
   const rect = inputRef.value?.getWrapEl()?.getBoundingClientRect()
-  if (!rect) return
+  if (!rect) {
+    console.warn('[AddressBar] openPopover: input wrap rect missing, abort')
+    return
+  }
   currentPopover = new Popover({
     type: 'addressbar',
     mode: 'bounded',
@@ -138,14 +164,17 @@ function openPopover(): void {
       currentPopover = null
       suggestions.value = []
       activeIndex.value = -1
+      console.debug('[AddressBar] popover dismissed: cleared suggestions')
     },
   })
   // 面板 WebContentsView 会抢占焦点；关闭后浏览器会把焦点“还原”到本输入框，
   // 再次触发 onFocus 导致 popover 反复弹出。这里主动 blur，打断焦点还原链。
   setTimeout(() => inputRef.value?.blur(), 50)
+  console.debug('[AddressBar] openPopover: created popover')
 }
 
 function closePopover(): void {
+  console.debug('[AddressBar] closePopover: enter')
   currentPopover?.close()
   currentPopover = null
 }
@@ -157,6 +186,7 @@ function fetchSuggestions(): void {
     return
   }
   debounceTimer = setTimeout(async () => {
+    console.debug('[AddressBar] fetchSuggestions: query', urlInput.value)
     suggestions.value = await window.browserAPI.getAutocompleteSuggestions({
       query: urlInput.value,
       limit: 6,
@@ -166,6 +196,7 @@ function fetchSuggestions(): void {
 }
 
 function selectSuggestion(url: string): void {
+  console.debug('[AddressBar] selectSuggestion: url', url)
   closePopover()
   suggestions.value = []
   window.browserAPI.loadURL(props.tabId, url)
@@ -191,25 +222,31 @@ watch(
       urlInput.value = newUrl
     }
   },
+  { immediate: true },
 )
 
 function goBack(): void {
+  console.info('[AddressBar] goBack: tabId', props.tabId)
   window.browserAPI.goBack(props.tabId)
 }
 
 function goForward(): void {
+  console.info('[AddressBar] goForward: tabId', props.tabId)
   window.browserAPI.goForward(props.tabId)
 }
 
 function reload(): void {
+  console.info('[AddressBar] reload: tabId', props.tabId)
   window.browserAPI.reload(props.tabId)
 }
 
 function stop(): void {
+  console.info('[AddressBar] stop: tabId', props.tabId)
   window.browserAPI.stop(props.tabId)
 }
 
 async function goHome(): Promise<void> {
+  console.debug('[AddressBar] goHome: tabId', props.tabId)
   const settings = await window.browserAPI.getAllSettings()
   window.browserAPI.loadURL(props.tabId, settings.newTabUrl)
 }
@@ -219,6 +256,7 @@ function navigate(): void {
   if (!raw) return
   // 识别是否为链接：是则按原流程加载，否则用默认搜索引擎搜索
   const url = resolveAddressBarTarget(raw, searchEngine.value)
+  console.info('[AddressBar] navigate: raw target', raw, url)
   closePopover()
   inputRef.value!.blur()
   window.browserAPI.loadURL(props.tabId, url)
@@ -230,22 +268,26 @@ async function getZoomLevel(): Promise<number> {
     const response = await window.browserAPI.getZoom(props.tabId)
     const index = ZOOM_FACTORS.indexOf(response.factor)
     return index !== -1 ? index : 2
-  } catch {
+  } catch (err) {
+    console.warn('[AddressBar] getZoomLevel failed', String(err))
     return 2
   }
 }
 
 async function setZoom(factor: number): Promise<void> {
+  console.debug('[AddressBar] setZoom: tabId factor', props.tabId, factor)
   await window.browserAPI.setZoom({ tabId: props.tabId, factor })
 }
 
 async function cycleZoom(): Promise<void> {
+  console.debug('[AddressBar] cycleZoom: from', currentZoomIndex.value)
   currentZoomIndex.value = (currentZoomIndex.value + 1) % ZOOM_LEVELS.length
   currentZoomLevel.value = `${ZOOM_LEVELS[currentZoomIndex.value]}%`
   await setZoom(ZOOM_FACTORS[currentZoomIndex.value])
 }
 
 function printPage(): void {
+  console.debug('[AddressBar] printPage: tabId', props.tabId)
   window.browserAPI.printPage({ tabId: props.tabId })
 }
 
@@ -254,6 +296,7 @@ async function syncBookmarkStatus(): Promise<void> {
   if (url && url.startsWith('http')) {
     const result = await window.browserAPI.isBookmarked(url)
     isBookmarked.value = result.isBookmarked
+    console.debug('[AddressBar] syncBookmarkStatus: url isBookmarked', url, result.isBookmarked)
   } else {
     isBookmarked.value = false
   }
@@ -262,16 +305,19 @@ async function syncBookmarkStatus(): Promise<void> {
 async function toggleBookmark(): Promise<void> {
   const url = props.url
   if (!url || !url.startsWith('http')) {
+    console.debug('[AddressBar] toggleBookmark: skip non-http url', url)
     return
   }
 
   if (isBookmarked.value) {
     const result = await window.browserAPI.isBookmarked(url)
     if (result.id) {
+      console.info('[AddressBar] toggleBookmark: removing bookmark id', result.id)
       await window.browserAPI.deleteBookmark(result.id)
     }
     isBookmarked.value = false
   } else {
+    console.info('[AddressBar] toggleBookmark: adding bookmark url', url)
     await window.browserAPI.addBookmark({
       title: url,
       url,
@@ -288,11 +334,13 @@ watch(
 )
 
 onMounted(async () => {
+  console.debug('[AddressBar] onMounted: initializing')
   currentZoomIndex.value = await getZoomLevel()
   currentZoomLevel.value = `${ZOOM_LEVELS[currentZoomIndex.value]}%`
   const settings = await window.browserAPI.getAllSettings()
   searchEngine.value = (settings.searchEngine as string) ?? 'google'
   await syncBookmarkStatus()
+  console.debug('[AddressBar] onMounted: done searchEngine', searchEngine.value)
 })
 </script>
 

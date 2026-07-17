@@ -8,7 +8,7 @@ export { ConfigManager } from './ConfigManager'
 export { downloadMihomo, getMihomoBinaryPath, isMihomoDownloaded } from './CoreDownloader'
 export { HealthChecker } from './HealthChecker'
 export { MihomoProcess } from './MihomoProcess'
-export { ProxyManager } from './ProxyManager'
+export { ProxyManager, resolveProxyConfigDir } from './ProxyManager'
 export type { ProxyProvider } from './ProxyProvider'
 export { TrafficMonitor } from './TrafficMonitor'
 export type {

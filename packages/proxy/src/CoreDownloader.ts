@@ -16,9 +16,16 @@ function getBaseResourcePath(): string {
   const rp = (process as unknown as Record<string, unknown>).resourcesPath
   const base = typeof rp === 'string' ? rp : process.cwd()
   const mihomoDir = join(base, 'mihomo', getPlatformArchDir())
-  if (existsSync(mihomoDir)) return base
+  if (existsSync(mihomoDir)) {
+    console.debug(`[CoreDownloader] getBaseResourcePath: using resourcesPath base=${base}`)
+    return base
+  }
   const projectRoot = join(process.cwd())
-  if (existsSync(join(projectRoot, 'mihomo', getPlatformArchDir()))) return projectRoot
+  if (existsSync(join(projectRoot, 'mihomo', getPlatformArchDir()))) {
+    console.debug(`[CoreDownloader] getBaseResourcePath: using projectRoot=${projectRoot}`)
+    return projectRoot
+  }
+  console.debug(`[CoreDownloader] getBaseResourcePath: falling back to base=${base}`)
   return base
 }
 
@@ -34,6 +41,7 @@ export function isMihomoDownloaded(): boolean {
 }
 
 export async function downloadMihomo(resourcePath: string): Promise<string> {
+  console.debug(`[CoreDownloader] downloadMihomo: resourcePath=${resourcePath}`)
   const dir = join(resourcePath, 'mihomo', getPlatformArchDir())
   mkdirSync(dir, { recursive: true })
 

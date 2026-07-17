@@ -17,6 +17,8 @@
       :draggable="true"
       @click="activateTab(tab.id)"
       @contextmenu="onTabContextMenu($event, tab)"
+      @mouseenter="onTabEnter($event, tab)"
+      @mouseleave="onTabLeave"
       @dragstart="onDragStart($event, index)"
       @dragover="onDragOver($event, index)"
       @dragleave="onDragLeave"
@@ -91,6 +93,7 @@ import IconButton from '@/components/ui/IconButton.vue'
 import { requestAddressBarFocus } from '../composables/useAddressBarFocus'
 import { useI18n } from '../composables/useI18n'
 import { DropdownMenu } from '../lib/dropdown-menu'
+import { Popover } from '../lib/popover'
 import { isMacOS } from '../utils/os'
 import Favicon from './Favicon.vue'
 import Spinner from './ui/Spinner.vue'
@@ -101,12 +104,15 @@ const tabs = ref<TabState[]>([])
 const tabBarRef = ref<HTMLElement>()
 const tabBarWidth = ref(0)
 const isMaximized = ref(false)
-// 当前因右键菜单而高亮的触发元素（popover 关闭时由 onPopoverDismiss 清空）
+// 当前因右键菜单而高亮的触发元素（菜单关闭时由 onClose 清空）
 const activeMenuTabId = ref<string | null>(null)
-// 当前打开的标签右键菜单的 popover id，用于区分 dismiss 事件归属：
-// 打开新菜单会因“bounded 互斥”关闭旧菜单并广播旧菜单的 dismiss，
-// 若不区分 id 会把新菜单标签页的高亮一并清除。
-let currentMenuPopoverId: string | null = null
+
+// --- 标签悬停缩略图（popover 实现） ---
+const thumbnailCache = new Map<string, string>()
+let hoverDelayTimer: ReturnType<typeof setTimeout> | null = null
+let hoverLeaveTimer: ReturnType<typeof setTimeout> | null = null
+let hoverPopover: Popover | null = null
+let hoverPopoverTabId: string | null = null
 
 const TAB_MIN = 30
 const TAB_MAX = 240
@@ -126,16 +132,20 @@ function showTabLoading(tab: TabState) {
 }
 
 function openTabContextMenu(event: MouseEvent, tab: TabState): void {
+  console.debug('[TabBar] openTabContextMenu: tabId', tab.id)
+  closeHoverPopover()
   event.preventDefault()
   event.stopPropagation()
-  // 按鼠标实际位置定位（contextmenu 事件携带 clientX/clientY），而非标签元素矩形
-  const anchor: PopoverAnchor = { type: 'point', x: event.clientX, y: event.clientY, placement: 'bottom-start' }
   activeMenuTabId.value = tab.id
+
   const menu = new DropdownMenu({
     mode: 'bounded',
-    anchor,
+    anchor: {
+      type: 'cursor',
+      placement: 'bottom-start',
+    },
     descriptor: {
-      id: 'tab-context',
+      id: `tab-context-${tab.id}`,
       items: [
         { id: 'new-tab-right', label: t('tab.closeRight'), icon: 'mdi:plus' },
         { id: 'sep-1', type: 'separator' },
@@ -154,15 +164,18 @@ function openTabContextMenu(event: MouseEvent, tab: TabState): void {
         { id: 'close-right', label: t('tab.closeRightTabs'), icon: 'mdi:arrow-right-bold-box-outline' },
       ],
     },
-    onAction: ({ menu: item, context }) => {
-      runTabAction(item.id, tab)
-      context.close()
+    onAction: ({ menu: action }) => {
+      runTabAction(action.id, tab)
+    },
+    onDismiss: () => {
+      activeMenuTabId.value = null
     },
   })
-  currentMenuPopoverId = menu.id
+  void menu
 }
 
 function runTabAction(id: string, tab: TabState): void {
+  console.debug('[TabBar] runTabAction: id tabId', id, tab.id)
   switch (id) {
     case 'new-tab-right':
       void newTabToRight(tab)
@@ -223,18 +236,38 @@ function tabWidthFor(tab: TabState): number {
 let resizeObserver: ResizeObserver | null = null
 
 async function loadTabs(): Promise<void> {
+  console.debug('[TabBar] loadTabs: enter')
   tabs.value = await window.browserAPI.getList()
+  console.debug('[TabBar] loadTabs: count', tabs.value.length)
 }
 
 function activateTab(tabId: string): void {
+  console.debug('[TabBar] activateTab: tabId', tabId)
+  closeHoverPopover()
   window.browserAPI.activateTab(tabId)
 }
 
+function closeHoverPopover(): void {
+  if (hoverDelayTimer) {
+    clearTimeout(hoverDelayTimer)
+    hoverDelayTimer = null
+  }
+  if (hoverLeaveTimer) {
+    clearTimeout(hoverLeaveTimer)
+    hoverLeaveTimer = null
+  }
+  hoverPopover?.close()
+  hoverPopover = null
+  hoverPopoverTabId = null
+}
+
 function closeTab(tabId: string): void {
+  console.debug('[TabBar] closeTab: tabId', tabId)
   window.browserAPI.closeTab(tabId)
 }
 
 function createNewTab(): void {
+  console.debug('[TabBar] createNewTab: enter')
   window.browserAPI.createNewTab()
   requestAddressBarFocus()
 }
@@ -245,6 +278,7 @@ function applyOrder(): void {
   const unpinned = tabs.value.filter((t) => !t.isPinned)
   const ordered = [...pinned, ...unpinned]
   tabs.value = ordered
+  console.debug('[TabBar] applyOrder: order', ordered.map((t) => t.id).join(','))
   window.browserAPI.reorderTabs(ordered.map((t) => t.id))
 }
 
@@ -263,14 +297,17 @@ function isInternalUrl(url: string): boolean {
 }
 
 function minimizeWindow(): void {
+  console.debug('[TabBar] minimizeWindow')
   window.browserAPI.minimizeWindow()
 }
 
 function maximizeWindow(): void {
+  console.debug('[TabBar] maximizeWindow')
   window.browserAPI.maximizeWindow()
 }
 
 function closeWindow(): void {
+  console.debug('[TabBar] closeWindow')
   window.browserAPI.closeWindow()
 }
 
@@ -280,16 +317,19 @@ function onTabContextMenu(event: MouseEvent, tab: TabState): void {
 
 /** 在目标标签右侧新增空白标签页并激活。 */
 async function newTabToRight(tab: TabState): Promise<void> {
+  console.debug('[TabBar] newTabToRight: targetId', tab.id)
   const newTab = await window.browserAPI.createTab({ url: 'wmfx://newtab', activate: true })
   insertAfter(tab.id, newTab)
 }
 
 function reloadTab(tab: TabState): void {
+  console.debug('[TabBar] reloadTab: tabId', tab.id)
   window.browserAPI.reload(tab.id)
 }
 
 /** 复制标签：以相同 url 与会话新建，并插入到原标签右侧。 */
 async function duplicateTab(tab: TabState): Promise<void> {
+  console.debug('[TabBar] duplicateTab: tabId', tab.id)
   const newTab = await window.browserAPI.createTab({
     url: tab.navigation.displayUrl,
     sessionId: tab.sessionId,
@@ -299,34 +339,99 @@ async function duplicateTab(tab: TabState): Promise<void> {
 }
 
 function togglePin(tab: TabState): void {
+  console.debug('[TabBar] togglePin: tabId pinned', tab.id, !tab.isPinned)
   window.browserAPI.setPinned(tab.id, !tab.isPinned)
 }
 
 function toggleMute(tab: TabState): void {
+  console.debug('[TabBar] toggleMute: tabId muted', tab.id, !tab.isMuted)
   window.browserAPI.setMuted(tab.id, !tab.isMuted)
 }
 
 function closeOthers(tab: TabState): void {
   const ids = tabs.value.filter((t) => t.id !== tab.id).map((t) => t.id)
+  console.debug('[TabBar] closeOthers: keep close', tab.id, ids.join(','))
   window.browserAPI.closeTabs(ids)
 }
 
 function closeRight(tab: TabState): void {
   const idx = tabs.value.findIndex((t) => t.id === tab.id)
   const ids = tabs.value.slice(idx + 1).map((t) => t.id)
+  console.debug('[TabBar] closeRight: keep close', tab.id, ids.join(','))
   window.browserAPI.closeTabs(ids)
 }
 
 function closeLeft(tab: TabState): void {
   const idx = tabs.value.findIndex((t) => t.id === tab.id)
   const ids = tabs.value.slice(0, idx).map((t) => t.id)
+  console.debug('[TabBar] closeLeft: keep close', tab.id, ids.join(','))
   window.browserAPI.closeTabs(ids)
+}
+
+// --- 标签悬停缩略图（popover 实现） ---
+function onTabEnter(event: MouseEvent, tab: TabState): void {
+  if (tab.active || tab.isPinned) return
+  cancelHoverLeave()
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  hoverDelayTimer = setTimeout(() => {
+    const src = thumbnailCache.get(tab.id) ?? null
+    const data = { src, loading: !src, title: tab.title || 'New Tab', url: tab.navigation.displayUrl }
+    const anchor: PopoverAnchor = {
+      type: 'rect',
+      rect: { x: rect.left, y: rect.bottom + 6, width: rect.width, height: 0 },
+      placement: 'bottom-start',
+    }
+    // 关闭旧的 hover popover
+    hoverPopover?.close()
+    const tabId = tab.id
+    hoverPopover = new Popover({
+      type: 'tab-thumbnail',
+      mode: 'bounded',
+      anchor,
+      data,
+      size: { width: 280 },
+      persistent: true,
+      onDismiss: () => {
+        // 仅当 dismiss 的是当前 tab 的 popover 时才清理，避免旧 popover 异步 IPC 返回时覆盖新 popover 引用
+        if (hoverPopoverTabId === tabId) {
+          hoverPopover = null
+          hoverPopoverTabId = null
+        }
+      },
+    })
+    hoverPopoverTabId = tab.id
+    // 异步截取缩略图并更新 popover
+    if (!thumbnailCache.has(tab.id)) {
+      void window.browserAPI.captureThumbnail(tab.id).then((dataUrl: string | null) => {
+        if (hoverPopoverTabId === tab.id) {
+          if (dataUrl) thumbnailCache.set(tab.id, dataUrl)
+          hoverPopover?.sendData({ ...data, src: dataUrl, loading: false })
+        }
+      })
+    }
+  }, 300)
+}
+
+function onTabLeave(): void {
+  if (hoverDelayTimer) {
+    clearTimeout(hoverDelayTimer)
+    hoverDelayTimer = null
+  }
+  hoverLeaveTimer = setTimeout(closeHoverPopover, 200)
+}
+
+function cancelHoverLeave(): void {
+  if (hoverLeaveTimer) {
+    clearTimeout(hoverLeaveTimer)
+    hoverLeaveTimer = null
+  }
 }
 
 function onDragStart(event: DragEvent, index: number): void {
   if (!event.dataTransfer) {
     return
   }
+  console.debug('[TabBar] onDragStart: index', index)
   dragSrcIndex = index
   draggingIndex.value = index
   event.dataTransfer.effectAllowed = 'move'
@@ -352,6 +457,7 @@ function onDrop(_event: DragEvent, targetIndex: number): void {
     return
   }
 
+  console.debug('[TabBar] onDrop: src target', dragSrcIndex, targetIndex)
   const newOrder = [...tabs.value]
   const [removed] = newOrder.splice(dragSrcIndex, 1)
   newOrder.splice(targetIndex, 0, removed)
@@ -372,7 +478,6 @@ function onDragEnd(): void {
 let stateChangeHandler: (state: TabState) => void
 let createdHandler: (state: TabState) => void
 let removedHandler: (tabId: string) => void
-let dismissHandler: ((popoverId: string) => void) | null = null
 
 onMounted(() => {
   // 先注册 IPC 监听器，再拉取初始标签列表：避免主进程在两者间隙创建首个标签时，
@@ -381,7 +486,12 @@ onMounted(() => {
     const idx = tabs.value.findIndex((t) => t.id === state.id)
     if (idx >= 0) {
       const wasPinned = tabs.value[idx].isPinned
+      const prevUrl = tabs.value[idx].navigation.committedUrl
       tabs.value[idx] = state
+      // URL 变化时清除缩略图缓存，避免导航后仍显示旧页面预览
+      if (prevUrl !== state.navigation.committedUrl) {
+        thumbnailCache.delete(state.id)
+      }
       if (wasPinned !== state.isPinned) {
         applyOrder()
       }
@@ -406,14 +516,6 @@ onMounted(() => {
   window.browserAPI.onTabStateChange(stateChangeHandler)
   window.browserAPI.onTabCreated(createdHandler)
   window.browserAPI.onTabRemoved(removedHandler)
-  // popover 关闭（无论是点击菜单项还是背景/Esc）时，清除触发元素高亮。
-  // 仅当关闭的是当前标签菜单时才清除，避免“互斥”关闭旧菜单误清新菜单标签页的高亮。
-  dismissHandler = (popoverId: string) => {
-    if (popoverId !== currentMenuPopoverId) return
-    activeMenuTabId.value = null
-    currentMenuPopoverId = null
-  }
-  window.browserAPI.onPopoverDismiss(dismissHandler)
 
   if (tabBarRef.value) {
     tabBarWidth.value = tabBarRef.value.clientWidth
@@ -430,11 +532,12 @@ onUnmounted(() => {
   if (resizeObserver) {
     resizeObserver.disconnect()
   }
+  if (hoverDelayTimer) clearTimeout(hoverDelayTimer)
+  if (hoverLeaveTimer) clearTimeout(hoverLeaveTimer)
+  hoverPopover?.close()
   window.browserAPI.removeListener('tab:state-change', stateChangeHandler as (...args: unknown[]) => void)
   window.browserAPI.removeListener('tab:created', createdHandler as (...args: unknown[]) => void)
   window.browserAPI.removeListener('tab:removed', removedHandler as (...args: unknown[]) => void)
-  if (dismissHandler)
-    window.browserAPI.removeListener('popover:dismiss', dismissHandler as (...args: unknown[]) => void)
 })
 </script>
 

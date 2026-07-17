@@ -29,14 +29,16 @@ const { t } = useI18n()
 const downloadPath = ref('')
 
 async function saveSetting(key: string, value: unknown): Promise<void> {
+  console.debug('[Settings/Downloads] saveSetting: key', key)
   try {
     await window.browserAPI.setSetting({ key, value })
   } catch (err) {
-    console.error(`Failed to save setting ${key}:`, err)
+    console.error(`[Settings/Downloads] Failed to save setting ${key}:`, err)
   }
 }
 
 async function chooseFolder(): Promise<void> {
+  console.debug('[Settings/Downloads] chooseFolder')
   const selected = await window.browserAPI.selectFolder()
   if (selected) {
     downloadPath.value = selected
@@ -45,6 +47,7 @@ async function chooseFolder(): Promise<void> {
 }
 
 async function loadSettings(): Promise<void> {
+  console.debug('[Settings/Downloads] loadSettings')
   const allSettings = await window.browserAPI.getAllSettings()
   downloadPath.value = (allSettings.downloadPath as string) ?? ''
 }

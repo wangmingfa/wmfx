@@ -2,6 +2,7 @@
   "name": "@browser/proxy",
   "version": "0.0.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

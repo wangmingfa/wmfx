@@ -3,15 +3,28 @@
     <div
       v-if="node.isFolder"
       class="bookmark-node-content"
+      :draggable="true"
       @click="handleToggle"
       @contextmenu.prevent="handleContextMenu"
+      @dragstart="(e) => $emit('dragstart', e, node)"
+      @dragover.prevent="(e) => $emit('dragover', e, node)"
+      @drop.prevent="(e) => $emit('drop', e, node)"
     >
       <span class="bookmark-node-icon">{{ expanded ? '▾' : '▸' }}</span>
       <span class="bookmark-node-icon bookmark-icon-folder">📁</span>
       <span class="bookmark-node-title">{{ node.title }}</span>
     </div>
 
-    <div v-else class="bookmark-node-content" @click="handleOpen" @contextmenu.prevent="handleContextMenu">
+    <div
+      v-else
+      class="bookmark-node-content"
+      :draggable="true"
+      @click="handleOpen"
+      @contextmenu.prevent="handleContextMenu"
+      @dragstart="(e) => $emit('dragstart', e, node)"
+      @dragover.prevent="(e) => $emit('dragover', e, node)"
+      @drop.prevent="(e) => $emit('drop', e, node)"
+    >
       <span class="bookmark-node-icon bookmark-icon-link">🔗</span>
       <span class="bookmark-node-title">{{ node.title }}</span>
       <span v-if="node.url" class="bookmark-node-url">{{ node.url }}</span>
@@ -29,6 +42,9 @@
         @add="$emit('add', $event)"
         @open="$emit('open', $event)"
         @contextmenu="(e, item) => $emit('contextmenu', e, item)"
+        @dragstart="(e, item) => $emit('dragstart', e, item)"
+        @dragover="(e, item) => $emit('dragover', e, item)"
+        @drop="(e, item) => $emit('drop', e, item)"
       />
     </ul>
   </li>
@@ -56,20 +72,26 @@ const emit = defineEmits<{
   add: [node: TreeNode]
   open: [item: BookmarkItem]
   contextmenu: [event: MouseEvent, item: BookmarkItem]
+  dragstart: [event: DragEvent, node: TreeNode]
+  dragover: [event: DragEvent, node: TreeNode]
+  drop: [event: DragEvent, node: TreeNode]
 }>()
 
 const expanded = computed(() => props.expandedFolders.has(props.node.id))
 
 function handleToggle() {
   if (!props.node.isFolder) return
+  console.debug('[BookmarkNode] handleToggle: id', props.node.id)
   emit('toggle', props.node)
 }
 
 function handleOpen() {
+  console.debug('[BookmarkNode] handleOpen: id url', props.node.id, props.node.url)
   emit('open', props.node)
 }
 
 function handleContextMenu(event: MouseEvent) {
+  console.debug('[BookmarkNode] handleContextMenu: id', props.node.id)
   emit('contextmenu', event, props.node)
 }
 </script>

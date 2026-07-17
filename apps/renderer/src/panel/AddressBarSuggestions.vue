@@ -19,8 +19,10 @@
         @mousedown.prevent="onSelect(item.url)"
         @mouseenter="activeIndex = index"
       >
+        <!-- history: 本地历史；bookmark: 本地书签；search: 地址栏"用X搜索"直达；engine: 搜索引擎实时建议 -->
         <Icon v-if="item.type === 'history'" icon="carbon:time" width="14" height="14" />
         <Icon v-else-if="item.type === 'bookmark'" icon="carbon:bookmark-filled" width="14" height="14" />
+        <Icon v-else-if="item.type === 'engine'" icon="mdi:magnify" width="14" height="14" />
         <Icon v-else icon="ic:round-search" width="14" height="14" />
         <span class="suggestion-title">{{ item.title }}</span>
         <span class="suggestion-url">{{ item.url }}</span>
@@ -56,6 +58,7 @@ const activeIndex = ref(-1)
 
 onMounted(() => {
   // 延迟到下一帧，确保面板 WebContentsView 已获得焦点（主进程 renderTop 中 webContents.focus）
+  console.debug('[AddressBarSuggestions] onMounted: 聚焦输入框')
   requestAnimationFrame(() => {
     inputRef.value?.focus()
     inputRef.value?.select()
@@ -64,7 +67,8 @@ onMounted(() => {
 
 watch(
   () => props.data.suggestions,
-  () => {
+  (suggestions) => {
+    console.debug('[AddressBarSuggestions] watch suggestions: count', suggestions?.length ?? 0)
     activeIndex.value = -1
   },
 )
@@ -85,11 +89,14 @@ function onKeydown(e: KeyboardEvent): void {
   } else if (e.key === 'Enter') {
     e.preventDefault()
     if (activeIndex.value >= 0 && suggestions[activeIndex.value]) {
+      console.debug('[AddressBarSuggestions] onKeydown: Enter 选中建议 url', suggestions[activeIndex.value].url)
       onSelect(suggestions[activeIndex.value].url)
     } else {
       // 用输入框本地值，而非 props.data.query：后者经主进程异步回传，
       // 快速回车时仍是旧值（可能为空），导致 navigate('') 无响应。
-      emit('event', 'navigate', inputRef.value?.getValue() ?? props.data.query)
+      const value = inputRef.value?.getValue() ?? props.data.query
+      console.debug('[AddressBarSuggestions] onKeydown: Enter 直接导航 value', value)
+      emit('event', 'navigate', value)
     }
   } else if (e.key === 'Escape') {
     emit('event', 'close')
@@ -97,6 +104,7 @@ function onKeydown(e: KeyboardEvent): void {
 }
 
 function onSelect(url: string): void {
+  console.debug('[AddressBarSuggestions] onSelect: url', url)
   emit('event', 'select', url)
 }
 </script>

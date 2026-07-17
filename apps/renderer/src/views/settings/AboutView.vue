@@ -86,6 +86,7 @@ const statusTitle = computed(() => {
 })
 
 async function checkUpdates(): Promise<void> {
+  console.debug('[About] checkUpdates')
   updating.value = true
   try {
     await window.browserAPI.checkForUpdates()
@@ -95,19 +96,23 @@ async function checkUpdates(): Promise<void> {
 }
 
 async function restart(): Promise<void> {
+  console.debug('[About] restart: 重启并安装更新')
   restarting.value = true
   try {
     await window.browserAPI.restartAndInstall()
   } catch {
+    console.error('[About] restart 失败')
     restarting.value = false
   }
 }
 
 function handleUpdaterStatus(s: UpdaterStatus): void {
+  console.debug('[About] handleUpdaterStatus: state', s.state)
   status.value = s
 }
 
 onMounted(async () => {
+  console.debug('[About] onMounted: 加载应用信息与更新状态')
   try {
     appInfo.value = await window.browserAPI.getAppInfo()
   } catch {

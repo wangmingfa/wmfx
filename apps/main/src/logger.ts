@@ -90,7 +90,11 @@ function openStreams(): void {
   const dir = logDir()
   fs.mkdirSync(dir, { recursive: true })
   for (const name of LOG_NAMES) {
-    streams.set(name, fs.createWriteStream(path.join(dir, `${name}.log`), { flags: 'a' }))
+    const s = fs.createWriteStream(path.join(dir, `${name}.log`), { flags: 'a' })
+    // 进程退出时底层 fd 可能已失效，WriteStream 会异步抛出 EIO 等错误，
+    // 必须吞掉，否则变成 uncaughtException 弹窗。
+    s.on('error', () => {})
+    streams.set(name, s)
   }
   streamsOpen = true
 }
@@ -180,12 +184,28 @@ function emit(source: Source, level: Level, message: string): void {
   writeToFiles(source, level, line)
 }
 
+/**
+ * 仅把内容写入日志文件（不输出到控制台），供 logBox 等已经自行格式化打印到控制台的场景使用，
+ * 避免同一内容在控制台被打印两次（一次为矩形框，一次为扁平日志行）。
+ */
+export function appendToLogFiles(source: Source, level: Level, message: string): void {
+  if (LEVEL_ORDER[level] < MIN_LEVEL_NUM) return
+  openStreamsSafe()
+  const line = formatLine(source, level, message)
+  if (cleaning) {
+    pending.push({ line, source, level })
+    return
+  }
+  writeToFiles(source, level, line)
+}
+
 function write(level: Level, args: unknown[]): void {
   emit('main', level, args.map(formatArg).join(' '))
 }
 
 /** 主进程接收渲染进程转发来的日志条目后写入（由 ipc/register 调用）。 */
 export function handleFrontendLog(entry: LogEntry): void {
+  console.debug('[Logger] handleFrontendLog: level', entry.level)
   const level: Level =
     entry.level === 'error'
       ? 'ERROR'
@@ -366,6 +386,7 @@ function printLogLocation(): void {
  * 须在 app ready 后调用（依赖 userData 路径）。
  */
 export async function startLogRotation(): Promise<void> {
+  console.debug('[Logger] startLogRotation')
   openStreams()
   printLogLocation()
   await archiveOldLogs()
@@ -374,10 +395,99 @@ export async function startLogRotation(): Promise<void> {
   scheduleMidnight()
 }
 
+/**
+ * 吞掉 stdout/stderr 的管道断开错误。终端被 Ctrl-C 杀掉后管道失效，
+ * write 的 EIO/EPIPE 会**异步**以 'error' 事件抛出（try/catch 抓不到），
+ * 未处理时变为 uncaughtException 弹窗。此处静默这两类错误。
+ */
+function ignorePipeError(err: NodeJS.ErrnoException): void {
+  if (err.code === 'EIO' || err.code === 'EPIPE') return
+  throw err
+}
+
 export function initLogger(): void {
+  process.stdout.on('error', ignorePipeError)
+  process.stderr.on('error', ignorePipeError)
   console.debug = (...args: unknown[]): void => write('DEBUG', args)
   console.log = (...args: unknown[]): void => write('INFO', args)
   console.info = (...args: unknown[]): void => write('INFO', args)
   console.warn = (...args: unknown[]): void => write('WARN', args)
   console.error = (...args: unknown[]): void => write('ERROR', args)
+}
+
+// ========== 矩形框日志 ==========
+
+const BOX_COLORS = {
+  reset: '\x1b[0m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  magenta: '\x1b[35m',
+  dim: '\x1b[2m',
+} as const
+
+type BoxLevel = 'info' | 'success' | 'warn' | 'error'
+
+const BOX_COLOR_MAP: Record<BoxLevel, string> = {
+  info: BOX_COLORS.cyan,
+  success: BOX_COLORS.green,
+  warn: BOX_COLORS.yellow,
+  error: BOX_COLORS.red,
+}
+
+/** 计算字符串的显示宽度（CJK 字符按 2 计），用于对齐矩形框。 */
+function displayWidth(s: string): number {
+  let w = 0
+  for (const ch of s) {
+    w += /[\u3000-\u9fff\uff00-\uffef\u4e00-\u9fa5]/.test(ch) ? 2 : 1
+  }
+  return w
+}
+
+function padEndDisplay(s: string, width: number): string {
+  const pad = width - displayWidth(s)
+  return pad > 0 ? s + ' '.repeat(pad) : s
+}
+
+/**
+ * 以矩形框形式打印日志（带时间戳行），内容同时输出到控制台与日志文件。
+ * 用于需要醒目标注的提示/错误（如配置校验失败）。
+ * @param highlight 需要以高亮色（magenta）显示的行的下标数组，便于强调关键信息（如路径）。
+ */
+export function logBox(lines: string[], level: BoxLevel = 'info', highlight: number[] = []): void {
+  const color = BOX_COLOR_MAP[level]
+  // 按原始（无 ANSI 码）宽度计算内宽与每行填充，避免转义序列干扰对齐
+  const innerWidth = Math.max(...lines.map((l) => displayWidth(l)))
+  const bar = '─'.repeat(innerWidth + 2)
+  const boxed = lines
+    .map((l, i) => {
+      // 高亮行用 magenta 区分于边框/普通文字色；填充空格保持原色，不计入高亮色
+      const lineColor = highlight.includes(i) ? BOX_COLORS.magenta : color
+      const padded = padEndDisplay(l, innerWidth)
+      return `${color}│ ${lineColor}${padded}${color} ${color}│`
+    })
+    .join('\n')
+  const timeStr = padEndDisplay(formatTimestamp(), innerWidth)
+  const banner = `\n${color}┌${bar}┐\n│ ${BOX_COLORS.dim}${timeStr}${BOX_COLORS.reset}${color} │\n${boxed}\n└${bar}┘${BOX_COLORS.reset}\n`
+  process.stdout.write(banner)
+  // 仅写入日志文件，不重复输出到控制台（避免与上面的矩形框在 stdout 交错）
+  appendToLogFiles('main', level === 'error' ? 'ERROR' : level === 'warn' ? 'WARN' : 'INFO', boxed)
+}
+
+export function logBoxInfo(lines: string[]): void {
+  logBox(lines, 'info')
+}
+
+export function logBoxSuccess(lines: string[]): void {
+  logBox(lines, 'success')
+}
+
+export function logBoxWarn(lines: string[]): void {
+  logBox(lines, 'warn')
+}
+
+/** 错误框；highlight 指定需以 magenta 高亮的行（通常是出错的路径等关键信息）。 */
+export function logBoxError(lines: string[], highlight: number[] = []): void {
+  logBox(lines, 'error', highlight)
 }

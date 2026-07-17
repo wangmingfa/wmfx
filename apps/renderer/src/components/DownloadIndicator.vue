@@ -35,11 +35,13 @@ const hasActiveDownloads = computed(() =>
 
 /** 拉取最近下载（按创建时间倒序，取前 5 条） */
 async function loadDownloads(): Promise<void> {
+  console.debug('[DownloadIndicator] loadDownloads: enter')
   const list = await window.browserAPI.getDownloads({ limit: 20 })
   downloads.value = list
     .slice()
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, 5)
+  console.debug('[DownloadIndicator] loadDownloads: count', downloads.value.length)
 }
 
 /** 按钮锚点：下拉在按钮下方、右对齐（bottom-end） */
@@ -56,6 +58,7 @@ function computeAnchor(): PopoverAnchor {
 }
 
 function openPopover(): void {
+  console.debug('[DownloadIndicator] openPopover: enter')
   void loadDownloads().then(() => {
     popover = new Popover({
       type: 'downloads',
@@ -72,25 +75,30 @@ function openPopover(): void {
       onDismiss: () => {
         isOpen.value = false
         popover = null
+        console.debug('[DownloadIndicator] popover dismissed')
       },
     })
     isOpen.value = true
+    console.debug('[DownloadIndicator] openPopover: opened')
   })
 }
 
 function closePopover(): void {
+  console.debug('[DownloadIndicator] closePopover: enter')
   popover?.close()
   popover = null
   isOpen.value = false
 }
 
 function toggle(): void {
+  console.debug('[DownloadIndicator] toggle: isOpen', isOpen.value)
   if (isOpen.value) closePopover()
   else openPopover()
 }
 
 /** 面板事件路由：进度控制与“查看全部” */
 function onPanelEvent(eventName: string, eventData?: unknown): void {
+  console.debug('[DownloadIndicator] onPanelEvent: event', eventName)
   if (eventName === 'show-all') {
     closePopover()
     void showAll()
@@ -100,17 +108,23 @@ function onPanelEvent(eventName: string, eventData?: unknown): void {
     void window.browserAPI.resumeDownload(eventData)
   } else if (eventName === 'cancel' && typeof eventData === 'string') {
     void window.browserAPI.cancelDownload(eventData)
+  } else if (eventName === 'showInFolder' && typeof eventData === 'string') {
+    void window.browserAPI.showInFolder(eventData)
+  } else if (eventName === 'openFile' && typeof eventData === 'string') {
+    void window.browserAPI.openFile(eventData)
   }
 }
 
 /** 进度广播：增量更新对应项；遇到新下载 id 则补齐并临时弹出下拉（对齐 Chrome） */
 function onProgress(data: { id: string; state: string; receivedBytes: number; totalBytes: number }): void {
+  console.debug('[DownloadIndicator] onProgress: id state', data.id, data.state)
   const existing = downloads.value.find((d) => d.id === data.id)
   if (existing) {
     existing.state = data.state as DownloadState
     existing.receivedBytes = data.receivedBytes
     existing.totalBytes = data.totalBytes
   } else {
+    console.debug('[DownloadIndicator] onProgress: new download id', data.id)
     void loadDownloads().then(() => {
       // 有新下载且下拉未打开时，临时弹出（对齐 Chrome 行为）
       if (!isOpen.value) openPopover()
@@ -128,6 +142,7 @@ function onProgress(data: { id: string; state: string; receivedBytes: number; to
 }
 
 async function showAll(): Promise<void> {
+  console.debug('[DownloadIndicator] showAll: enter')
   const list = await window.browserAPI.getList()
   const existing = list.find(
     (tab) =>
@@ -141,6 +156,7 @@ async function showAll(): Promise<void> {
 }
 
 onMounted(async () => {
+  console.debug('[DownloadIndicator] onMounted: loading downloads')
   await loadDownloads()
   window.browserAPI.onDownloadProgress(onProgress)
 })
