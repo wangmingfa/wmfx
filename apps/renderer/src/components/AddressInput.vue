@@ -11,6 +11,7 @@
       class="address-input"
       :value="modelValue"
       :placeholder="placeholder"
+      :style="{ paddingRight: paddingRight ? `${paddingRight}px` : undefined }"
       @input="onInput"
       @focus="emit('focus')"
       @keydown="onKeydown"
@@ -31,6 +32,8 @@ const props = defineProps<{
   favicon?: string | null
   /** 页面全路径，用于 Favicon 计算缓存 key / 内部页判断 */
   url?: string
+  /** 输入框右侧预留空间（用于避开绝对定位的动作按钮），默认 0 */
+  paddingRight?: number
 }>()
 
 const emit = defineEmits<{
@@ -118,13 +121,16 @@ defineExpose({
   background: transparent;
   border: none;
   border-radius: 0;
-  padding: 0 76px 0 6px;
+  padding: 0 0 0 6px;
   color: var(--text-primary);
   font-size: 13px;
   line-height: 28px;
   outline: none;
   box-sizing: border-box;
   font-family: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .address-input::placeholder {

@@ -4,12 +4,19 @@
     <IconButton icon="ic:round-arrow-forward" :disabled="!canGoForward" @click="goForward" />
     <IconButton :icon="isLoading ? 'ic:round-close' : 'ic:round-refresh'" @click="isLoading ? stop() : reload()" />
     <IconButton icon="ic:round-home" @click="goHome" />
-    <IconButton icon="ic:round-print" @click="printPage" />
+    <IconButton
+      v-if="isExternal"
+      :icon="isReaderMode ? 'mdi:book-open-page-variant' : 'mdi:book-open-outline'"
+      :active="isReaderMode"
+      :tooltip="isReaderMode ? t('reader.exit') : t('reader.enter')"
+      @click="toggleReader"
+    />
     <div class="url-input-wrap">
       <AddressInput
         ref="inputRef"
         v-model="urlInput"
         :placeholder="ADDRESS_BAR_PLACEHOLDER"
+        :padding-right="actionsRightPadding"
         :security-state="securityState"
         :url="props.url"
         :favicon="props.favicon"
@@ -21,9 +28,20 @@
         <button class="zoom-display" @click="cycleZoom">
           {{ currentZoomLevel }}
         </button>
-        <button class="bookmark-btn" :class="{ bookmarked: isBookmarked }" @click="toggleBookmark">
-          <Icon :icon="isBookmarked ? 'ic:round-star' : 'ic:round-star-outline'" :width="iconSize" :height="iconSize" />
-        </button>
+        <IconButton
+          icon="mdi:invert-colors"
+          :active="forceDarkEnabled"
+          :tooltip="forceDarkEnabled ? t('settings.forceDarkOff') : t('settings.forceDarkOn')"
+          @click="toggleForceDark(!forceDarkEnabled)"
+        />
+        <IconButton icon="ic:round-print" :tooltip="t('settings.printPage')" @click="printPage" />
+        <IconButton
+          v-if="isExternal"
+          :icon="isBookmarked ? 'ic:round-star' : 'ic:round-star-outline'"
+          :active="isBookmarked"
+          :tooltip="isBookmarked ? t('bookmark.remove') : t('bookmark.add')"
+          @click="toggleBookmark"
+        />
       </div>
     </div>
     <DownloadIndicator />
@@ -32,11 +50,11 @@
 </template>
 
 <script setup lang="ts">
-import { ADDRESS_BAR_PLACEHOLDER, resolveAddressBarTarget } from '@browser/shared'
-import { Icon } from '@iconify/vue'
-import { onMounted, ref, watch } from 'vue'
+import { ADDRESS_BAR_PLACEHOLDER, isWmfxUrl, resolveAddressBarTarget } from '@browser/shared'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { useAddressBarFocus } from '../composables/useAddressBarFocus'
+import { useI18n } from '../composables/useI18n'
 import { Popover } from '../lib/popover'
 import AddressInput from './AddressInput.vue'
 import AppMenuButton from './AppMenuButton.vue'
@@ -51,13 +69,46 @@ const props = defineProps<{
   isLoading: boolean
   securityState?: 'secure' | 'insecure' | 'internal'
   favicon?: string | null
+  isReaderMode?: boolean
 }>()
 
 const emit = defineEmits<{
   navigate: [url: string]
 }>()
 
-const iconSize = 18
+const { t } = useI18n()
+
+/** 地址栏右侧动作按钮的宽度常量（px） */
+const ZOOM_DISPLAY_WIDTH = 52 // min-width 44px + padding 0 8px
+const ICON_BTN_WIDTH = 26 // IconButton 默认 ~26px
+const ACTION_GAP = 2 // .url-input-actions 的 gap
+const ACTIONS_RIGHT_MARGIN = 6 // .url-input-actions right: 6px
+
+const isExternal = computed(() => {
+  const u = props.url ?? ''
+  return (u.startsWith('http://') || u.startsWith('https://')) && !isWmfxUrl(u)
+})
+
+/** 计算右侧动作按钮的总宽度，作为输入框的 padding-right */
+const actionsRightPadding = computed(() => {
+  let total = ZOOM_DISPLAY_WIDTH + ACTION_GAP // zoom-display (始终显示)
+  total += ICON_BTN_WIDTH + ACTION_GAP // invert-colors (始终显示)
+  total += ICON_BTN_WIDTH + ACTION_GAP // print (始终显示)
+  if (isExternal.value) {
+    total += ICON_BTN_WIDTH + ACTION_GAP // bookmark star (条件显示)
+  }
+  return total + ACTIONS_RIGHT_MARGIN
+})
+
+async function toggleReader(): Promise<void> {
+  console.info(`[AddressBar] toggleReader: tabId=${props.tabId} isReader=${props.isReaderMode}`)
+  try {
+    if (props.isReaderMode) await window.browserAPI.exitReadingMode(props.tabId)
+    else await window.browserAPI.enterReadingMode(props.tabId)
+  } catch (err) {
+    console.error(`[AddressBar] toggleReader failed: ${String(err)}`)
+  }
+}
 
 const searchEngine = ref('google')
 const urlInput = ref('')
@@ -87,6 +138,7 @@ watch(focusNonce, () => {
 })
 
 const isBookmarked = ref(false)
+const forceDarkEnabled = ref(true)
 
 const ZOOM_LEVELS = [50, 75, 100, 125, 150]
 const ZOOM_FACTORS = [0.5, 0.75, 1.0, 1.25, 1.5]
@@ -157,10 +209,12 @@ function openPopover(): void {
         urlInput.value = eventData
         navigate()
       } else if (eventName === 'close') {
+        urlInput.value = props.url ?? ''
         closePopover()
       }
     },
     onDismiss: () => {
+      urlInput.value = props.url ?? ''
       currentPopover = null
       suggestions.value = []
       activeIndex.value = -1
@@ -291,6 +345,18 @@ function printPage(): void {
   window.browserAPI.printPage({ tabId: props.tabId })
 }
 
+async function toggleForceDark(value: boolean): Promise<void> {
+  console.info('[AddressBar] toggleForceDark: tabId', props.tabId, 'to', value)
+  await window.browserAPI.setSetting({ key: 'forceDark', value })
+  forceDarkEnabled.value = value
+}
+
+async function initForceDark(): Promise<void> {
+  const v = (await window.browserAPI.getSetting('forceDark')) as boolean
+  forceDarkEnabled.value = v === true
+  console.debug('[AddressBar] initForceDark: value', v)
+}
+
 async function syncBookmarkStatus(): Promise<void> {
   const url = props.url
   if (url && url.startsWith('http')) {
@@ -339,8 +405,9 @@ onMounted(async () => {
   currentZoomLevel.value = `${ZOOM_LEVELS[currentZoomIndex.value]}%`
   const settings = await window.browserAPI.getAllSettings()
   searchEngine.value = (settings.searchEngine as string) ?? 'google'
+  await initForceDark()
   await syncBookmarkStatus()
-  console.debug('[AddressBar] onMounted: done searchEngine', searchEngine.value)
+  console.debug('[AddressBar] onMounted: done')
 })
 </script>
 
@@ -404,26 +471,6 @@ onMounted(async () => {
   &:hover {
     background: var(--bg-tertiary);
     color: var(--text-primary);
-  }
-}
-
-.bookmark-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  border-radius: 50%;
-
-  &:not(:disabled):hover {
-    background: var(--bg-tertiary);
-  }
-
-  &.bookmarked {
-    color: #f5b041;
   }
 }
 </style>

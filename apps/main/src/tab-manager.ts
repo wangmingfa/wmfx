@@ -25,6 +25,7 @@ import type { CertTrustStore } from './cert-trust-store'
 import { setFavicon } from './favicon-cache'
 import type { HistoryManager } from './history-manager'
 import { loadInternalView } from './internal-url'
+import type { ExtractedArticle, PageEnhanceManager } from './page-enhance-manager'
 import { getPreloadPath } from './paths'
 import type { PopoverManager } from './popover-manager'
 import type { SettingsManager } from './settings-manager'
@@ -58,7 +59,8 @@ export class TabManager {
     private historyManager: HistoryManager,
     private settingsManager: SettingsManager | null = null,
     private popoverManager: PopoverManager,
-    private certTrustStore: CertTrustStore
+    private certTrustStore: CertTrustStore,
+    private pageEnhanceManager: PageEnhanceManager
   ) {
     this.windowId = window.id.toString()
     window.on('close', () => this.destroy())
@@ -88,6 +90,8 @@ export class TabManager {
       id: tabId,
       windowId: this.windowId,
       view: null as unknown as WebContentsView,
+      readerView: null,
+      readerArticle: null,
       sessionId,
       isInternal: wantInternal,
       state: {
@@ -120,6 +124,8 @@ export class TabManager {
         isMuted: false,
         isPinned: false,
         isSuspended: false,
+        isReaderMode: false,
+        isHtmlFullscreen: false,
       },
       isSuspended: false,
     }
@@ -164,6 +170,7 @@ export class TabManager {
 
     console.debug('[TabManager] relaunchView: tabId url didRelaunch=true', tabId, url)
 
+    this.destroyReaderView(tab)
     this.window.contentView.removeChildView(tab.view)
     this.wcToTab.delete(tab.view.webContents.id)
     tab.view.webContents.close()
@@ -227,6 +234,8 @@ export class TabManager {
       /* ignore */
     }
 
+    this.destroyReaderView(tab)
+
     if (wasActive) {
       if (this.tabs.size > 0) {
         // 从 openOrder 尾部往前找第一个还存活的 tab
@@ -271,6 +280,13 @@ export class TabManager {
         if (this.window.contentView.children.includes(previousActive.view)) {
           this.window.contentView.removeChildView(previousActive.view)
         }
+        // 上一个标签的 ReaderView 也一并脱离渲染，切回时按可见性重新置顶
+        if (
+          previousActive.readerView &&
+          this.window.contentView.children.includes(previousActive.readerView)
+        ) {
+          this.window.contentView.removeChildView(previousActive.readerView)
+        }
       } catch {
         /* 视图已脱离 contentView 时忽略 */
       }
@@ -291,6 +307,13 @@ export class TabManager {
     this.window.contentView.addChildView(tab.view)
     this.applyBounds(tab)
 
+    // 阅读态标签：ReaderView 重新置顶于 PageView 之上并同步 bounds
+    if (tab.readerView) {
+      this.window.contentView.addChildView(tab.readerView)
+      const bounds = this.tabBounds.get(tab.id)
+      if (bounds) tab.readerView.setBounds(bounds)
+    }
+
     this.broadcastAllStates()
   }
 
@@ -305,6 +328,7 @@ export class TabManager {
     const bounds = this.tabBounds.get(tab.id)
     if (!bounds) return
     tab.view.setBounds(bounds)
+    if (tab.readerView) tab.readerView.setBounds(bounds)
   }
 
   getState(tabId: string): TabState | null {
@@ -404,6 +428,7 @@ export class TabManager {
       this.suspendTimer = null
     }
     for (const tab of this.tabs.values()) {
+      this.destroyReaderView(tab)
       this.window.contentView.removeChildView(tab.view)
       if (tab.view?.webContents?.isDestroyed && !tab.view.webContents.isDestroyed()) {
         tab.view.webContents.close()
@@ -479,6 +504,12 @@ export class TabManager {
     return isDark ? '#353535' : '#ffffff'
   }
 
+  /** 当前是否处于暗色主题（按全局 theme 设置；供外壳背景色等判断）。 */
+  private isDarkNow(): boolean {
+    const theme = this.settingsManager?.get('theme') ?? 'system'
+    return theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors)
+  }
+
   /** 主题切换时同步所有标签页视图的背景色，避免导航时闪烁旧底色。 */
   updateAllViewBackgrounds(): void {
     const bg = this.resolveViewBackgroundColor()
@@ -487,6 +518,151 @@ export class TabManager {
         tab.view.setBackgroundColor(bg)
       }
     }
+  }
+
+  /** 获取所有外部页（http/https，非内部页）的 WebContents，供主题切换时重注入暗色 CSS。 */
+  getExternalWebContents(): Electron.WebContents[] {
+    const result: Electron.WebContents[] = []
+    for (const tab of this.tabs.values()) {
+      if (
+        !tab.isInternal &&
+        tab.view?.webContents?.isDestroyed &&
+        !tab.view.webContents.isDestroyed()
+      ) {
+        const url = tab.view.webContents.getURL()
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+          result.push(tab.view.webContents)
+        }
+      }
+    }
+    return result
+  }
+
+  /** 存活且可见的 readerView webContents（供主题广播触达阅读页，避免暗色/浅色残留旧色）。 */
+  getReaderWebContents(): Electron.WebContents[] {
+    const result: Electron.WebContents[] = []
+    for (const tab of this.tabs.values()) {
+      const rv = tab.readerView
+      if (rv && !rv.webContents.isDestroyed() && rv.getVisible()) {
+        result.push(rv.webContents)
+      }
+    }
+    return result
+  }
+
+  /** 主题切换时对所有外部页重注入/移除暗色 CSS（内部页由 theme:change 广播控制）。 */
+  reapplyDarkForTheme(isDark: boolean): void {
+    const targets = this.getExternalWebContents()
+    console.info(`[TabManager] reapplyDarkForTheme: isDark=${isDark} count=${targets.length}`)
+    for (const wc of targets) {
+      this.pageEnhanceManager.applyDark(wc, isDark)
+    }
+  }
+
+  /** forceDark 开关切换：立即对所有外部页注入/移除暗色 CSS（无需刷新）。 */
+  setForceDark(value: boolean): void {
+    const targets = this.getExternalWebContents()
+    console.info(`[TabManager] setForceDark: ${value} count=${targets.length}`)
+    if (!value) {
+      this.pageEnhanceManager.removeDarkBatch(targets)
+      return
+    }
+    for (const wc of targets) {
+      this.pageEnhanceManager.applyDark(wc, true)
+    }
+  }
+
+  /**
+   * 懒创建 ReaderView（wmfx://reader 内部页，挂 preload），默认隐藏。
+   * 原 PageView 永不销毁，仅在两者间切换可见性。
+   */
+  private ensureReaderView(tab: Tab): void {
+    if (tab.readerView) return
+    console.debug(`[TabManager] ensureReaderView: tabId=${tab.id}`)
+    const view = new WebContentsView({
+      webPreferences: {
+        session: this.getSession(tab.sessionId),
+        preload: getPreloadPath(),
+      },
+    })
+    view.setBackgroundColor(this.resolveViewBackgroundColor())
+    tab.readerView = view
+    this.window.contentView.addChildView(view)
+    const bounds = this.tabBounds.get(tab.id)
+    if (bounds) view.setBounds(bounds)
+    loadInternalView(view, 'reader')
+    view.setVisible(false)
+  }
+
+  /**
+   * 进入阅读模式：从存活的 PageView 提取正文 → 推给 ReaderView → 切换可见性。
+   * 提取失败时仅广播状态（渲染端据 isReaderMode 判断展示失败），不切换视图。
+   */
+  async enterReadingMode(tabId: string): Promise<void> {
+    console.info(`[TabManager] enterReadingMode: tabId=${tabId}`)
+    const tab = this.tabs.get(tabId)
+    if (!tab || tab.isInternal || tab.view.webContents.isDestroyed()) {
+      console.debug(`[TabManager] enterReadingMode: guard failed tabId=${tabId}`)
+      return
+    }
+    const article = await this.pageEnhanceManager.extractArticle(tab.view.webContents)
+    if (!this.tabs.has(tabId)) return
+    if (!article) {
+      console.debug(`[TabManager] enterReadingMode: no article tabId=${tabId}, abort`)
+      this.broadcastState(tab)
+      return
+    }
+    this.ensureReaderView(tab)
+    const readerView = tab.readerView
+    if (!readerView) return
+    tab.readerArticle = article
+    readerView.webContents.send('reader:article', article)
+    tab.view.setVisible(false)
+    readerView.setVisible(true)
+    console.debug(`[TabManager] enterReadingMode: shown reader tabId=${tabId}`)
+    this.broadcastState(tab)
+  }
+
+  /** 退出阅读模式：隐藏 ReaderView，恢复 PageView 可见。 */
+  exitReadingMode(tabId: string): void {
+    console.info(`[TabManager] exitReadingMode: tabId=${tabId}`)
+    const tab = this.tabs.get(tabId)
+    if (!tab?.readerView) return
+    tab.readerArticle = null
+    tab.readerView.setVisible(false)
+    tab.view.setVisible(true)
+    this.broadcastState(tab)
+  }
+
+  /**
+   * 渲染进程主动拉取当前 tab 的阅读文章（ReaderView 挂载后调用）。
+   * 兜底首次进入竞态：send('reader:article') 可能早于 ReaderView 挂载完成而丢失。
+   */
+  getReaderArticle(tabId: string): ExtractedArticle | null {
+    const tab = this.tabs.get(tabId)
+    console.debug(
+      `[TabManager] getReaderArticle: tabId=${tabId} hasArticle=${!!tab?.readerArticle}`
+    )
+    return tab?.readerArticle ?? null
+  }
+
+  /** 销毁 ReaderView（关闭/销毁标签或视图重建时调用）：脱离 contentView 并关闭 webContents。 */
+  private destroyReaderView(tab: Tab): void {
+    const readerView = tab.readerView
+    if (!readerView) return
+    console.debug(`[TabManager] destroyReaderView: tabId=${tab.id}`)
+    try {
+      if (this.window.contentView.children.includes(readerView)) {
+        this.window.contentView.removeChildView(readerView)
+      }
+      if (!readerView.webContents.isDestroyed()) {
+        readerView.webContents.close()
+      }
+    } catch {
+      /* ignore */
+    }
+    tab.readerView = null
+    tab.readerArticle = null
   }
 
   private checkSuspendTabs(): void {
@@ -512,6 +688,7 @@ export class TabManager {
     )
     this.window.contentView.removeChildView(tab.view)
     tab.view.webContents.close()
+    this.destroyReaderView(tab)
     tab.isSuspended = true
     this.broadcastState(tab)
   }
@@ -611,6 +788,13 @@ export class TabManager {
         )
       }
 
+      // 外部页导航：按 forceDark 设置注入/移除暗色 CSS（isExternal 由 PageEnhanceManager 内部判断，wmfx:// 内部页不会被处理）；若处于阅读态，文章随新页失效，自动退出
+      this.pageEnhanceManager.resetDark(wc)
+      this.pageEnhanceManager.applyDark(wc, this.settingsManager?.get('forceDark') === true)
+      if (tab.readerView?.getVisible()) {
+        this.exitReadingMode(tab.id)
+      }
+
       // 无痕标签不写入历史（独立无痕窗口 / 无痕 session）
       if (
         tab.sessionId !== 'incognito' &&
@@ -638,6 +822,14 @@ export class TabManager {
       tab.state.canGoBack = wc.navigationHistory.canGoBack()
       tab.state.canGoForward = wc.navigationHistory.canGoForward()
       this.broadcastState(tab)
+
+      // 外部页页内导航（hash/history）：维持暗色 CSS；处于阅读态则退出
+      if (!tab.isInternal && !isWmfxUrl(url)) {
+        this.pageEnhanceManager.applyDark(wc, this.isDarkNow())
+        if (tab.readerView?.getVisible()) {
+          this.exitReadingMode(tab.id)
+        }
+      }
     })
 
     wc.on('page-title-updated', (_, title) => {
@@ -647,7 +839,7 @@ export class TabManager {
 
     wc.on('page-favicon-updated', (_, favicons) => {
       // 内部页（wmfx://）没有真实 favicon，浏览器会回退到页面所在源的 /favicon.ico
-      // （如开发态的 http://localhost:5173/favicon.ico），渲染即成破图。内部页由外壳按路由展示图标。
+      // （如开发态的 http://localhost:<端口>/favicon.ico），渲染即成破图。内部页由外壳按路由展示图标。
       if (tab.isInternal) {
         return
       }
@@ -758,6 +950,19 @@ export class TabManager {
       } else {
         tab.view.webContents.loadURL(url)
       }
+    })
+
+    // HTML 全屏：网页通过 Fullscreen API 请求全屏时隐藏 UI
+    wc.on('enter-html-full-screen', () => {
+      console.info('[TabManager] enter-html-full-screen: tabId', tab.id)
+      tab.state.isHtmlFullscreen = true
+      this.broadcastState(tab)
+    })
+
+    wc.on('leave-html-full-screen', () => {
+      console.info('[TabManager] leave-html-full-screen: tabId', tab.id)
+      tab.state.isHtmlFullscreen = false
+      this.broadcastState(tab)
     })
 
     // 网页右键菜单：外部页无 preload，必须由主进程拦截 context-menu 事件并复用 Popover 渲染
@@ -901,6 +1106,8 @@ export class TabManager {
       ...tab.state,
       active: tab.id === this.activeTabId,
       isSuspended: tab.isSuspended,
+      isReaderMode: Boolean(tab.readerView?.getVisible()),
+      isHtmlFullscreen: tab.state.isHtmlFullscreen,
     }
   }
 
@@ -998,6 +1205,10 @@ interface Tab {
   id: string
   windowId: string
   view: WebContentsView
+  /** 阅读模式视图（wmfx://reader 内部页），懒创建；原 PageView 永不销毁，仅切换可见性。 */
+  readerView: WebContentsView | null
+  /** 最近一次提取的阅读文章：ReaderView 挂载后主动拉取（首次 send 竞态兜底），导航/退出后置空。 */
+  readerArticle: ExtractedArticle | null
   sessionId: string
   /** 是否为内部页标签：决定是否挂 preload 以及在 did-navigate 中的分类逻辑。 */
   isInternal: boolean

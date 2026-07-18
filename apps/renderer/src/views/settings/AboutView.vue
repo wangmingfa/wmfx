@@ -27,7 +27,7 @@
         <NButton v-if="status.state === 'downloaded'" type="primary" :loading="restarting" @click="restart">
           {{ t('about.restartToUpdate') }}
         </NButton>
-        <NButton v-else :loading="updating" @click="checkUpdates">
+        <NButton v-else type="primary" :loading="updating" @click="checkUpdates">
           {{ updating ? t('about.checking') : t('about.checkForUpdates') }}
         </NButton>
       </div>

@@ -73,17 +73,17 @@
 - [x] **历史按日期分组** — "今天/昨天/本周/更早"分组渲染，搜索结果同样分组
 - [x] **启动行为 / 主页设置** — 设置页可选手动主页、启动时打开新标签页/上次会话/主页（`SettingsManager.launchBehavior`：`restore | newtab | homepage`）
 - [x] **搜索实时建议（Omnibox）** — 主进程抓取搜索引擎实时建议（Google/Baidu/Bing），与本地 history+bookmark 合并排序，带总开关（SettingsManager.searchSuggestions）
-- [x] **独立无痕窗口** — 整窗隔离的无痕窗口（Cmd+Shift+N），使用独立内存 partition（sessionId='incognito'），不落盘会话/尺寸，关闭即焚（最后一个无痕窗口关闭时清空内存 partition 存储）；由 `createWindow({incognito:true})` 与 `openIncognitoWindow` 实现
+- [x] **独立无痕窗口** — 整窗隔离的无痕窗口（Cmd+Shift+N），使用独立内存 partition（sessionId='incognito'），不落盘会话/尺寸，关闭即焚（最后一个无痕窗口关闭时清空内存 partition 存储）；由 `createWindow({incognito:true})` 与 `openIncognitoWindow` 实现。渲染端配套：挂载时通过 `window:getInfo` 感知无痕窗口，整窗外壳切换深紫灰无痕主题（`.chrome-ui--incognito` + CSS 变量覆盖）、标签栏无痕底色、右下角「无痕窗口」指示徽标；应用菜单在无痕窗口内将「新建隐身标签页」替换为禁用态的「无痕窗口」状态项
 - [ ] **远程调试端口** — `--remote-debugging-port` 支持
 - [x] **撤销关闭标签（Cmd+Shift+T）** — 维护最近关闭标签栈，重开已关标签
 - [x] **字体 / 编码设置** — 默认字体（system-ui/sans-serif/serif/monospace）、字号（12-24px）、编码（UTF-8/GBK/Big5 等），通过 `SettingsManager` 持久化，页面加载时注入 `document.documentElement.style` 与 `document.charset`
-- [ ] **阅读模式 / 页面级暗色注入** — 阅读模式与强制暗色网站 CSS 注入（当前仅外壳主题跟随系统）
+- [x] **阅读模式 / 页面级暗色注入** — 阅读模式（`@mozilla/readability` esbuild 打包 IIFE 提取正文 + 双 WebContentsView 切换，原网页 `setVisible` 隐藏不销毁，`wmfx://reader` 渲染，DOMPurify 消毒正文）；页面级暗色注入（CSS 滤镜反色，仅外部 http(s) 页，跟随全局主题，导航/主题切换重注入，全量导航后重置 key）；地址栏阅读模式按钮（仅外部页）；`PageEnhanceManager` + `TabManager` 编排
 
 ## Phase 4 — 增强能力（未开始）
 
-- [ ] 广告拦截（Ad blocker）
+- [x] 广告拦截（Ad blocker）— 基于 `session.webRequest.onBeforeRequest` 拦截广告/追踪请求；内置常见广告/追踪域名清单（零依赖、免联网）+ 用户自定义黑名单/白名单（SettingsManager 持久化）；开关 `adBlockEnabled` 默认开；设置-隐私页提供开关与拦截统计；`SessionManager` 在每个新建 session 幂等挂载
 - [ ] 请求拦截（Request interception）
-- [ ] 密码管理器（Password manager）
+- [x] 密码管理器（Password manager）— `wmfx://passwords` 内部页：列表/搜索/新增/编辑/删除，密码复制与显隐；主进程 `PasswordManager` 以 electron-store 持久化、落盘经 `safeStorage`（OS 密钥链）加密，明文不写磁盘；变更经 `passwords:changed` 广播；应用菜单新增「密码」入口
 - [ ] 工作区（Workspace）
 - [ ] 分屏视图（Split view）
 - [ ] 垂直标签（Vertical tabs）

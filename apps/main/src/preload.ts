@@ -1,4 +1,6 @@
 import type {
+  AdBlockLogEntry,
+  AdBlockRule,
   AppInfo,
   AutocompleteQuery,
   AutocompleteSuggestion,
@@ -15,6 +17,8 @@ import type {
   HistoryItem,
   LogEntry,
   NativeMenuItemDescriptor,
+  PasswordEntry,
+  PasswordEntryInput,
   PopoverAnchor,
   PopoverEventPayload,
   PopoverMode,
@@ -93,11 +97,25 @@ const api: {
   searchBookmarks: ({ query }: { query: string }) => Promise<BookmarkItem[]>
   importBookmarks: (html: string) => Promise<void>
   exportBookmarks: () => Promise<{ html: string }>
+  // Password manager
+  getPasswords: () => Promise<PasswordEntry[]>
+  searchPasswords: (opts: { query: string }) => Promise<PasswordEntry[]>
+  savePassword: (input: PasswordEntryInput) => Promise<PasswordEntry>
+  deletePassword: (id: string) => Promise<void>
   // Page
   printPage: (opts: TabPrintOptions) => Promise<void>
   printToPDF: (opts: TabPrintToPdfOptions) => Promise<{ path: string }>
   setZoom: (opts: TabZoomOptions) => Promise<void>
   getZoom: (tabId: string) => Promise<{ factor: number }>
+  // Reader mode
+  enterReadingMode: (tabId: string) => Promise<void>
+  exitReadingMode: (tabId: string) => Promise<void>
+  onReaderArticle: (
+    cb: (article: { title: string; content: string; byline: string | null; url: string }) => void
+  ) => () => void
+  requestReaderArticle: (
+    tabId: string
+  ) => Promise<{ title: string; content: string; byline: string | null; url: string } | null>
   // Settings
   getSetting: (key: string) => Promise<unknown>
   setSetting: ({ key, value }: { key: string; value: unknown }) => Promise<void>
@@ -126,6 +144,7 @@ const api: {
   }) => Promise<void>
   getDragBookmarkId: () => Promise<string | null>
   onBookmarksChanged: (cb: () => void) => void
+  onBookmarkBarChanged: (cb: () => void) => void
   // Find in Page
   startFind: (opts: FindInPageOptions) => void
   endFind: (tabId: string) => Promise<void>
@@ -209,6 +228,11 @@ const api: {
   // Default browser
   setDefaultBrowser: () => Promise<SetDefaultBrowserResult>
   isDefaultBrowser: () => Promise<boolean>
+  // Ad blocker
+  getAdBlockStatus: () => Promise<{ enabled: boolean; blockedCount: number; ruleCount: number }>
+  setAdBlockEnabled: (enabled: boolean) => Promise<void>
+  getAdBlockRules: () => Promise<AdBlockRule[]>
+  getAdBlockLog: () => Promise<AdBlockLogEntry[]>
   // Favicon cache
   faviconGet: (key: string) => Promise<string | null>
   // Popover
@@ -301,11 +325,26 @@ const api: {
   searchBookmarks: ({ query }) => ipcRenderer.invoke('bookmark:search', { query }),
   importBookmarks: (html) => ipcRenderer.invoke('bookmark:import', html),
   exportBookmarks: () => ipcRenderer.invoke('bookmark:export'),
+  // Password manager
+  getPasswords: () => ipcRenderer.invoke('password:list'),
+  searchPasswords: (opts) => ipcRenderer.invoke('password:search', opts),
+  savePassword: (input) => ipcRenderer.invoke('password:save', input),
+  deletePassword: (id) => ipcRenderer.invoke('password:delete', id),
   // Page
   printPage: (opts) => ipcRenderer.invoke('page:print', opts),
   printToPDF: (opts) => ipcRenderer.invoke('page:printToPDF', opts),
   setZoom: (opts) => ipcRenderer.invoke('page:setZoom', opts),
   getZoom: (tabId) => ipcRenderer.invoke('page:getZoom', tabId),
+  // Reader mode
+  enterReadingMode: (tabId) => ipcRenderer.invoke('page:enterReadingMode', tabId),
+  exitReadingMode: (tabId) => ipcRenderer.invoke('page:exitReadingMode', tabId),
+  onReaderArticle: (cb) => {
+    const listener = (_e: Electron.IpcRendererEvent, article: unknown): void =>
+      cb(article as { title: string; content: string; byline: string | null; url: string })
+    ipcRenderer.on('reader:article', listener)
+    return () => ipcRenderer.removeListener('reader:article', listener)
+  },
+  requestReaderArticle: (tabId) => ipcRenderer.invoke('reader:requestArticle', tabId),
   // Settings
   getSetting: (key) => ipcRenderer.invoke('settings:get', key),
   setSetting: ({ key, value }) => ipcRenderer.invoke('settings:set', { key, value }),
@@ -332,6 +371,7 @@ const api: {
   dragBookmarkDrop: (opts) => ipcRenderer.invoke('bookmark:drag-drop', opts),
   getDragBookmarkId: () => ipcRenderer.invoke('bookmark:drag-get'),
   onBookmarksChanged: (cb) => ipcRenderer.on('bookmarks:changed', () => cb()),
+  onBookmarkBarChanged: (cb) => ipcRenderer.on('bookmarkBar:changed', () => cb()),
   // Find in Page
   startFind: (opts) => ipcRenderer.send('page:startFind', opts),
   endFind: (tabId) => ipcRenderer.invoke('page:endFind', tabId),
@@ -435,7 +475,12 @@ const api: {
   // Default browser
   setDefaultBrowser: () => ipcRenderer.invoke('default-browser:set'),
   isDefaultBrowser: () => ipcRenderer.invoke('default-browser:isDefault'),
-  // Favicon
+  // Ad blocker
+  getAdBlockStatus: () => ipcRenderer.invoke('adblock:getStatus'),
+  setAdBlockEnabled: (enabled: boolean) => ipcRenderer.invoke('adblock:setEnabled', enabled),
+  getAdBlockRules: () => ipcRenderer.invoke('adblock:getRules'),
+  getAdBlockLog: () => ipcRenderer.invoke('adblock:getLog'),
+  // Favicon cache
   faviconGet: (key: string) => ipcRenderer.invoke('favicon:get', key),
 }
 

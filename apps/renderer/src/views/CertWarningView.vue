@@ -1,6 +1,8 @@
 <template>
   <div class="cert-warning-page">
-    <div class="cert-icon">🔒</div>
+    <div class="cert-icon">
+      🔒
+    </div>
     <h1>{{ t('certWarning.title') }}</h1>
     <p class="cert-desc">
       {{ t('certWarning.description') }}

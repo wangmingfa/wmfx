@@ -4,7 +4,7 @@
     icon="carbon:overflow-menu-vertical"
     :size="18"
     :active="isOpen"
-    :title="t('tab.menu')"
+    :tooltip="t('tab.menu')"
     @click.stop="openMenu"
   />
   <ClearDataDialog v-model:show="showClearDialog" />
@@ -23,6 +23,15 @@ const { t } = useI18n()
 const isOpen = ref(false)
 const showBookmarkBar = ref(false)
 const showClearDialog = ref(false)
+/** 当前窗口是否为独立无痕窗口（由主进程 window:getInfo 返回） */
+const isIncognito = ref(false)
+
+function refreshWindowInfo(): void {
+  void window.browserAPI.getWindowInfo().then((info) => {
+    isIncognito.value = Boolean(info?.isIncognito)
+    console.debug('[AppMenuButton] refreshWindowInfo: isIncognito', isIncognito.value)
+  })
+}
 
 function refreshBookmarkBar(): void {
   void window.browserAPI.getSetting('showBookmarkBar').then((v) => {
@@ -41,8 +50,12 @@ const menuItems = computed<MenuItem[]>(() => {
   bookmarksChildren.push({ id: 'all-bookmarks', label: t('appMenu.allBookmarks'), icon: 'mdi:bookmark-multiple' })
 
   return [
-    { id: 'incognito', label: t('appMenu.incognito'), icon: 'mdi:account-off' },
+    // 独立无痕窗口内不再提供「新建隐身标签页」（整窗已是内存隔离），改为状态展示
+    isIncognito.value
+      ? { id: 'incognito-state', label: t('appMenu.incognitoWindow'), icon: 'mdi:account-off', disabled: true }
+      : { id: 'incognito', label: t('appMenu.incognito'), icon: 'mdi:account-off' },
     { id: 'new-window', label: t('appMenu.newWindow'), icon: 'mdi:window-open' },
+    { id: 'sep-1', type: 'separator' },
     {
       id: 'bookmarks',
       label: t('appMenu.bookmarks'),
@@ -51,8 +64,10 @@ const menuItems = computed<MenuItem[]>(() => {
       children: bookmarksChildren,
     },
     { id: 'wmfx://history', label: t('appMenu.history'), icon: 'mdi:history' },
+    { id: 'wmfx://passwords', label: t('appMenu.passwords'), icon: 'mdi:form-textbox-password' },
     { id: 'wmfx://downloads', label: t('appMenu.downloads'), icon: 'mdi:download' },
     { id: 'wmfx://proxy', label: t('appMenu.proxy'), icon: 'mdi:network' },
+    { id: 'sep-2', type: 'separator' },
     { id: 'wmfx://settings', label: t('appMenu.settings'), icon: 'mdi:cog' },
     { id: 'clear-data', label: t('appMenu.clearData'), icon: 'mdi:delete-sweep' },
   ]
@@ -66,7 +81,7 @@ function openMenu(event: MouseEvent): void {
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
 
   const menu = new DropdownMenu({
-    mode: 'bounded',
+    mode: 'overlay',
     anchor: {
       type: 'rect',
       rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
@@ -138,6 +153,7 @@ async function openBookmarkManager(): Promise<void> {
 
 onMounted(() => {
   refreshBookmarkBar()
+  refreshWindowInfo()
 })
 </script>
 

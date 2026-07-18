@@ -153,8 +153,8 @@
   --bg-primary: #ffffff;
   /* 次要背景色（设置项、卡片等） */
   --bg-secondary: #f5f5f5;
-  /* 三级背景色（hover 态、分隔区域） */
-  --bg-tertiary: #e8e8e8;
+  /* 三级背景色（hover 态、分隔区域、菜单边框） */
+  --bg-tertiary: #d5d5d5;
   /* 标签栏背景色（浅蓝） */
   --tabbar-bg: #cddffd;
   /* Chrome 外壳背景色（标签页区域） */
@@ -175,6 +175,8 @@
   --url-input-bg: #eaf0f9;
   /* hover / 激活态背景色（明显深于 bg-secondary 以便区分） */
   --bg-hover: #e8e8e8;
+  /* 更淡的 hover 背景色（列表行等大面积 hover 用，弱于 --bg-hover） */
+  --bg-hover-subtle: #f0f0f0;
   /* 标签页 hover 背景色 */
   --bg-tab-hover: #9ec0f9;
   /* 错误提示文字色 */
@@ -255,8 +257,8 @@
   --bg-primary: #353535;
   /* 次要背景色（设置项、卡片等） */
   --bg-secondary: #2d2d2d;
-  /* 三级背景色（hover 态、分隔区域） */
-  --bg-tertiary: #3d3d3d;
+  /* 三级背景色（hover 态、分隔区域、菜单边框） */
+  --bg-tertiary: #555555;
   /* 标签栏背景色 */
   --tabbar-bg: #292929;
   /* Chrome 外壳背景色（标签页区域） */
@@ -277,6 +279,8 @@
   --url-input-bg: #242424;
   /* hover / 激活态背景色（略亮于 bg-primary） */
   --bg-hover: #404040;
+  /* 更淡的 hover 背景色（列表行等大面积 hover 用，弱于 --bg-hover） */
+  --bg-hover-subtle: #333333;
   /* 标签页 hover 背景色 */
   --bg-tab-hover: #1d4974;
   /* 错误提示文字色 */
@@ -387,4 +391,45 @@
 
 .default-browser-status.error {
   color: var(--error-color);
+}
+
+/* ============================================================
+ * 独立无痕窗口主题：整窗外壳使用深紫灰配色，与普通窗口区分
+ * （主进程 createWindow 以 #2b1a3d 作为窗口背景，渲染端外壳变量对齐）
+ * ============================================================ */
+.chrome-ui--incognito {
+  /* 外壳主背景（标签栏、地址栏区域） */
+  --bg-primary: #2b1a3d;
+  /* 次级/卡片背景 */
+  --bg-secondary: #34234a;
+  /* 三级背景（hover/分隔） */
+  --bg-tertiary: #3d2a56;
+  /* 标签栏背景 */
+  --tabbar-bg: #2b1a3d;
+  /* Chrome 外壳背景 */
+  --chrome-bg: #2b1a3d;
+  /* 主文字 */
+  --text-primary: #e6def5;
+  /* 次要文字 */
+  --text-secondary: #b3a4d1;
+  /* 弱化文字 */
+  --text-muted: #8a7aa8;
+  /* 分隔线/边框 */
+  --border-color: #4a3568;
+  /* 地址栏输入框背景 */
+  --url-input-bg: #3d2a56;
+  /* hover 态背景 */
+  --bg-hover: #4a3568;
+  /* 更淡的 hover 背景色（列表行等大面积 hover 用，弱于 --bg-hover） */
+  --bg-hover-subtle: #3f2d5a;
+  /* 标签页 hover 背景 */
+  --bg-tab-hover: #4a3568;
+  /* 强调色（无痕紫） */
+  --accent-color: #a78bfa;
+  /* 危险色 */
+  --danger-color: #ff6b8a;
+  /* 错误提示文字 */
+  --error-color: #ff6b8a;
+  /* 成功色 */
+  --success-color: #5fd99a;
 }

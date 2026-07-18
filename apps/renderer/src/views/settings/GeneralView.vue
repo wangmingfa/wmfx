@@ -1,56 +1,56 @@
 <template>
-  <SettingsSection :title="t('settings.sections.basic')">
-    <SettingsItem :label="t('settings.searchEngine')">
+  <Section :title="t('settings.sections.basic')">
+    <SectionItem :label="t('settings.searchEngine')">
       <NSelect
         v-model:value="searchEngine"
         :options="searchEngines"
         @update:value="saveSetting('searchEngine', $event)"
       />
-    </SettingsItem>
+    </SectionItem>
 
-    <SettingsItem :label="t('settings.searchSuggestions')">
+    <SectionItem :label="t('settings.searchSuggestions')">
       <NSwitch v-model:value="searchSuggestions" />
-    </SettingsItem>
+    </SectionItem>
 
-    <SettingsItem :label="t('settings.launchBehavior')">
+    <SectionItem :label="t('settings.launchBehavior')">
       <NSelect
         v-model:value="launchBehavior"
         :options="launchBehaviorOptions"
         @update:value="saveSetting('launchBehavior', $event)"
       />
-    </SettingsItem>
+    </SectionItem>
 
-    <SettingsItem :label="t('settings.newTabUrl')">
+    <SectionItem :label="t('settings.newTabUrl')">
       <NInput
         v-model:value="newTabUrl"
         :placeholder="t('settings.zoomPlaceholder')"
         @update:value="saveSetting('newTabUrl', $event)"
       />
-    </SettingsItem>
+    </SectionItem>
 
-    <SettingsItem :label="t('settings.defaultFont')">
+    <SectionItem :label="t('settings.defaultFont')">
       <NSelect v-model:value="defaultFont" :options="fontOptions" @update:value="saveSetting('defaultFont', $event)" />
-    </SettingsItem>
+    </SectionItem>
 
-    <SettingsItem :label="t('settings.defaultFontSize')">
+    <SectionItem :label="t('settings.defaultFontSize')">
       <NSelect
         v-model:value="defaultFontSize"
         :options="fontSizeOptions"
         @update:value="saveSetting('defaultFontSize', $event)"
       />
-    </SettingsItem>
+    </SectionItem>
 
-    <SettingsItem :label="t('settings.defaultEncoding')">
+    <SectionItem :label="t('settings.defaultEncoding')">
       <NSelect
         v-model:value="defaultEncoding"
         :options="encodingOptions"
         @update:value="saveSetting('defaultEncoding', $event)"
       />
-    </SettingsItem>
-  </SettingsSection>
+    </SectionItem>
+  </Section>
 
-  <SettingsSection :title="t('settings.sections.appearance')">
-    <SettingsItem :label="t('settings.defaultZoom')">
+  <Section :title="t('settings.sections.appearance')">
+    <SectionItem :label="t('settings.defaultZoom')">
       <div class="zoom-control">
         <span class="zoom-value">{{ (defaultZoom * 100).toFixed(0) }}%</span>
         <NSlider
@@ -63,19 +63,19 @@
           @update:value="saveSetting('defaultZoom', $event)"
         />
       </div>
-    </SettingsItem>
+    </SectionItem>
 
-    <SettingsItem :label="t('settings.openInNewTab')">
+    <SectionItem :label="t('settings.openInNewTab')">
       <NSwitch v-model:value="openInNewTab" />
-    </SettingsItem>
+    </SectionItem>
 
-    <SettingsItem :label="t('settings.openBookmarkInNewTab')">
+    <SectionItem :label="t('settings.openBookmarkInNewTab')">
       <NSwitch v-model:value="openBookmarkInNewTabSetting" />
-    </SettingsItem>
-  </SettingsSection>
+    </SectionItem>
+  </Section>
 
-  <SettingsSection :title="t('settings.sections.system')">
-    <SettingsItem :label="t('settings.defaultBrowser')">
+  <Section :title="t('settings.sections.system')">
+    <SectionItem :label="t('settings.defaultBrowser')">
       <div class="default-browser-row">
         <span v-if="isDefaultBrowser" class="default-browser-status">{{ t('settings.isDefaultBrowser') }}</span>
         <span v-else-if="failedTip" class="default-browser-status error">{{ t('settings.defaultBrowserFailed') }}</span>
@@ -84,21 +84,21 @@
           {{ t('settings.makeDefault') }}
         </NButton>
       </div>
-    </SettingsItem>
-  </SettingsSection>
+    </SectionItem>
+  </Section>
 
-  <SettingsSection :title="t('settings.sections.language')">
-    <SettingsItem :label="t('settings.language')">
+  <Section :title="t('settings.sections.language')">
+    <SectionItem :label="t('settings.language')">
       <NSelect v-model:value="currentLang" :options="languageOptions" @update:value="saveLanguage()" />
-    </SettingsItem>
-  </SettingsSection>
+    </SectionItem>
+  </Section>
 </template>
 
 <script setup lang="ts">
 import { NButton, NInput, NSelect, NSlider, NSwitch } from 'naive-ui'
 import { computed, onMounted, ref, watch } from 'vue'
-import SettingsItem from '@/components/SettingsItem.vue'
-import SettingsSection from '@/components/SettingsSection.vue'
+import Section from '@/components/Section.vue'
+import SectionItem from '@/components/SectionItem.vue'
 import { setLang, useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()

@@ -18,12 +18,14 @@ import {
   SubscriptionRepository,
 } from '@wmfx/database'
 import { app, BrowserWindow, nativeImage, nativeTheme } from 'electron'
+import type { AdBlocker } from './ad-blocker'
 import { BookmarkManager } from './bookmark-manager'
 import { CertTrustStore } from './cert-trust-store'
 import { loadVueDevToolsForSession } from './devtools'
 import { DownloadManager } from './download-manager'
 import { HistoryManager } from './history-manager'
 import { NavigationManager } from './navigation-manager'
+import { PageEnhanceManager } from './page-enhance-manager'
 import {
   getPreloadPath,
   getRendererDevServerUrl,
@@ -69,10 +71,17 @@ export interface CreateWindowOptions {
 /** 跨窗口共享的 SessionManager（default / incognito 分区一致） */
 let sharedSessionManager: SessionManager | null = null
 
+/** 应用级共享 AdBlocker，由 setAdBlocker 注入后挂载到每个 session */
+let appAdBlocker: AdBlocker | null = null
+
 function getSharedSessionManager(): SessionManager {
   if (!sharedSessionManager) {
     sharedSessionManager = new SessionManager()
     console.debug('[WindowManager] getSharedSessionManager: created shared SessionManager')
+    // 每个新建 session 挂载广告拦截器（AdBlocker.attach 内部幂等）
+    if (appAdBlocker) {
+      sharedSessionManager.setOnSessionReady((sess) => appAdBlocker!.attach(sess))
+    }
   }
   return sharedSessionManager
 }
@@ -201,6 +210,7 @@ export function createWindow(
 
   // 无痕窗口强制 defaultSessionName=incognito，新建标签默认走内存分区
   const defaultSessionName = isIncognito ? 'incognito' : 'default'
+  const pageEnhanceManager = new PageEnhanceManager()
   const tabManager = new TabManager(
     win,
     (name) => sessionManager.getSession(name),
@@ -208,7 +218,8 @@ export function createWindow(
     historyManager,
     settingsManager,
     popoverManager,
-    certTrustStore
+    certTrustStore,
+    pageEnhanceManager
   )
   const navigationManager = new NavigationManager(tabManager)
   const tabSession = sessionManager.getSession(defaultSessionName)
@@ -324,6 +335,24 @@ export function setAppProxyManager(pm: ProxyManager): void {
   appProxyManager = pm
 }
 
+/** 在 app 启动时注入共享 AdBlocker，并挂载到后续创建的每个 session */
+export function setAdBlocker(ab: AdBlocker): void {
+  console.debug('[WindowManager] setAdBlocker: set')
+  appAdBlocker = ab
+  // 若 SessionManager 已存在（先建窗口后注入的极端情况），补挂已有 session
+  if (sharedSessionManager) {
+    sharedSessionManager.setOnSessionReady((sess) => appAdBlocker!.attach(sess))
+    for (const name of sharedSessionManager.getPartitions()) {
+      appAdBlocker.attach(sharedSessionManager.getSession(name))
+    }
+  }
+}
+
+/** 获取应用级共享广告拦截器（供 IPC 注册使用） */
+export function requireAdBlocker(): AdBlocker {
+  return requireAdBlockerInternal()
+}
+
 /** 注入「窗口就绪」回调（如注册快捷键），open* 工厂会在 bootstrap 后调用 */
 export function setOnWindowReady(cb: (instance: BrowserWindowInstance) => void): void {
   console.debug('[WindowManager] setOnWindowReady: set')
@@ -335,6 +364,13 @@ function requireProxyManager(): ProxyManager {
     throw new Error('[WindowManager] appProxyManager not set; call setAppProxyManager first')
   }
   return appProxyManager
+}
+
+function requireAdBlockerInternal(): AdBlocker {
+  if (!appAdBlocker) {
+    throw new Error('[WindowManager] appAdBlocker not set; call setAdBlocker first')
+  }
+  return appAdBlocker
 }
 
 /**

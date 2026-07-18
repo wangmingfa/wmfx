@@ -3,7 +3,9 @@
     <div class="tab-thumbnail-img-wrap">
       <img v-if="data.src && !imgError" :src="data.src" class="tab-thumbnail-img" @error="imgError = true" />
       <div v-else-if="data.loading" class="tab-thumbnail-loading" />
-      <div v-else class="tab-thumbnail-no-preview">无法预览</div>
+      <div v-else class="tab-thumbnail-no-preview">
+        无法预览
+      </div>
     </div>
     <div class="tab-thumbnail-title">
       {{ data.title }}
@@ -40,6 +42,7 @@ watch(
 .tab-thumbnail-panel {
   width: 280px;
   padding: 8px;
+  box-sizing: border-box;
 }
 
 .tab-thumbnail-img-wrap {

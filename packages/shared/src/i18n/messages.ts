@@ -24,8 +24,10 @@ export interface Message {
   }
   appMenu: {
     incognito: string
+    incognitoWindow: string
     newWindow: string
     bookmarks: string
+    passwords: string
     showBookmarkBar: string
     hideBookmarkBar: string
     allBookmarks: string
@@ -56,6 +58,7 @@ export interface Message {
     export: string
     add: string
     addBookmark: string
+    remove: string
     addSubfolder: string
     rename: string
     delete: string
@@ -63,10 +66,21 @@ export interface Message {
     promptUrl: string
     promptNewTitle: string
     deleteConfirm: string
+    deleteTitle: string
+    labelTitle: string
+    labelUrl: string
+    confirmOk: string
+    cancel: string
     more: string
   }
   find: {
     placeholder: string
+  }
+  reader: {
+    enter: string
+    exit: string
+    failed: string
+    byline: string
   }
   addressBar: {
     placeholder: string
@@ -113,11 +127,26 @@ export interface Message {
     openClearDialog: string
     clearDataDesc: string
     clearDataTitle: string
+    adBlock: string
+    adBlockStats: string
+    adBlockRulesTitle: string
+    adBlockRulesSearch: string
+    adBlockRulesEmpty: string
+    adBlockRulesHint: string
+    adBlockLogTitle: string
+    adBlockLogEmpty: string
+    forceDarkOn: string
+    forceDarkOff: string
+    printPage: string
+    adBlockLogTime: string
+    adBlockSourceBuiltin: string
+    adBlockSourceCustom: string
+    adBlockSourceAllow: string
+    clearDataSuccess: string
     dataCookies: string
     dataCache: string
     dataLocalStorage: string
     dataFormData: string
-    clearDataSuccess: string
     clearDataError: string
     clearDataCancel: string
     sections: {
@@ -149,6 +178,9 @@ export interface Message {
     visits: string
     clear: string
     clearConfirm: string
+    clearTitle: string
+    clearPositive: string
+    clearNegative: string
     today: string
     yesterday: string
     thisWeek: string
@@ -192,6 +224,29 @@ export interface Message {
     upload: string
     download: string
     logsEmpty: string
+  }
+  passwords: {
+    title: string
+    searchPlaceholder: string
+    add: string
+    edit: string
+    delete: string
+    save: string
+    cancel: string
+    domain: string
+    domainPlaceholder: string
+    username: string
+    usernamePlaceholder: string
+    password: string
+    passwordPlaceholder: string
+    note: string
+    notePlaceholder: string
+    reveal: string
+    hide: string
+    copy: string
+    empty: string
+    noResult: string
+    deleteConfirm: string
   }
   downloads: {
     title: string
@@ -289,6 +344,8 @@ type LeafPaths<T, Prefix extends string = ''> = T extends string
  */
 export interface I18nParams {
   'bookmark.deleteConfirm': { title: string }
+  'passwords.deleteConfirm': { domain: string }
+  'settings.adBlockStats': { count: number | string; rules: number | string }
   'about.updateAvailable': { version: string }
   'about.downloading': { percent: string | number }
   'about.versionArch': { version: string; arch: string }
@@ -314,8 +371,10 @@ export const messages: Record<string, Message> = {
     },
     appMenu: {
       incognito: '新建隐身标签页',
+      incognitoWindow: '无痕窗口',
       newWindow: '新建窗口',
       bookmarks: '书签',
+      passwords: '密码',
       showBookmarkBar: '显示书签栏',
       hideBookmarkBar: '隐藏书签栏',
       allBookmarks: '所有书签',
@@ -346,6 +405,7 @@ export const messages: Record<string, Message> = {
       export: '导出',
       add: '添加',
       addBookmark: '添加书签',
+      remove: '移除书签',
       addSubfolder: '添加子文件夹',
       rename: '重命名',
       delete: '删除',
@@ -353,10 +413,21 @@ export const messages: Record<string, Message> = {
       promptUrl: '书签网址：',
       promptNewTitle: '新标题：',
       deleteConfirm: '删除 {title}？',
+      deleteTitle: '删除书签',
+      labelTitle: '标题',
+      labelUrl: '网址',
+      confirmOk: '确定',
+      cancel: '取消',
       more: '更多书签',
     },
     find: {
       placeholder: '在页面中查找',
+    },
+    reader: {
+      enter: '阅读模式',
+      exit: '退出阅读模式',
+      failed: '当前页面无法进入阅读模式',
+      byline: '作者',
     },
     addressBar: {
       placeholder: '输入网址',
@@ -403,6 +474,22 @@ export const messages: Record<string, Message> = {
       openClearDialog: '清除浏览数据',
       clearDataDesc: '清除 Cookie、缓存等浏览数据',
       clearDataTitle: '清除浏览数据',
+      adBlock: '广告拦截',
+      adBlockStats: '已拦截 {count} 个请求，共 {rules} 条规则',
+      adBlockRulesTitle: '广告拦截规则',
+      adBlockRulesSearch: '搜索域名...',
+      adBlockRulesEmpty: '暂无规则',
+      adBlockRulesHint:
+        '每行是一个被拦截的域名，覆盖其所有子域（如 a.doubleclick.net）。标签含义：内置=预置清单，自定义=你添加的黑名单，白名单=放行域名。规则在请求发出前生效，仅按域名匹配，不含具体网页路径。',
+      adBlockLogTitle: '拦截历史',
+      adBlockLogEmpty: '暂无拦截记录',
+      forceDarkOn: '强制暗色：开启',
+      forceDarkOff: '强制暗色：关闭',
+      printPage: '打印',
+      adBlockLogTime: '时间',
+      adBlockSourceBuiltin: '内置',
+      adBlockSourceCustom: '自定义',
+      adBlockSourceAllow: '白名单',
       dataCookies: 'Cookie',
       dataCache: '缓存',
       dataLocalStorage: '本地存储',
@@ -439,6 +526,9 @@ export const messages: Record<string, Message> = {
       visits: '次访问',
       clear: '清空记录',
       clearConfirm: '确定要清空所有历史记录吗？',
+      clearTitle: '清空历史记录',
+      clearPositive: '清空',
+      clearNegative: '取消',
       today: '今天',
       yesterday: '昨天',
       thisWeek: '本周',
@@ -482,6 +572,29 @@ export const messages: Record<string, Message> = {
       upload: '上传',
       download: '下载',
       logsEmpty: '暂无日志。Mihomo 运行时将显示日志。',
+    },
+    passwords: {
+      title: '密码',
+      searchPlaceholder: '搜索站点或用户名...',
+      add: '添加密码',
+      edit: '编辑密码',
+      delete: '删除',
+      save: '保存',
+      cancel: '取消',
+      domain: '站点',
+      domainPlaceholder: 'example.com',
+      username: '用户名',
+      usernamePlaceholder: '用户名 / 邮箱',
+      password: '密码',
+      passwordPlaceholder: '请输入密码',
+      note: '备注',
+      notePlaceholder: '可选',
+      reveal: '显示',
+      hide: '隐藏',
+      copy: '复制',
+      empty: '暂无保存的密码',
+      noResult: '没有匹配的密码',
+      deleteConfirm: '确定要删除 {domain} 的密码吗？',
     },
     downloads: {
       title: '下载',
@@ -574,8 +687,10 @@ export const messages: Record<string, Message> = {
     },
     appMenu: {
       incognito: 'New Incognito Tab',
+      incognitoWindow: 'Incognito Window',
       newWindow: 'New Window',
       bookmarks: 'Bookmarks',
+      passwords: 'Passwords',
       showBookmarkBar: 'Show bookmark bar',
       hideBookmarkBar: 'Hide bookmark bar',
       allBookmarks: 'All bookmarks',
@@ -606,6 +721,7 @@ export const messages: Record<string, Message> = {
       export: 'Export',
       add: 'Add',
       addBookmark: 'Add bookmark',
+      remove: 'Remove bookmark',
       addSubfolder: 'Add subfolder',
       rename: 'Rename',
       delete: 'Delete',
@@ -613,10 +729,21 @@ export const messages: Record<string, Message> = {
       promptUrl: 'Bookmark URL:',
       promptNewTitle: 'New title:',
       deleteConfirm: 'Delete {title}?',
+      deleteTitle: 'Delete bookmark',
+      labelTitle: 'Title',
+      labelUrl: 'URL',
+      confirmOk: 'OK',
+      cancel: 'Cancel',
       more: 'More bookmarks',
     },
     find: {
       placeholder: 'Find in page',
+    },
+    reader: {
+      enter: 'Reader mode',
+      exit: 'Exit reader mode',
+      failed: 'This page cannot be simplified',
+      byline: 'By',
     },
     addressBar: {
       placeholder: 'Enter URL',
@@ -663,6 +790,22 @@ export const messages: Record<string, Message> = {
       openClearDialog: 'Clear browsing data',
       clearDataDesc: 'Clear cookies, cache and other browsing data',
       clearDataTitle: 'Clear browsing data',
+      adBlock: 'Ad blocker',
+      adBlockStats: 'Blocked {count} requests, {rules} rules in total',
+      adBlockRulesTitle: 'Ad block rules',
+      adBlockRulesSearch: 'Search domain...',
+      adBlockRulesEmpty: 'No rules',
+      adBlockRulesHint:
+        'Each row is a blocked domain, covering all its subdomains (e.g. a.doubleclick.net). Tags: Built-in=preset list, Custom=your blacklist, Allow=whitelisted domain. Rules apply before a request is sent and match by domain only, not by page path.',
+      adBlockLogTitle: 'Block history',
+      adBlockLogEmpty: 'No blocked requests yet',
+      forceDarkOn: 'Force dark: on',
+      forceDarkOff: 'Force dark: off',
+      printPage: 'Print',
+      adBlockLogTime: 'Time',
+      adBlockSourceBuiltin: 'Built-in',
+      adBlockSourceCustom: 'Custom',
+      adBlockSourceAllow: 'Allow',
       dataCookies: 'Cookies',
       dataCache: 'Cache',
       dataLocalStorage: 'Local storage',
@@ -699,6 +842,9 @@ export const messages: Record<string, Message> = {
       visits: 'visits',
       clear: 'Clear history',
       clearConfirm: 'Clear all history records?',
+      clearTitle: 'Clear history',
+      clearPositive: 'Clear',
+      clearNegative: 'Cancel',
       today: 'Today',
       yesterday: 'Yesterday',
       thisWeek: 'This week',
@@ -744,6 +890,29 @@ export const messages: Record<string, Message> = {
       upload: 'Upload',
       download: 'Download',
       logsEmpty: 'No logs yet. Logs will appear when mihomo is running.',
+    },
+    passwords: {
+      title: 'Passwords',
+      searchPlaceholder: 'Search site or username...',
+      add: 'Add password',
+      edit: 'Edit password',
+      delete: 'Delete',
+      save: 'Save',
+      cancel: 'Cancel',
+      domain: 'Site',
+      domainPlaceholder: 'example.com',
+      username: 'Username',
+      usernamePlaceholder: 'Username / email',
+      password: 'Password',
+      passwordPlaceholder: 'Enter password',
+      note: 'Note',
+      notePlaceholder: 'Optional',
+      reveal: 'Show',
+      hide: 'Hide',
+      copy: 'Copy',
+      empty: 'No saved passwords',
+      noResult: 'No matching passwords',
+      deleteConfirm: 'Delete the password for {domain}?',
     },
     downloads: {
       title: 'Downloads',

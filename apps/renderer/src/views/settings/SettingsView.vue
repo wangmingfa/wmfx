@@ -1,19 +1,24 @@
 <template>
-  <SettingsLayout :title="`${t('appMenu.settings')} - ${t(active.labelKey)}`" icon="mdi:cog" :menu="settingsSideMenu">
+  <PageLayout
+    :title="`${t('appMenu.settings')} - ${t(active.labelKey)}`"
+    icon="mdi:cog"
+    :side-menu="settingsSideMenu"
+    :max-content-width="800"
+  >
     <component :is="active.component" />
-  </SettingsLayout>
+  </PageLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, markRaw } from 'vue'
 import { useRoute } from 'vue-router'
+import PageLayout from '@/components/PageLayout.vue'
 import { useI18n } from '@/composables/useI18n'
 import AboutView from './AboutView.vue'
 import AppearanceView from './AppearanceView.vue'
 import DownloadsView from './DownloadsView.vue'
 import GeneralView from './GeneralView.vue'
 import PrivacyView from './PrivacyView.vue'
-import SettingsLayout from './SettingsLayout.vue'
 import { settingsSideMenu } from './settingsMenu'
 
 const { t } = useI18n()

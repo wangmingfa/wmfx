@@ -1,34 +1,47 @@
 <template>
   <li class="bookmark-node" :class="{ 'bookmark-folder': node.isFolder, 'bookmark-item': !node.isFolder }">
-    <div
-      v-if="node.isFolder"
-      class="bookmark-node-content"
-      :draggable="true"
-      @click="handleToggle"
-      @contextmenu.prevent="handleContextMenu"
-      @dragstart="(e) => $emit('dragstart', e, node)"
-      @dragover.prevent="(e) => $emit('dragover', e, node)"
-      @drop.prevent="(e) => $emit('drop', e, node)"
-    >
-      <span class="bookmark-node-icon">{{ expanded ? '▾' : '▸' }}</span>
-      <span class="bookmark-node-icon bookmark-icon-folder">📁</span>
-      <span class="bookmark-node-title">{{ node.title }}</span>
-    </div>
+    <SectionItem class="bookmark-row">
+      <template #label>
+        <div
+          class="bookmark-node-content"
+          :draggable="true"
+          @click="node.isFolder ? handleToggle() : handleOpen()"
+          @dragstart="(e) => $emit('dragstart', e, node)"
+          @dragover.prevent="(e) => $emit('dragover', e, node)"
+          @drop.prevent="(e) => $emit('drop', e, node)"
+        >
+          <span v-if="node.isFolder" class="bookmark-node-icon">{{ expanded ? '▾' : '▸' }}</span>
+          <span class="bookmark-node-icon" :class="node.isFolder ? 'bookmark-icon-folder' : 'bookmark-icon-link'">
+            {{ node.isFolder ? '📁' : '🔗' }}
+          </span>
+          <span class="bookmark-node-title">{{ node.title }}</span>
+          <span v-if="!node.isFolder && node.url" class="bookmark-node-url">{{ node.url }}</span>
+        </div>
+      </template>
 
-    <div
-      v-else
-      class="bookmark-node-content"
-      :draggable="true"
-      @click="handleOpen"
-      @contextmenu.prevent="handleContextMenu"
-      @dragstart="(e) => $emit('dragstart', e, node)"
-      @dragover.prevent="(e) => $emit('dragover', e, node)"
-      @drop.prevent="(e) => $emit('drop', e, node)"
-    >
-      <span class="bookmark-node-icon bookmark-icon-link">🔗</span>
-      <span class="bookmark-node-title">{{ node.title }}</span>
-      <span v-if="node.url" class="bookmark-node-url">{{ node.url }}</span>
-    </div>
+      <div class="bookmark-row-actions">
+        <IconButton
+          v-if="node.isFolder"
+          icon="mdi:folder-plus-outline"
+          :btn-size="28"
+          :tooltip="t('bookmark.addSubfolder')"
+          @click.stop="$emit('add', node)"
+        />
+        <IconButton
+          icon="mdi:pencil-outline"
+          :btn-size="28"
+          :tooltip="t('bookmark.rename')"
+          @click.stop="$emit('rename', node)"
+        />
+        <IconButton
+          icon="mdi:delete-outline"
+          :btn-size="28"
+          danger
+          :tooltip="t('bookmark.delete')"
+          @click.stop="$emit('delete', node)"
+        />
+      </div>
+    </SectionItem>
 
     <ul v-show="node.isFolder && expanded" class="bookmark-children">
       <BookmarkNode
@@ -41,7 +54,6 @@
         @delete="$emit('delete', $event)"
         @add="$emit('add', $event)"
         @open="$emit('open', $event)"
-        @contextmenu="(e, item) => $emit('contextmenu', e, item)"
         @dragstart="(e, item) => $emit('dragstart', e, item)"
         @dragover="(e, item) => $emit('dragover', e, item)"
         @drop="(e, item) => $emit('drop', e, item)"
@@ -54,6 +66,9 @@
 import type { BookmarkItem } from '@browser/ipc-contract'
 
 import { computed } from 'vue'
+import SectionItem from '@/components/SectionItem.vue'
+import IconButton from '@/components/ui/IconButton.vue'
+import { useI18n } from '@/composables/useI18n'
 
 interface TreeNode extends BookmarkItem {
   children: TreeNode[]
@@ -71,11 +86,12 @@ const emit = defineEmits<{
   delete: [item: BookmarkItem]
   add: [node: TreeNode]
   open: [item: BookmarkItem]
-  contextmenu: [event: MouseEvent, item: BookmarkItem]
   dragstart: [event: DragEvent, node: TreeNode]
   dragover: [event: DragEvent, node: TreeNode]
   drop: [event: DragEvent, node: TreeNode]
 }>()
+
+const { t } = useI18n()
 
 const expanded = computed(() => props.expandedFolders.has(props.node.id))
 
@@ -89,11 +105,6 @@ function handleOpen() {
   console.debug('[BookmarkNode] handleOpen: id url', props.node.id, props.node.url)
   emit('open', props.node)
 }
-
-function handleContextMenu(event: MouseEvent) {
-  console.debug('[BookmarkNode] handleContextMenu: id', props.node.id)
-  emit('contextmenu', event, props.node)
-}
 </script>
 
 <style scoped>
@@ -101,18 +112,25 @@ function handleContextMenu(event: MouseEvent) {
   list-style: none;
 }
 
+/* 行内操作按钮：默认隐藏，hover 整行时显示（与历史页一致） */
+.bookmark-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.bookmark-row:hover .bookmark-row-actions {
+  opacity: 1;
+}
+
 .bookmark-node-content {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
-  border-radius: 6px;
   cursor: pointer;
-  margin-bottom: 2px;
-}
-
-.bookmark-node-content:hover {
-  background: var(--bg-tertiary, #0f3460);
+  min-width: 0;
 }
 
 .bookmark-node-icon {
@@ -138,6 +156,7 @@ function handleContextMenu(event: MouseEvent) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 
 .bookmark-node-url {
@@ -146,12 +165,15 @@ function handleContextMenu(event: MouseEvent) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-left: auto;
+  margin-left: 8px;
+  min-width: 0;
 }
 
+/* 子项缩进 */
 .bookmark-children {
   list-style: none;
-  padding-left: 24px;
+  padding: 0;
   margin: 0;
+  padding-left: 24px;
 }
 </style>

@@ -115,6 +115,31 @@ export interface TabState {
   isPinned: boolean
   active: boolean
   isSuspended: boolean
+  isReaderMode: boolean
+  /** 网页是否处于 HTML 全屏（Fullscreen API）状态 */
+  isHtmlFullscreen: boolean
+}
+
+/** 密码管理器条目（主进程返回时密码已解密为明文） */
+export interface PasswordEntry {
+  id: string
+  /** 站点域名或标识，如 example.com */
+  domain: string
+  username: string
+  /** 解密后的明文密码（仅在主进程→渲染进程 IPC 内传输，不落盘明文） */
+  password: string
+  note?: string
+  createdAt: number
+  updatedAt: number
+}
+
+/** 密码保存入参（新增时无 id，更新时带 id） */
+export interface PasswordEntryInput {
+  id?: string
+  domain: string
+  username: string
+  password: string
+  note?: string
 }
 
 export interface ViewBounds {
@@ -139,6 +164,24 @@ export type DownloadState =
   | 'completed'
   | 'cancelled'
   | 'error'
+
+/** 广告拦截规则（含来源标记） */
+export interface AdBlockRule {
+  /** 域名 */
+  host: string
+  /** 来源：builtin=内置清单 / custom=用户自定义黑名单 / allow=白名单 */
+  source: 'builtin' | 'custom' | 'allow'
+}
+
+/** 拦截历史条目（单次被拦请求） */
+export interface AdBlockLogEntry {
+  /** 被拦截的请求 URL */
+  url: string
+  /** 拦截时间（毫秒时间戳） */
+  time: number
+  /** 请求主机名 */
+  host: string
+}
 
 /** 下载项 */
 export interface DownloadItem {
@@ -351,6 +394,7 @@ export interface SettingsSnapshot {
   windowBounds: { x: number; y: number; width: number; height: number } | null
   showBookmarkBar: boolean
   openBookmarkInNewTab: boolean
+  forceDark: boolean
 }
 
 /** 设置为默认浏览器结果（setAsDefaultProtocolClient 跨平台生效，返回是否成功） */
@@ -426,6 +470,19 @@ export interface IpcContract {
   'page:printToPDF': (opts: TabPrintToPdfOptions) => { path: string }
   'page:setZoom': (opts: TabZoomOptions) => void
   'page:getZoom': (tabId: string) => { factor: number }
+  // Reader mode
+  'page:enterReadingMode': (tabId: string) => void
+  'page:exitReadingMode': (tabId: string) => void
+  'reader:article': (article: {
+    title: string
+    content: string
+    byline: string | null
+    url: string
+  }) => void
+  /** 渲染进程主动拉取当前 tab 已提取的阅读文章（首次进入竞态兜底）；无则返回 null */
+  'reader:requestArticle': (
+    tabId: string
+  ) => { title: string; content: string; byline: string | null; url: string } | null
   // Settings
   'settings:get': (key: string) => unknown
   'settings:set': ({ key, value }: { key: string; value: unknown }) => void
@@ -436,9 +493,27 @@ export interface IpcContract {
   // New Tab
   'settings:getQuickLinks': () => QuickLink[]
   'settings:setQuickLinks': (links: QuickLink[]) => void
+  // Password manager
+  /** 列出全部密码（密码已解密） */
+  'password:list': () => PasswordEntry[]
+  /** 搜索密码（按域名/用户名） */
+  'password:search': (opts: { query: string }) => PasswordEntry[]
+  /** 新增或更新密码（带 id 为更新） */
+  'password:save': (input: PasswordEntryInput) => PasswordEntry
+  /** 删除密码 */
+  'password:delete': (id: string) => void
   // Default browser（设置为默认浏览器，交互同 Chrome）
   'default-browser:set': () => SetDefaultBrowserResult
   'default-browser:isDefault': () => boolean
+  // Ad blocker
+  /** 返回广告拦截状态：是否启用、被拦截计数、规则总数 */
+  'adblock:getStatus': () => { enabled: boolean; blockedCount: number; ruleCount: number }
+  /** 切换广告拦截开关 */
+  'adblock:setEnabled': (enabled: boolean) => void
+  /** 返回全部规则（含来源标记），供 UI 展示 */
+  'adblock:getRules': () => AdBlockRule[]
+  /** 返回拦截历史（按时间倒序），供「拦截历史」弹窗展示 */
+  'adblock:getLog': () => AdBlockLogEntry[]
   // Autocomplete
   'autocomplete:suggestions': (opts: AutocompleteQuery) => AutocompleteSuggestion[]
   // Bookmark
@@ -529,7 +604,7 @@ export interface IpcContract {
   ) => void
   'popover:measure': (
     popoverId: string,
-    size: { width: number; height: number; gutter?: number }
+    size: { width: number; height: number; gutter?: number; offsetX?: number; offsetY?: number }
   ) => void
   'popover:dismiss': (popoverId: string) => void
   // Error / Cert Warning
@@ -607,6 +682,11 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'page:printToPDF',
   'page:setZoom',
   'page:getZoom',
+  // Reader mode
+  'page:enterReadingMode',
+  'page:exitReadingMode',
+  'reader:article',
+  'reader:requestArticle',
   // Settings
   'settings:get',
   'settings:set',
@@ -617,9 +697,19 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   // New Tab
   'settings:getQuickLinks',
   'settings:setQuickLinks',
+  // Password manager
+  'password:list',
+  'password:search',
+  'password:save',
+  'password:delete',
   // Default browser
   'default-browser:set',
   'default-browser:isDefault',
+  // Ad blocker
+  'adblock:getStatus',
+  'adblock:setEnabled',
+  'adblock:getRules',
+  'adblock:getLog',
   // Autocomplete
   'autocomplete:suggestions',
   // Bookmark

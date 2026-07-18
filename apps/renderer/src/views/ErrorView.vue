@@ -1,6 +1,8 @@
 <template>
   <div class="error-page">
-    <div class="error-icon">⚠️</div>
+    <div class="error-icon">
+      ⚠️
+    </div>
     <h1>{{ title }}</h1>
     <p class="error-desc">
       {{ description }}
@@ -8,7 +10,9 @@
     <p v-if="info" class="error-url">
       {{ info.requestedUrl }}
     </p>
-    <p v-if="info" class="error-code">{{ info.code }} / {{ info.description }}</p>
+    <p v-if="info" class="error-code">
+      {{ info.code }} / {{ info.description }}
+    </p>
     <div v-if="info" class="error-suggestions">
       <p>{{ suggestions }}</p>
     </div>

@@ -8,7 +8,9 @@ import DownloadsView from './views/DownloadsView.vue'
 import ErrorView from './views/ErrorView.vue'
 import HistoryView from './views/HistoryView.vue'
 import NewTabView from './views/NewTab.vue'
+import PasswordsView from './views/PasswordsView.vue'
 import ProxyPage from './views/ProxyPage.vue'
+import ReaderView from './views/ReaderView.vue'
 import SettingsView from './views/settings/SettingsView.vue'
 
 console.debug('[Router] 创建 hash 路由并注册路由表')
@@ -25,8 +27,10 @@ export const router = createRouter({
     { path: '/settings/privacy', component: SettingsView },
     { path: '/history', component: HistoryView },
     { path: '/bookmarks', component: BookmarkView },
+    { path: '/passwords', component: PasswordsView },
     { path: '/downloads', component: DownloadsView },
     { path: '/proxy', component: ProxyPage },
+    { path: '/reader', component: ReaderView },
     { path: '/newtab', component: NewTabView },
     { path: '/panel', component: PanelRoot },
     { path: '/error', component: ErrorView },

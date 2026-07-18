@@ -8,6 +8,7 @@ import {
   symlinkSync,
   unlinkSync,
   watch,
+  writeFileSync,
 } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
@@ -31,12 +32,51 @@ const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const
 type LogLevel = (typeof LOG_LEVELS)[number]
 let selectedLogLevel: LogLevel = 'debug'
 
+/** 从 .env.local 读取上一次保存的日志等级（取最后一个匹配项），不存在则返回 'debug' */
+function readLastLogLevel(): LogLevel {
+  try {
+    const content = readFileSync(path.join(ROOT, '.env.local'), 'utf-8')
+    const matches = [...content.matchAll(/^\s*WMFX_LOG_LEVEL\s*=\s*([a-z]+)\s*$/gm)]
+    const last = matches[matches.length - 1]
+    if (last && LOG_LEVELS.includes(last[1] as LogLevel)) return last[1] as LogLevel
+  } catch {
+    /* .env.local 不存在时忽略 */
+  }
+  return 'debug'
+}
+
+/** 将用户选择的日志等级写入 .env.local，方便下次启动复用。逐行遍历，保留原位，去除多余重复行。 */
+function writeLogLevel(level: LogLevel): void {
+  try {
+    const envLocalPath = path.join(ROOT, '.env.local')
+    const lines = readFileSync(envLocalPath, 'utf-8').split('\n')
+    const newLine = `WMFX_LOG_LEVEL=${level}`
+    let replaced = false
+    const result: string[] = []
+    for (const line of lines) {
+      if (/^\s*WMFX_LOG_LEVEL\s*=/.test(line)) {
+        if (!replaced) {
+          result.push(newLine)
+          replaced = true
+        }
+      } else {
+        result.push(line)
+      }
+    }
+    if (!replaced) result.push(newLine)
+    writeFileSync(envLocalPath, result.join('\n'), 'utf-8')
+  } catch {
+    /* 写入失败忽略 */
+  }
+}
+
 async function promptLogLevel(): Promise<LogLevel> {
-  console.log(`${CYAN}[dev]${RESET} 选择日志等级 (5 秒后自动选中 ${GREEN}debug${RESET}):`)
+  const lastLevel = readLastLogLevel()
+  console.log(`${CYAN}[dev]${RESET} 选择日志等级 (5 秒后自动选中 ${GREEN}${lastLevel}${RESET}):`)
   const timeout = new Promise<LogLevel>((resolve) =>
     setTimeout(() => {
-      console.log(`\n${CYAN}[dev]${RESET} ⏱️  超时，自动选择 ${GREEN}debug${RESET}`)
-      resolve('debug')
+      console.log(`\n${CYAN}[dev]${RESET} ⏱️  超时，自动选择 ${GREEN}${lastLevel}${RESET}`)
+      resolve(lastLevel)
     }, 5000)
   )
   const picker = inquirer
@@ -50,10 +90,14 @@ async function promptLogLevel(): Promise<LogLevel> {
         { name: 'warn   (warn/error)', value: 'warn' },
         { name: 'error  (仅 error)', value: 'error' },
       ],
-      default: 'debug',
+      default: lastLevel,
     })
     .then((a) => a.level)
-  return Promise.race([timeout, picker])
+  const level = await Promise.race([timeout, picker])
+  if (level !== lastLevel) {
+    writeLogLevel(level)
+  }
+  return level
 }
 
 let devServerUrl = ''
@@ -261,13 +305,88 @@ async function startWatchesAndWait(): Promise<void> {
   console.log(`${CYAN}[dev]${RESET} ${GREEN}✅${RESET} 主进程初次构建完成`)
 }
 
+/**
+ * 检查指定端口是否被占用，若被占用则直接 kill 占用进程。
+ * 跨平台：macOS/Linux 用 lsof，Windows 用 netstat + taskkill。
+ */
+async function ensurePortFree(port: number): Promise<void> {
+  console.log(`${CYAN}[dev]${RESET} 🔍 检查端口 ${port}...`)
+  try {
+    const check = await execaCommand(
+      process.platform === 'win32' ? `netstat -ano | findstr :${port}` : `lsof -ti tcp:${port}`,
+      { cwd: ROOT, timeout: 5000 }
+    )
+    if (check.stdout.trim()) {
+      const pids = check.stdout
+        .trim()
+        .split(/\r?\n/)
+        .map((l) => {
+          const m = l.trim().match(/(\d+)$/m)
+          return m ? m[1] : l.trim()
+        })
+        .filter(Boolean)
+      console.log(
+        `${RED}══════════════════════════════════════════════════════════════════${RESET}`
+      )
+      console.log(`${RED} ⚠️  端口 ${port} 已被占用，已终止以下进程：${pids.join(', ')}${RESET}`)
+      console.log(
+        `${RED}══════════════════════════════════════════════════════════════════${RESET}`
+      )
+      for (const pid of pids) {
+        try {
+          await execaCommand(
+            process.platform === 'win32' ? `taskkill //PID ${pid} //F` : `kill -9 ${pid}`,
+            { timeout: 5000 }
+          )
+        } catch {
+          /* ignore already-dead */
+        }
+      }
+    } else {
+      console.log(`${CYAN}[dev]${RESET} ✅ 端口 ${port} 可用`)
+    }
+  } catch {
+    console.log(`${CYAN}[dev]${RESET} ✅ 端口 ${port} 可用`)
+  }
+}
+
 async function main(): Promise<void> {
-  // 选择日志等级
+  // 先创建/初始化 .env.local（promptLogLevel 会读取其中的 WMFX_LOG_LEVEL）
+  const envLocalPath = path.join(ROOT, '.env.local')
+  const envExamplePath = path.join(ROOT, '.env.example')
+  if (!existsSync(envLocalPath)) {
+    const content = readFileSync(envExamplePath, 'utf-8')
+    writeFileSync(envLocalPath, content, 'utf-8')
+    console.log(`${CYAN}[dev]${RESET} 📝 已创建 .env.local（从 .env.example 复制）`)
+  }
+
+  // 确保 .env.local 中配置了 VITE_DEV_PORT 且有值，否则自动赋默认值
+  let envLocalContent = readFileSync(envLocalPath, 'utf-8')
+  const portMatch = envLocalContent.match(/^\s*VITE_DEV_PORT\s*=\s*(.*?)\s*$/m)
+  if (!portMatch || portMatch[1].trim() === '') {
+    if (portMatch) {
+      envLocalContent = envLocalContent.replace(/^\s*VITE_DEV_PORT\s*=.*$/m, 'VITE_DEV_PORT=24680')
+    } else {
+      envLocalContent = `${envLocalContent}\nVITE_DEV_PORT=24680\n`
+    }
+    writeFileSync(envLocalPath, envLocalContent, 'utf-8')
+    console.log(`${CYAN}[dev]${RESET} 📝 已设置 .env.local 默认端口 VITE_DEV_PORT=24680`)
+  }
+
+  // 选择日志等级（WMFX_LOG_LEVEL 的读写统一在 promptLogLevel 中处理）
   selectedLogLevel = await promptLogLevel()
   console.log(`${CYAN}[dev]${RESET} 📋 日志等级: ${GREEN}${selectedLogLevel}${RESET}\n`)
 
+  // promptLogLevel 可能修改了 .env.local，重新读取确保后续使用最新内容
+  envLocalContent = readFileSync(envLocalPath, 'utf-8')
+
   // 先创建 workspace 软链接，否则 Electron 无法导入 workspace 包（如 @wmfx/database）
   linkWorkspacePackages()
+
+  // 读取端口号并检查是否被占用
+  const finalPortMatch = envLocalContent.match(/^\s*VITE_DEV_PORT\s*=\s*(\d+)\s*$/m)
+  const devPort = finalPortMatch ? parseInt(finalPortMatch[1], 10) : 24680
+  await ensurePortFree(devPort)
 
   // 开发期开启 console 源码位置注入（仅 dev，生产构建不设此变量）
   process.env.WMFX_DEV_INSTRUMENT = '1'

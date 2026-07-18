@@ -22,6 +22,15 @@ export class DropdownMenu {
 
   constructor(opts: DropdownMenuOptions) {
     console.debug('[DropdownMenu] constructor: id', opts.descriptor.id)
+    const hasSubmenu = this.hasSubmenu(opts.descriptor.items)
+    const resolvedMode = opts.mode ?? 'overlay'
+    if (hasSubmenu && resolvedMode !== 'overlay') {
+      throw new Error(
+        `[DropdownMenu] ${opts.descriptor.id}: submenu items require mode='overlay', got '${resolvedMode}'`
+      )
+    }
+    // TODO(后期优化): 子菜单只能用于 overlay 模式（bounded 模式下绝对定位子菜单会被 overflow 裁剪）。
+    // 当前通过运行时遍历 items 检测，后续可改为调用方显式传 hasSubmenu: boolean 字段避免重复遍历。
     this.descriptor = opts.descriptor
     this.onAction = opts.onAction
     this.popover = new Popover({
@@ -64,5 +73,13 @@ export class DropdownMenu {
       }
     }
     return null
+  }
+
+  private hasSubmenu(items: MenuItem[]): boolean {
+    for (const it of items) {
+      if (it.type === 'submenu') return true
+      if (it.children && this.hasSubmenu(it.children)) return true
+    }
+    return false
   }
 }

@@ -15,6 +15,8 @@ export default antfu(
       '**/*.md',
       '**/dist/**',
       '**/node_modules/**',
+      // 打包产物 / 第三方资源目录，非手写源码，不参与 lint
+      'resources/**',
     ],
   },
   {

@@ -3,6 +3,7 @@
     <AddressInput
       ref="inputRef"
       :model-value="data.query"
+      :padding-right="12"
       :placeholder="ADDRESS_BAR_PLACEHOLDER"
       :favicon="data.favicon"
       :security-state="data.securityState"

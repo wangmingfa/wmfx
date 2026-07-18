@@ -8,27 +8,20 @@ import type {
   ThemeMode,
 } from '@browser/ipc-contract'
 import { resolveAddressBarTarget } from '@browser/shared'
-import {
-  app,
-  BrowserWindow,
-  clipboard,
-  dialog,
-  type Event,
-  ipcMain,
-  nativeTheme,
-  shell,
-} from 'electron'
+import { BrowserWindow, clipboard, dialog, type Event, ipcMain, nativeTheme, shell } from 'electron'
+import { getAppVersion } from '../app-version'
 import { isDefaultBrowser, setAsDefaultBrowser } from '../default-browser'
 import { clearDragBookmark, getDragBookmark, setDragBookmark } from '../drag-state'
 import { getFavicon, setFaviconByKey } from '../favicon-cache'
 import { handleFrontendLog } from '../logger'
 import { NativeIconManager } from '../native-icon-manager'
 import { NativeMenuManager } from '../native-menu-manager'
+import { PasswordManager } from '../password-manager'
 import { getSearchSuggestions } from '../search-suggestions'
 import { SettingsManager } from '../settings-manager'
 import { updater } from '../updater'
 import type { BrowserWindowInstance } from '../window-manager'
-import { openIncognitoWindow, openNormalWindow } from '../window-manager'
+import { openIncognitoWindow, openNormalWindow, requireAdBlocker } from '../window-manager'
 
 /** Type for raw WebContents event methods (TS overloads don't cover 'found-in-page') */
 interface WebContentsEventTarget {
@@ -112,6 +105,27 @@ export function registerIpcHandlers(): void {
     const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.activate(tabId)
+  })
+
+  handle('page:enterReadingMode', async (event, tabId) => {
+    console.info(`[IPC] page:enterReadingMode: tabId=${tabId}`)
+    const inst = getInstance(event)
+    if (!inst) return
+    await inst.tabManager.enterReadingMode(tabId)
+  })
+
+  handle('page:exitReadingMode', (event, tabId) => {
+    console.info(`[IPC] page:exitReadingMode: tabId=${tabId}`)
+    const inst = getInstance(event)
+    if (!inst) return
+    inst.tabManager.exitReadingMode(tabId)
+  })
+
+  handle('reader:requestArticle', (event, tabId) => {
+    console.debug(`[IPC] reader:requestArticle: tabId=${tabId}`)
+    const inst = getInstance(event)
+    if (!inst) return null
+    return inst.tabManager.getReaderArticle(tabId)
   })
 
   handle('tab:getState', (event, tabId) => {
@@ -631,11 +645,54 @@ export function registerIpcHandlers(): void {
   handle('settings:set', (_event, opts) => {
     console.debug('[IPC] settings:set: key', opts.key)
     SettingsManager.getInstance().set(opts.key as never, opts.value as never)
+    if (opts.key === 'forceDark') {
+      const inst = getInstance()
+      if (inst) inst.tabManager.setForceDark(!!opts.value)
+    }
+    if (opts.key === 'showBookmarkBar') {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send('bookmarkBar:changed')
+      }
+    }
   })
 
   handle('settings:getAll', () => {
     console.debug('[IPC] settings:getAll')
     return SettingsManager.getInstance().getAll()
+  })
+
+  // ---- Password manager ----
+  const passwordManager = PasswordManager.getInstance()
+
+  /** 变更后广播给所有窗口（含内部页与 popover），渲染端据此刷新列表 */
+  function notifyPasswordsChanged(): void {
+    console.debug('[IPC] passwords:changed: broadcast')
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send('passwords:changed')
+    }
+  }
+
+  handle('password:list', () => {
+    console.debug('[IPC] password:list')
+    return passwordManager.list()
+  })
+
+  handle('password:search', (_event, opts) => {
+    console.debug('[IPC] password:search: query', opts?.query)
+    return passwordManager.search(opts?.query ?? '')
+  })
+
+  handle('password:save', (_event, entry) => {
+    console.debug('[IPC] password:save: id', entry?.id ?? '(new)')
+    const saved = passwordManager.save(entry)
+    notifyPasswordsChanged()
+    return saved
+  })
+
+  handle('password:delete', (_event, id) => {
+    console.debug('[IPC] password:delete: id', id)
+    passwordManager.delete(id)
+    notifyPasswordsChanged()
   })
 
   handle('theme:get', () => {
@@ -665,13 +722,20 @@ export function registerIpcHandlers(): void {
 
   function notifyThemeChange(theme: ThemeMode) {
     const bgColor = resolveBackgroundColor(theme)
+    const isDark = theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors)
     // 遍历所有窗口的所有 internal tabs
     for (const inst of globalThis.browserInstances.values()) {
       for (const tab of inst.tabManager.getInternalTabs()) {
         tab.webContents.send('theme:change', theme)
       }
+      // 阅读页（readerView 子视图）为独立渲染实例，需单独广播主题，否则切换后残留旧色
+      for (const wc of inst.tabManager.getReaderWebContents()) {
+        wc.send('theme:change', theme)
+      }
       // 同步所有标签页 WebContentsView 的背景色，防止导航时闪烁旧底色
       inst.tabManager.updateAllViewBackgrounds()
+      // 外部页重注入暗色 CSS，跟随主题切换
+      inst.tabManager.reapplyDarkForTheme(isDark)
       // popover 面板（独立 WebContentsView）也需同步主题
       inst.popoverManager.sendTheme(theme)
     }
@@ -717,6 +781,29 @@ export function registerIpcHandlers(): void {
   handle('default-browser:isDefault', () => {
     console.debug('[IPC] default-browser:isDefault')
     return isDefaultBrowser()
+  })
+
+  // ---- Ad blocker ----
+  const adBlocker = requireAdBlocker()
+  handle('adblock:getStatus', () => {
+    console.debug('[IPC] adblock:getStatus')
+    return {
+      enabled: adBlocker.isEnabled(),
+      blockedCount: adBlocker.getBlockedCount(),
+      ruleCount: adBlocker.getRuleCount(),
+    }
+  })
+  handle('adblock:setEnabled', (_event, enabled: boolean) => {
+    console.debug('[IPC] adblock:setEnabled: enabled', enabled)
+    adBlocker.setEnabled(enabled)
+  })
+  handle('adblock:getRules', () => {
+    console.debug('[IPC] adblock:getRules')
+    return adBlocker.getRules()
+  })
+  handle('adblock:getLog', () => {
+    console.debug('[IPC] adblock:getLog')
+    return adBlocker.getBlockLog()
   })
 
   // Autocomplete
@@ -1216,7 +1303,7 @@ export function registerIpcHandlers(): void {
   // 应用信息：版本号 / 架构 / 平台，关于页展示
   handle('app:info', () => {
     console.debug('[IPC] app:info')
-    return { version: app.getVersion(), arch: process.arch, platform: process.platform }
+    return { version: getAppVersion(), arch: process.arch, platform: process.platform }
   })
 
   // Updater：自动更新状态查询 / 手动检查 / 退出安装
@@ -1265,7 +1352,7 @@ export function registerIpcHandlers(): void {
     console.debug('[IPC] popover:measure: popoverId size', popoverId, size)
     getInstance(event)?.popoverManager.applyMeasure(
       popoverId,
-      size as { width: number; height: number; gutter?: number }
+      size as { width: number; height: number; gutter?: number; offsetX?: number; offsetY?: number }
     )
   })
 

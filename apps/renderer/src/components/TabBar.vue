@@ -1,5 +1,5 @@
 <template>
-  <div ref="tabBarRef" class="tab-bar" :class="{ 'mac-os': isMacOS }">
+  <div ref="tabBarRef" class="tab-bar" :class="{ 'mac-os': isMacOS, 'window-incognito': isIncognito }">
     <div
       v-for="(tab, index) in tabs"
       :key="tab.id"
@@ -66,7 +66,7 @@
         class="tab-close"
         :icon="{ name: 'ic:sharp-close', size: iconSize }"
         :btn-size="iconSize + 2"
-        :hover-color="{ light: '#DBDBDC', dark: 'var(--bg-hover)' }"
+        hover-variant="muted"
         @click.stop="closeTab(tab.id)"
       />
     </div>
@@ -97,6 +97,9 @@ import { Popover } from '../lib/popover'
 import { isMacOS } from '../utils/os'
 import Favicon from './Favicon.vue'
 import Spinner from './ui/Spinner.vue'
+
+/** 父组件（ChromeUI）传入：当前窗口是否为独立无痕窗口 */
+defineProps<{ isIncognito?: boolean }>()
 
 const { t } = useI18n()
 
@@ -389,7 +392,6 @@ function onTabEnter(event: MouseEvent, tab: TabState): void {
       mode: 'bounded',
       anchor,
       data,
-      size: { width: 280 },
       persistent: true,
       onDismiss: () => {
         // 仅当 dismiss 的是当前 tab 的 popover 时才清理，避免旧 popover 异步 IPC 返回时覆盖新 popover 引用
@@ -557,6 +559,11 @@ onUnmounted(() => {
 
   &.mac-os {
     padding-left: 80px;
+  }
+
+  /* 独立无痕窗口：整条标签栏使用无痕深紫灰底色，与普通窗口区分 */
+  &.window-incognito {
+    background: #2b1a3d;
   }
 }
 

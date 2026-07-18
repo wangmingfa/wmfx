@@ -1,6 +1,6 @@
 <template>
-  <SettingsSection :title="t('settings.sections.downloadLocation')">
-    <SettingsItem :label="t('settings.downloadPath')">
+  <Section :title="t('settings.sections.downloadLocation')">
+    <SectionItem :label="t('settings.downloadPath')">
       <div class="download-path-control">
         <span class="download-path-text" :class="{ 'is-empty': !downloadPath }">
           {{ downloadPath || t('settings.downloadPathEmpty') }}
@@ -12,16 +12,16 @@
           {{ t('settings.selectFolder') }}
         </NButton>
       </div>
-    </SettingsItem>
-  </SettingsSection>
+    </SectionItem>
+  </Section>
 </template>
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { NButton } from 'naive-ui'
 import { onMounted, ref } from 'vue'
-import SettingsItem from '@/components/SettingsItem.vue'
-import SettingsSection from '@/components/SettingsSection.vue'
+import Section from '@/components/Section.vue'
+import SectionItem from '@/components/SectionItem.vue'
 import { useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()

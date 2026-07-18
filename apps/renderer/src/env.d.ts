@@ -63,11 +63,29 @@ declare global {
       searchBookmarks: IpcInvoke['bookmark:search']
       importBookmarks: IpcInvoke['bookmark:import']
       exportBookmarks: IpcInvoke['bookmark:export']
+      // Password manager
+      getPasswords: IpcInvoke['password:list']
+      searchPasswords: IpcInvoke['password:search']
+      savePassword: IpcInvoke['password:save']
+      deletePassword: IpcInvoke['password:delete']
+      onPasswordsChanged: (handler: () => void) => void
       // Page
       printPage: IpcInvoke['page:print']
       printToPDF: IpcInvoke['page:printToPDF']
       setZoom: IpcInvoke['page:setZoom']
       getZoom: IpcInvoke['page:getZoom']
+      // Reader mode
+      enterReadingMode: IpcInvoke['page:enterReadingMode']
+      exitReadingMode: IpcInvoke['page:exitReadingMode']
+      onReaderArticle: (
+        handler: (article: {
+          title: string
+          content: string
+          byline: string | null
+          url: string
+        }) => void
+      ) => () => void
+      requestReaderArticle: IpcInvoke['reader:requestArticle']
       // Settings
       getSetting: IpcInvoke['settings:get']
       setSetting: IpcInvoke['settings:set']
@@ -81,6 +99,7 @@ declare global {
       isBookmarked: IpcInvoke['bookmark:isBookmarked']
       moveBookmark: IpcInvoke['bookmark:move']
       onBookmarksChanged: (handler: () => void) => void
+      onBookmarkBarChanged: (handler: () => void) => void
       // Find in Page
       startFind: (opts: FindInPageOptions) => void
       endFind: IpcInvoke['page:endFind']
@@ -180,7 +199,7 @@ declare global {
       ) => void
       popoverMeasure: (
         popoverId: string,
-        size: { width: number; height: number; gutter?: number }
+        size: { width: number; height: number; gutter?: number; offsetX?: number; offsetY?: number }
       ) => void
       onPopoverData: (handler: (popoverId: string, data: unknown) => void) => void
       onPopoverDismiss: (handler: (popoverId: string) => void) => void
@@ -212,6 +231,11 @@ declare global {
       // Default browser
       setDefaultBrowser: IpcInvoke['default-browser:set']
       isDefaultBrowser: IpcInvoke['default-browser:isDefault']
+      // Ad blocker
+      getAdBlockStatus: IpcInvoke['adblock:getStatus']
+      setAdBlockEnabled: IpcInvoke['adblock:setEnabled']
+      getAdBlockRules: IpcInvoke['adblock:getRules']
+      getAdBlockLog: IpcInvoke['adblock:getLog']
       // Favicon
       faviconGet: IpcInvoke['favicon:get']
       // Theme change broadcast

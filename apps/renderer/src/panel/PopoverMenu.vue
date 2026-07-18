@@ -27,7 +27,7 @@
         <span v-if="item.shortcut" class="popover-item-shortcut">{{ item.shortcut }}</span>
         <Icon
           v-if="item.type === 'submenu'"
-          :icon="submenuSide === 'left' ? 'mdi:chevron-left' : 'mdi:chevron-right'"
+          icon="mdi:chevron-right"
           class="popover-submenu-arrow"
           width="16"
           height="16"
@@ -70,21 +70,20 @@ const emit = defineEmits<{
   (e: 'select', itemId: string): void
 }>()
 
-const rootRef = ref<HTMLElement | null>(null)
+/** 当前菜单元素的 DOM 引用，用于计算可视区域内剩余空间 */
+const rootRef = ref<HTMLUListElement | null>(null)
 
 /**
- * 子菜单展开方向：默认向右；当菜单右边缘距窗口右侧不足预估子菜单宽度时翻转向左，
- * 避免靠近右边界（如右上角三点菜单）的子菜单溢出屏幕并引发横向滚动条。
+ * 根据当前菜单在视口中的位置动态决定子菜单展开方向。
+ * 右侧空间充足时向右展开，否则向左展开，避免子菜单超出可视区域。
+ * 箭头图标始终指向右边（mdi:chevron-right）。
  */
 const submenuSide = computed<'left' | 'right'>(() => {
-  const el = rootRef.value
-  if (!el) return 'right'
-  const rect = el.getBoundingClientRect()
-  const estimatedSubWidth = 220
-  const spaceOnRight = window.innerWidth - rect.right
-  const side: 'left' | 'right' = spaceOnRight < estimatedSubWidth ? 'left' : 'right'
-  if (side === 'left') console.debug('[PopoverMenu] submenuSide: 右空间不足，翻转向左')
-  return side
+  if (!rootRef.value) return 'right'
+  const rect = rootRef.value.getBoundingClientRect()
+  const rightSpace = window.innerWidth - rect.right
+  const leftSpace = rect.left
+  return rightSpace >= leftSpace ? 'right' : 'left'
 })
 
 function onClick(item: MenuItem): void {
@@ -106,8 +105,6 @@ function onClick(item: MenuItem): void {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 400px;
-  overflow-y: auto;
 }
 .popover-menu-item {
   position: relative;

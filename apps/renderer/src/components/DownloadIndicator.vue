@@ -4,7 +4,7 @@
       icon="mdi:download"
       :size="iconSize"
       :active="isOpen"
-      :title="t('downloads.title')"
+      :tooltip="t('downloads.title')"
       @click.stop="toggle"
     />
     <span v-if="hasActiveDownloads" class="download-dot" />

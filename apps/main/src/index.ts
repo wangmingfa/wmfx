@@ -1,9 +1,11 @@
 import { ProxyManager, resolveProxyConfigDir, type TrafficData } from '@browser/proxy'
 import { app, BrowserWindow, Menu } from 'electron'
+import { AdBlocker } from './ad-blocker'
 import { registerDefaultBrowserHandlers } from './default-browser'
 import { initVueDevToolsPath } from './devtools'
 import { initNativeMenu, registerIpcHandlers } from './ipc/register'
 import { initLogger, startLogRotation } from './logger'
+import { SettingsManager } from './settings-manager'
 import { registerAppShortcut, toggleDevTools } from './shortcut'
 import { updater } from './updater'
 import type { BrowserWindowInstance } from './window-manager'
@@ -12,6 +14,7 @@ import {
   createWindow,
   openIncognitoWindow,
   openNormalWindow,
+  setAdBlocker,
   setAppProxyManager,
   setOnWindowReady,
 } from './window-manager'
@@ -41,6 +44,10 @@ globalThis.browserInstances = new Map()
  */
 const proxyManager = new ProxyManager(resolveProxyConfigDir(app.getPath('userData')))
 setAppProxyManager(proxyManager)
+
+/** 全应用共享广告拦截器：基于 session.webRequest.onBeforeRequest 拦截广告/追踪请求 */
+const adBlocker = AdBlocker.getInstance(SettingsManager.getInstance())
+setAdBlocker(adBlocker)
 
 function saveSessionState(instance: BrowserWindowInstance): void {
   // 无痕窗口不落盘会话与窗口尺寸

@@ -26,6 +26,10 @@ interface SettingsSchema {
   defaultFont: string
   defaultFontSize: number
   defaultEncoding: string
+  adBlockEnabled: boolean
+  adBlockCustomRules: string[]
+  adBlockAllowlist: string[]
+  forceDark: boolean
 }
 
 export const defaultSettings: SettingsSchema = {
@@ -50,6 +54,10 @@ export const defaultSettings: SettingsSchema = {
   defaultFont: 'system-ui',
   defaultFontSize: 16,
   defaultEncoding: 'utf-8',
+  adBlockEnabled: true,
+  adBlockCustomRules: [],
+  adBlockAllowlist: [],
+  forceDark: true,
 }
 
 /** 校验 theme 值 */
@@ -244,6 +252,17 @@ export class SettingsManager {
           return value as SettingsSchema[K]
         return defaultSettings.defaultEncoding as SettingsSchema[K]
       }
+      case 'adBlockEnabled':
+        return typeof value === 'boolean'
+          ? (value as SettingsSchema[K])
+          : (defaultSettings.adBlockEnabled as SettingsSchema[K])
+      case 'adBlockCustomRules':
+      case 'adBlockAllowlist':
+        return validateStringArray(value) as SettingsSchema[K]
+      case 'forceDark':
+        return typeof value === 'boolean'
+          ? (value as SettingsSchema[K])
+          : (defaultSettings.forceDark as SettingsSchema[K])
       default:
         return value
     }

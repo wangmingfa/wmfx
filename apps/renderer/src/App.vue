@@ -1,14 +1,16 @@
 <template>
   <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides" style="height: 100%">
-    <RouterView v-slot="{ Component }" class="router-view">
-      <component :is="Component" />
-    </RouterView>
+    <NDialogProvider>
+      <RouterView v-slot="{ Component }" class="router-view">
+        <component :is="Component" />
+      </RouterView>
+    </NDialogProvider>
   </NConfigProvider>
 </template>
 
 <script setup lang="ts">
 import type { GlobalThemeOverrides } from 'naive-ui'
-import { darkTheme, NConfigProvider } from 'naive-ui'
+import { darkTheme, NConfigProvider, NDialogProvider } from 'naive-ui'
 import { computed } from 'vue'
 import { RouterView } from 'vue-router'
 import { useTheme } from '@/composables/useTheme'
@@ -45,6 +47,19 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => {
       primaryColorPressed: primary,
       primaryColorSuppl: primary,
       primaryTextColor: primaryForeground,
+    },
+    // 全局收窄 tooltip 尺寸：NTooltip 基于 Popover 渲染，尺寸变量在 Popover 上；字号在 Tooltip/Popover 上
+    Tooltip: {
+      // 提示文字字号（默认 14px）
+      peers: {
+        Popover: {
+          fontSize: '12px',
+          // NTooltip 默认 size="small"，对应 padding-small；一并调小各档以防调用方改 size
+          paddingSmall: '4px 8px',
+          padding: '4px 8px',
+          borderRadius: '6px',
+        },
+      },
     },
   }
 })

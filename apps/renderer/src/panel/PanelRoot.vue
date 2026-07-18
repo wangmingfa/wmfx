@@ -6,6 +6,7 @@
       class="popover-box"
       :class="{
         ready: boxVisible,
+        'is-overlay': currentMode === 'overlay',
         'is-addressbar': currentType === 'addressbar',
         'is-find': currentType === 'find',
         'is-tab-thumbnail': currentType === 'tab-thumbnail',
@@ -74,9 +75,8 @@ import PopoverMenu from './PopoverMenu.vue'
 import { computeBoxPosition } from './position'
 import TabThumbnailPanel from './TabThumbnailPanel.vue'
 
-// bounded popover 四周预留的透明边距（px），用于容纳 box-shadow，避免视图恰好贴合盒子
-// 而把外投阴影裁成直角。需 ≥ 阴影 offsetY + blur。
-const SHADOW_GUTTER = 18
+// bounded popover 已移除阴影，但仍有 1px border，需 gutter 确保边框不贴 WebContentsView 边缘
+const SHADOW_GUTTER = 2
 
 const currentType = ref<PopoverType | null>(null)
 const currentData = ref<unknown>(null)
@@ -125,9 +125,9 @@ const bookmarkFolderId = computed(() => {
 })
 const tabThumbnailData = computed(() => {
   if (currentType.value === 'tab-thumbnail' && currentData.value) {
-    return currentData.value as { src: string | null; title: string; url: string }
+    return currentData.value as { src: string | null; loading: boolean; title: string; url: string }
   }
-  return { src: null, title: '', url: '' }
+  return { src: null, loading: false, title: '', url: '' }
 })
 
 // 方向键导航状态：activePath = 已展开子菜单 id 链；activeIndex = 当前层可选中项下标（-1 表示未选中）
@@ -203,54 +203,61 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
 
       // 菜单的 box 用 max-content，但 max-content 不计算绝对定位后代（子菜单 flyout），
       // 当子菜单打开时 box 不撑大，导致 WebContentsView 边界不变、子菜单被裁切。
-      // 用 MutationObserver 检测菜单 DOM 变化（子菜单打开/关闭），用 getBoundingClientRect
-      // 测量菜单的实际渲染范围（含子菜单），据此撑大外层 WebContentsView。
-      let menuEl: HTMLElement | null = null
-      let mutationObserver: MutationObserver | null = null
-      const measureMenuExtent = () => {
-        if (!boxRef.value || !menuEl || !boxVisible.value || currentMode.value !== 'bounded') return
-        const menuRect = menuEl.getBoundingClientRect()
-        const bw = menuRect.width
-        const bh = menuRect.height
-        window.browserAPI.popoverMeasure(currentPopoverId.value, { width: bw, height: bh, gutter })
+      // 用 MutationObserver 检测菜单 DOM 变化（子菜单打开/关闭），遍历所有后代元素
+      // 计算实际视觉范围（含绝对定位 flyout），据此撑大外层 WebContentsView。
+      const getVisualRect = (el: HTMLElement): DOMRect => {
+        const rects: DOMRect[] = [el.getBoundingClientRect()]
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT)
+        let node: Node | null = walker.nextNode()
+        while (node) {
+          rects.push((node as HTMLElement).getBoundingClientRect())
+          node = walker.nextNode()
+        }
+        const left = Math.min(...rects.map((r) => r.left))
+        const top = Math.min(...rects.map((r) => r.top))
+        const right = Math.max(...rects.map((r) => r.right))
+        const bottom = Math.max(...rects.map((r) => r.bottom))
+        return new DOMRect(left, top, right - left, bottom - top)
       }
-
-      // 查找菜单 ul 元素（PopoverMenu 的根节点）
-      const findMenuEl = () => {
-        return el.querySelector('.popover-menu') as HTMLElement | null
+      const measureMenuExtent = () => {
+        if (!boxRef.value || !boxVisible.value || currentMode.value !== 'bounded') return
+        const vr = getVisualRect(boxRef.value)
+        window.browserAPI.popoverMeasure(currentPopoverId.value, {
+          width: vr.width,
+          height: vr.height,
+          gutter,
+          offsetX: vr.left,
+          offsetY: vr.top,
+        })
       }
 
       resizeObserver?.disconnect()
       resizeObserver = new ResizeObserver(() => {
-        if (boxRef.value && boxVisible.value) {
-          const bw = useRectWidth && anchor.value?.type === 'rect' ? anchor.value.rect.width : boxRef.value.offsetWidth
+        if (boxRef.value && boxVisible.value && currentMode.value === 'bounded') {
+          const vr = getVisualRect(boxRef.value)
           window.browserAPI.popoverMeasure(currentPopoverId.value, {
-            width: bw,
-            height: boxRef.value.offsetHeight,
+            width: vr.width,
+            height: vr.height,
             gutter,
+            offsetX: vr.left,
+            offsetY: vr.top,
           })
         }
       })
       resizeObserver.observe(el)
 
       // 检测子菜单展开/收起，重新测量菜单范围并撑大 WebContentsView
+      // 只监听结构变化（childList），不监听属性变化（如 hover 改变 class），
+      // 否则每次 hover 都会触发重测量 → 主进程重定位 → 视图闪烁 → 阴影看起来在变。
       mutationObserver = new MutationObserver(() => {
-        // 子菜单打开/关闭时会触发 DOM 变化，此时测量菜单的 bounding rect
-        // bounding rect 包含绝对定位子菜单，可获取含子菜单的实际渲染范围
-        menuEl = findMenuEl()
-        if (menuEl) {
-          measureMenuExtent()
-        }
+        measureMenuExtent()
       })
-      mutationObserver.observe(el, { childList: true, subtree: true, attributes: true })
+      mutationObserver.observe(el, { childList: true, subtree: true })
 
       // 延迟一帧确保菜单渲染完毕后再注册 mutation observer（避免初始渲染时菜单不存在）
       nextTick(() => {
-        menuEl = findMenuEl()
-        if (menuEl && mutationObserver) {
-          // 初始测量一次，确保 WebContentsView 边界正确
-          measureMenuExtent()
-        }
+        // 初始测量一次，确保 WebContentsView 边界正确
+        measureMenuExtent()
       })
 
       boxVisible.value = true
@@ -434,6 +441,7 @@ body,
 #app {
   background: transparent !important;
   margin: 0;
+  overflow: hidden;
 }
 </style>
 
@@ -442,7 +450,6 @@ body,
   position: fixed;
   inset: 0;
   pointer-events: none;
-  overflow: hidden;
 }
 .popover-backdrop {
   position: fixed;
@@ -457,7 +464,6 @@ body,
   background: var(--bg-secondary);
   border: 1px solid var(--bg-tertiary);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   padding: 4px 0;
   pointer-events: auto;
   &.ready {
@@ -468,14 +474,15 @@ body,
     width: max-content;
     height: max-content;
     padding: 0;
-    /* 允许绝对定位的子菜单（flyout）溢出盒子而不被裁切 */
+    overflow: visible;
+  }
+  &.is-overlay {
     overflow: visible;
   }
   &.is-addressbar {
     background: var(--url-input-bg);
     border: none;
     border-radius: 14px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
     padding: 0;
     min-width: 0;
     overflow: hidden;
@@ -484,7 +491,6 @@ body,
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     padding: 0;
     min-width: 0;
     overflow: hidden;
@@ -493,7 +499,6 @@ body,
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     padding: 0;
     min-width: 0;
     overflow: hidden;

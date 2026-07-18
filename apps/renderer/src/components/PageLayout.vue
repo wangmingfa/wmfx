@@ -1,7 +1,7 @@
 <template>
   <section class="page">
     <header ref="headerEl" class="page-header">
-      <div ref="leftEl" class="page-header-left">
+      <div class="page-header-left">
         <slot name="icon">
           <Icon v-if="icon" :icon="icon" class="page-header-icon" width="22" height="22" />
         </slot>
@@ -24,12 +24,12 @@
         </div>
       </div>
 
-      <div ref="rightEl" class="page-header-right">
+      <div class="page-header-right">
         <slot name="actions" />
       </div>
     </header>
 
-    <main ref="bodyEl" class="page-body" :class="{ 'no-scroll': !bodyScroll }">
+    <main class="page-body" :class="{ 'no-scroll': !bodyScroll }">
       <div class="page-body-inner" :class="{ fill: !bodyScroll }">
         <slot />
       </div>
@@ -99,53 +99,101 @@ function isActive(to: string): boolean {
 // 标题存在时同步到 document.title（标签页标题与头部标题保持一致）
 usePageTitle(computed(() => props.title))
 
-// 头部左右内容与主体滚动条都会挤占空间，导致头部中间区与下方主体内容列无法对齐。
-// 这里实时测量左/右内容宽度与滚动条宽度，算出“中间可用区域”的宽度；
-// 内容列宽度取该可用宽度与 maxContentWidth 的较小值，并在可用区域内居中，
-// 让头部中间区与主体内容列共用同一宽度与居中偏移，从而始终对齐。
-const leftEl = ref<HTMLElement | null>(null)
-const rightEl = ref<HTMLElement | null>(null)
-const bodyEl = ref<HTMLElement | null>(null)
+// 布局模型（整组整窗居中）：
+// - 把「侧边栏 + 间距 + 内容列」当作一个整体，在整个窗口宽度内居中。
+// - 内容列宽度 = clamp(0, maxContentWidth, 整组可用宽 - 侧边栏占位)：
+//   宽窗时内容列取 maxContentWidth（整组居中，侧边栏悬浮其左）；
+//   窄窗放不下时内容列被压小，让位给侧边栏，两者并排不重叠，整组仍居中。
+// - 内容列宽度/左边缘、侧边栏左边缘均由 JS 算出，用 CSS 变量注入，因此不随
+//   「头部左右元素多宽 / 当前页是否出现滚动条」变化 —— 故切页不横跳。
+// 需要 JS 提供的量：恒定滚动条槽宽（对齐头部预留）、头部高度（侧边栏顶部对齐主体顶部）、
+// 内容列宽度、内容列左边缘、侧边栏左边缘。
 const headerEl = ref<HTMLElement | null>(null)
-const leftWidth = ref('0px')
-const rightWidth = ref('0px')
 const scrollbarWidth = ref('0px')
-// 内容列最终宽度（受 maxContentWidth 限制）
-const contentWidth = ref('0px')
-// 内容列在可用区域中居中所需的左右偏移（窗口比 maxContentWidth 宽时出现）
-const contentOffset = ref('0px')
 // 头部高度：悬浮菜单据此定位到主体内容顶部
 const headerHeight = ref('0px')
+// 内容列外框宽度（px）
+const contentWidth = ref('0px')
+// 内容列左边缘（相对视口左侧，px）；头部中间区据此对齐
+const contentLeftEdge = ref('0px')
+// 侧边栏左边缘（相对视口左侧，px）；即整组的左边缘
+const sideMenuLeftEdge = ref('0px')
+
+// 布局常量：侧边栏宽、侧边栏与内容列的间距、整组两侧最小视口边距
+const SIDE_MENU_WIDTH = 220
+const SIDE_MENU_GAP = 16
+const VIEWPORT_MARGIN = 16
+// 有侧边栏时它占据的水平槽位（宽 + 与内容列间距）
+const sideMenuSlot = computed(() => (props.sideMenu?.length ? SIDE_MENU_WIDTH + SIDE_MENU_GAP : 0))
+
+/**
+ * 稳定测量滚动条槽位宽度。
+ * .page-body 使用 scrollbar-gutter: stable，滚动条槽位恒定保留（无论内容是否溢出）。
+ * 但直接用主体元素的 offsetWidth - clientWidth 会在“内容溢出/不溢出”之间跳变
+ * （不同页面、不同帧测得 0 或 ~15px），进而导致切页抖动。
+ * 这里用一个同样 scrollbar-gutter: stable 的离屏探针测槽宽——该值只取决于系统滚动条尺寸，
+ * 与当前内容是否溢出无关，故恒定，切页时不再变化。
+ */
+function measureScrollbarGutter(): number {
+  const probe = document.createElement('div')
+  probe.style.cssText =
+    'position:absolute;top:-9999px;width:100px;height:100px;overflow-y:auto;scrollbar-gutter:stable;visibility:hidden;'
+  document.body.appendChild(probe)
+  const width = probe.offsetWidth - probe.clientWidth
+  document.body.removeChild(probe)
+  return width
+}
+
+// 滚动条槽宽为系统级恒定值，仅需测一次；随窗口 DPI 变化时由 resize 重测
+let cachedScrollbarWidth = 0
 
 function measure(): void {
-  const left = leftEl.value?.offsetWidth ?? 0
-  const right = rightEl.value?.offsetWidth ?? 0
-  const scrollbar = bodyEl.value ? bodyEl.value.offsetWidth - bodyEl.value.clientWidth : 0
-  // 可用区域 = 窗口内容宽（扣除滚动条）减去左右内容宽度与两侧内边距（各 24px）
-  const available = Math.max(0, window.innerWidth - scrollbar - left - right - 48)
-  const content = Math.min(available, props.maxContentWidth)
-  leftWidth.value = `${left}px`
-  rightWidth.value = `${right}px`
+  const scrollbar = cachedScrollbarWidth
   scrollbarWidth.value = `${scrollbar}px`
-  contentWidth.value = `${content}px`
-  contentOffset.value = `${Math.max(0, (available - content) / 2)}px`
   headerHeight.value = `${headerEl.value?.offsetHeight ?? 0}px`
-  console.debug('[PageLayout] measure: available content scrollbar', available, content, scrollbar)
+  // 可用视口内容宽（扣除滚动条槽）
+  const viewport = Math.max(0, window.innerWidth - scrollbar)
+  const slot = sideMenuSlot.value
+  // 整组（侧边栏 + 间距 + 内容列）可用宽 = 视口 - 两侧最小边距
+  const groupMax = Math.max(0, viewport - VIEWPORT_MARGIN * 2)
+  // 内容列宽 = clamp(0, maxContentWidth, 整组可用宽 - 侧边栏占位)
+  //   宽窗：取 maxContentWidth；窄窗：被压小让位侧边栏
+  const column = Math.max(0, Math.min(props.maxContentWidth, groupMax - slot))
+  // 整组实际宽 = 侧边栏占位 + 内容列宽；整组左边缘使整组在视口内居中
+  const groupWidth = slot + column
+  const groupLeft = Math.max(VIEWPORT_MARGIN, (viewport - groupWidth) / 2)
+  contentWidth.value = `${column}px`
+  sideMenuLeftEdge.value = `${groupLeft}px`
+  contentLeftEdge.value = `${groupLeft + slot}px`
+  console.debug(
+    '[PageLayout] measure: viewport slot column groupLeft scrollbar',
+    viewport,
+    slot,
+    column,
+    groupLeft,
+    scrollbar,
+  )
 }
 
 let resizeObserver: ResizeObserver | null = null
 onMounted(() => {
+  cachedScrollbarWidth = measureScrollbarGutter()
   measure()
+  // 仅需在头部高度变化时重算侧边栏顶部（如标题换行）；内容列居中由纯 CSS 处理，无需观察主体。
   resizeObserver = new ResizeObserver(measure)
-  for (const el of [leftEl.value, rightEl.value, bodyEl.value, headerEl.value]) {
-    if (el) resizeObserver.observe(el)
-  }
-  window.addEventListener('resize', measure)
+  if (headerEl.value) resizeObserver.observe(headerEl.value)
+  window.addEventListener('resize', onWindowResize)
 })
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
-  window.removeEventListener('resize', measure)
+  window.removeEventListener('resize', onWindowResize)
 })
+
+// 窗口尺寸变化时重测槽宽（DPI/缩放可能改变系统滚动条尺寸）并重算布局
+function onWindowResize(): void {
+  cachedScrollbarWidth = measureScrollbarGutter()
+  measure()
+}
 </script>
 
 <style lang="less" scoped>
@@ -194,22 +242,22 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-/* 中间区域脱离头部文档流，左右边界由左右内容宽度与滚动条宽度动态算出（见脚本 measure），
-   精确框定左右内容之间的“可用区域”；内部内容列再在该区域内居中并受 maxContentWidth 限制 */
+/* 中间区域脱离头部文档流，横跨整个头部宽度（扣除滚动条槽）；内部内容列用 JS 算出的
+   宽度 + 左边缘定位，与下方主体内容列采用同一“整组居中”模型，从而上下对齐、切页不横跳 */
 .page-header-center {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  left: calc(24px + v-bind(leftWidth));
-  right: calc(24px + v-bind(rightWidth) + v-bind(scrollbarWidth));
+  left: 0;
+  right: v-bind(scrollbarWidth);
   min-width: 0;
 }
 
 .page-header-center-inner {
   width: v-bind(contentWidth);
-  max-width: 100%;
-  margin: 0 auto;
+  margin-left: v-bind(contentLeftEdge);
   padding: 0 24px;
+  box-sizing: border-box;
 }
 
 .page-search {
@@ -239,12 +287,14 @@ onBeforeUnmount(() => {
   }
 }
 
-/* 主体内容列与头部中间区共用同一宽度（contentWidth）与居中偏移（contentOffset），
-    左右边界一致，保证上下对齐；宽度随窗口与头部左右内容动态变化，且不超过 maxContentWidth */
+/* 主体内容列：宽度与左边缘由 JS 按“整组居中”模型算出（width + margin-left）。
+   宽窗时宽度 = maxContentWidth，整组（侧边栏 + 内容列）居中；窄窗时宽度被压小让位侧边栏。
+   仅依赖算出的量，与头部左右元素、当前页是否出现滚动条无关 —— 故切换子页时不横跳。 */
 .page-body-inner {
-  margin-left: calc(24px + v-bind(leftWidth) + v-bind(contentOffset));
-  margin-right: calc(24px + v-bind(rightWidth) + v-bind(contentOffset));
+  width: v-bind(contentWidth);
+  margin-left: v-bind(contentLeftEdge);
   padding: 24px;
+  box-sizing: border-box;
 
   &.fill {
     height: 100%;
@@ -252,16 +302,16 @@ onBeforeUnmount(() => {
   }
 }
 
-/* 左侧悬浮菜单：绝对定位于主体内容列左侧，不进入文档流，因此不会把 page-body-inner 往右挤。
-    右侧贴着内容列左边（留 16px 间距），随窗口与内容列共用同一左侧偏移（leftWidth + contentOffset），
-    窗口变窄时左侧下限钳制到 16px 避免溢出视口；顶部对齐内容列（头部下沿 + 24px）。
+/* 左侧悬浮菜单：绝对定位于居中整组的左边缘（sideMenuLeftEdge），与内容列并排、不重叠。
+    left 直接取整组左边缘（内容列宽度已在窄窗时被压小让位）；宽度恒定 220px。
+    顶部对齐内容列（头部下沿 + 24px）。
     高度取"自身内容所需"与"内容列可用高度"的较大者：内容少时随内容自然高度（不强行撑满），
     内容多或窗口很高时最多占满到页面底部（max-height），超出则在菜单内部纵向滚动。
     由于是 .page 的直接子元素（非滚动容器），内容滚动时菜单保持固定不跟随。 */
 .page-side-menu {
   position: absolute;
   top: calc(v-bind(headerHeight) + 24px);
-  left: max(16px, calc(24px + v-bind(leftWidth) + v-bind(contentOffset) - 220px - 16px));
+  left: v-bind(sideMenuLeftEdge);
   width: 220px;
   max-height: calc(100% - v-bind(headerHeight) - 48px);
   display: flex;

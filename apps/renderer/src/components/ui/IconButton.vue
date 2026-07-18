@@ -1,9 +1,30 @@
 <template>
+  <NTooltip
+    v-if="tooltipConfig"
+    :keep-alive-on-hover="false"
+    :content-style="{ pointerEvents: 'none' }"
+    v-bind="tooltipConfig.props"
+  >
+    <template #trigger>
+      <button
+        class="icon-btn"
+        :class="[{ 'is-active': active, 'has-affix': hasAffix, 'is-danger': danger }, `hover-${hoverVariant}`]"
+        :disabled="disabled"
+        :style="btnStyle"
+        @click="onClick"
+      >
+        <Icon v-if="prefix" :icon="prefix.name" :width="prefix.sz" :height="prefix.sz" />
+        <Icon :icon="mainIcon.name" :width="mainIcon.sz" :height="mainIcon.sz" />
+        <Icon v-if="suffix" :icon="suffix.name" :width="suffix.sz" :height="suffix.sz" />
+      </button>
+    </template>
+    {{ tooltipConfig.content }}
+  </NTooltip>
   <button
+    v-else
     class="icon-btn"
-    :class="{ 'is-active': active, 'has-affix': hasAffix }"
+    :class="[{ 'is-active': active, 'has-affix': hasAffix, 'is-danger': danger }, `hover-${hoverVariant}`]"
     :disabled="disabled"
-    :title="title"
     :style="btnStyle"
     @click="onClick"
   >
@@ -14,7 +35,9 @@
 </template>
 
 <script setup lang="ts">
+import type { TooltipProps } from 'naive-ui'
 import { Icon } from '@iconify/vue'
+import { NTooltip } from 'naive-ui'
 import { computed } from 'vue'
 
 interface IconConfig {
@@ -23,6 +46,9 @@ interface IconConfig {
 }
 
 type IconArg = string | IconConfig
+
+/** tooltip 对象形式：content 为提示文本，其余字段透传给 NTooltip */
+type TooltipConfig = Partial<TooltipProps> & { content: string }
 
 const props = withDefaults(
   defineProps<{
@@ -37,17 +63,31 @@ const props = withDefaults(
     gap?: number
     /** 按钮内边距，number 表示 px，string 直接作为 CSS 值；不传则按 affix 自动（无 affix 为 0，有 affix 为 0 6px） */
     padding?: number | string
-    /** hover / active 背景色：string 表示深浅同色，{ light, dark } 分别指定浅色/深色主题；不传则用 --bg-hover */
-    hoverColor?: string | { light: string; dark: string }
+    /**
+     * hover / active 背景档位（按按钮所在背景选择，具体色值由组件内置）：
+     * - default：常规底色上（默认，用 --bg-hover）
+     * - muted：灰色/已变色背景上（如 hover 中的标签），再突出一档
+     * - dark：深色背景上，用半透明白叠加
+     */
+    hoverVariant?: 'default' | 'muted' | 'dark'
+    /** 危险操作按钮（如删除）：hover 时图标变告警红 + 淡红背景。与 hoverVariant 正交，可组合 */
+    danger?: boolean
+    /**
+     * 悬浮提示：
+     * - string：提示文本，用 NTooltip 默认配置
+     * - object：{ content: 文本, ...其余 NTooltip props }，可自定义 placement/delay 等
+     * 不传或空时不渲染 NTooltip。
+     */
+    tooltip?: string | TooltipConfig
     active?: boolean
     disabled?: boolean
-    title?: string
   }>(),
   {
     gap: 6,
+    hoverVariant: 'default',
+    danger: false,
     active: false,
     disabled: false,
-    title: '',
   },
 )
 
@@ -55,7 +95,18 @@ const emit = defineEmits<{ (e: 'click', ev: MouseEvent): void }>()
 
 const DEFAULT_SIZE = 18
 
-function parseIcon(arg: IconArg): { name: string; sz: number } {
+/** 归一化 tooltip 配置：string → { content, props:{} }；object → { content, props: 其余字段 }；空 → null */
+const tooltipConfig = computed<{ content: string, props: Partial<TooltipProps> } | null>(() => {
+  const tip = props.tooltip
+  if (!tip) return null
+  if (typeof tip === 'string') {
+    return tip.length > 0 ? { content: tip, props: {} } : null
+  }
+  const { content, ...rest } = tip
+  return content && content.length > 0 ? { content, props: rest } : null
+})
+
+function parseIcon(arg: IconArg): { name: string, sz: number } {
   if (typeof arg === 'string') return { name: arg, sz: DEFAULT_SIZE }
   return { name: arg.name, sz: arg.size }
 }
@@ -97,15 +148,6 @@ const btnStyle = computed(() => {
   } else if (hasAffix.value && props.btnSize === undefined) {
     style.padding = '0 6px'
   }
-  if (props.hoverColor !== undefined) {
-    if (typeof props.hoverColor === 'string') {
-      style['--ib-hover-light'] = props.hoverColor
-      style['--ib-hover-dark'] = props.hoverColor
-    } else {
-      style['--ib-hover-light'] = props.hoverColor.light
-      style['--ib-hover-dark'] = props.hoverColor.dark
-    }
-  }
   style.gap = `${props.gap}px`
   return style
 })
@@ -118,8 +160,6 @@ function onClick(ev: MouseEvent): void {
 
 <style lang="less" scoped>
 .icon-btn {
-  --ib-hover-light: var(--bg-hover);
-  --ib-hover-dark: var(--bg-hover);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -139,15 +179,37 @@ function onClick(ev: MouseEvent): void {
     color: var(--text-muted);
     cursor: not-allowed;
   }
-
-  &:hover:not(:disabled),
-  &.is-active {
-    background: var(--ib-hover-dark);
-  }
 }
 
-:root[data-theme='light'] .icon-btn:hover:not(:disabled),
-:root[data-theme='light'] .icon-btn.is-active {
-  background: var(--ib-hover-light);
+/* hover / active 背景按档位内置，外部只通过 hoverVariant 选择所在背景，无需传色值 */
+
+/* default：常规底色上，跟随主题的 --bg-hover */
+.icon-btn.hover-default:hover:not(:disabled),
+.icon-btn.hover-default.is-active {
+  background: var(--bg-hover);
+}
+
+/* muted：灰色/已变色背景上（如 hover 中的标签），比 default 再突出一档 */
+.icon-btn.hover-muted:hover:not(:disabled),
+.icon-btn.hover-muted.is-active {
+  background: var(--bg-hover);
+}
+:root[data-theme='light'] .icon-btn.hover-muted:hover:not(:disabled),
+:root[data-theme='light'] .icon-btn.hover-muted.is-active {
+  background: #dbdbdc;
+}
+
+/* dark：深色背景上，用半透明白叠加，不依赖主题变量 */
+.icon-btn.hover-dark:hover:not(:disabled),
+.icon-btn.hover-dark.is-active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* danger：危险操作按钮 hover 时图标变告警红 + 淡红背景。
+   放在各 hoverVariant 规则之后以覆盖其背景（同特异性、后者胜出）。 */
+.icon-btn.is-danger:hover:not(:disabled),
+.icon-btn.is-danger.is-active {
+  color: var(--danger-color);
+  background: color-mix(in srgb, var(--danger-color) 14%, transparent);
 }
 </style>

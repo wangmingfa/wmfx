@@ -151,7 +151,10 @@ export class PopoverManager {
   }
 
   /** 面板测量完内容尺寸后回调：据此精确定位并显示 bounded popover（仅首次聚焦）。 */
-  applyMeasure(popoverId: string, size: { width: number; height: number; gutter?: number }): void {
+  applyMeasure(
+    popoverId: string,
+    size: { width: number; height: number; gutter?: number; offsetX?: number; offsetY?: number }
+  ): void {
     const ov = this.overlays.get(popoverId)
     if (ov?.mode !== 'bounded') return
     console.debug(
@@ -160,38 +163,62 @@ export class PopoverManager {
       size.width,
       size.height
     )
-    // 若调用方给定了固定尺寸，优先使用（部分维度）；否则用面板测量值
+
+    const gutter = Math.max(0, size.gutter ?? 0)
+
+    if (this.rendered.has(popoverId)) {
+      // re-measure（子菜单展开/收起）：在现有视图边界上扩展，包住视觉内容。
+      // offsetX/offsetY 是 getVisualRect 的 left/top（WebContentsView 局部坐标），
+      // 需加上 cur.x/cur.y 转换为窗口 content view 坐标。
+      const cur = this.popoverView.getBounds()
+      const vrLeft = cur.x + (size.offsetX ?? 0)
+      const vrTop = cur.y + (size.offsetY ?? 0)
+      const vrRight = vrLeft + size.width
+      const vrBottom = vrTop + size.height
+      const newX = Math.min(cur.x, vrLeft)
+      const newY = Math.min(cur.y, vrTop)
+      const newRight = Math.max(cur.x + cur.width, vrRight)
+      const newBottom = Math.max(cur.y + cur.height, vrBottom)
+      this.popoverView.setBounds({
+        x: newX,
+        y: newY,
+        width: newRight - newX,
+        height: newBottom - newY,
+      })
+      return
+    }
+
+    // 首次定位：用 computePopoverBounds 锚定
     const w = ov.size?.width ?? size.width
     const h = ov.size?.height ?? size.height
-    // gutter：面板在可视盒子四周预留的透明边距，用于容纳 box-shadow。
-    // 视图需按 gutter 放大并整体外移，盒子本身仍精确落在锚点计算的位置，
-    // 否则视图恰好等于盒子尺寸会把外投阴影裁成直角，露出圆角外的方角。
-    const gutter = Math.max(0, size.gutter ?? 0)
     const win = this.win.getContentBounds()
     const winSize = { width: win.width, height: win.height }
     let cursor: { x: number; y: number } | undefined
     if (ov.anchor.type === 'cursor') {
       if (!ov.initialCursor) {
-        // 首次测量时缓存初始光标位置；后续 re-measure（如子菜单展开）复用此值，
-        // 避免用实时光标导致菜单跟手乱跑
         const sp = screen.getCursorScreenPoint()
         const win = this.win.getContentBounds()
         ov.initialCursor = { x: sp.x - win.x, y: sp.y - win.y }
       }
       cursor = ov.initialCursor
     }
-    const pos = computePopoverBounds(ov.anchor, { width: w, height: h }, winSize, cursor)
+    const actualW = w + gutter * 2
+    const actualH = h + gutter * 2
+    const pos = computePopoverBounds(
+      ov.anchor,
+      { width: actualW, height: actualH },
+      winSize,
+      cursor
+    )
     this.popoverView.setBounds({
       x: pos.x - gutter,
       y: pos.y - gutter,
-      width: w + gutter * 2,
-      height: h + gutter * 2,
+      width: actualW,
+      height: actualH,
     })
-    if (!this.rendered.has(popoverId)) {
-      this.rendered.add(popoverId)
-      this.popoverView.setVisible(true)
-      this.popoverView.webContents.focus()
-    }
+    this.rendered.add(popoverId)
+    this.popoverView.setVisible(true)
+    this.popoverView.webContents.focus()
   }
 
   /** 主 renderer → popover WebContentsView 双向数据同步 */

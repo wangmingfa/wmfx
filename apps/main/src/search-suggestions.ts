@@ -81,7 +81,7 @@ async function fetchSuggestions(
     () => console.debug('[SearchSuggestions] timeout: engine=%s query=%s', engine, query),
     (signal) => fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal })
   )
-  if (!res || !res.ok) return []
+  if (!res?.ok) return []
   if (engine === 'baidu') {
     // 百度建议接口返回 GBK 编码的 JSONP，Node fetch 默认 UTF-8 会乱码，用 iconv-lite 正确解码
     const raw = Buffer.from(await res.arrayBuffer())

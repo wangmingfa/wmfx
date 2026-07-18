@@ -1,6 +1,6 @@
 {
   "name": "wmfx",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -18,7 +18,8 @@
     "build:proxy": "bun run --filter @browser/proxy build",
     "build:main": "bun run --filter @browser/main build",
     "build:renderer": "bun run --filter @browser/renderer build",
-    "build": "bun run build:shared && bun run build:ipc && bun run build:database && bun run build:proxy && bun run build:renderer && bun run build:main",
+    "build:readability": "bun run scripts/build-readability.ts",
+    "build": "bun run build:readability && bun run build:shared && bun run build:ipc && bun run build:database && bun run build:proxy && bun run build:renderer && bun run build:main",
     "clean": "bun run scripts/clean.ts",
     "generate-icon": "bun run scripts/generate-icon.ts",
     "dev": "bun run scripts/check-deps.ts && bun run download:cores && bun run scripts/dev.ts",

@@ -28,6 +28,14 @@ export class SessionManager {
   private sessions = new Map<string, SessionConfig>()
   /** 代理规则字符串，传递给 session.fromPartition 的 proxyRules */
   private proxyRules?: string
+  /** session 创建完成后的钩子（如挂载广告拦截器），由主进程注入 */
+  private onSessionReady?: (sess: Session) => void
+
+  /** 注册 session 就绪钩子（幂等挂载广告拦截等） */
+  setOnSessionReady(cb: (sess: Session) => void): void {
+    console.debug('[SessionManager] setOnSessionReady')
+    this.onSessionReady = cb
+  }
 
   constructor() {
     this.registerDefaultSession()
@@ -86,6 +94,8 @@ export class SessionManager {
         ])
       }
     })
+    // session 就绪后挂载广告拦截等附加能力（广告拦截器内部幂等，重复调用安全）
+    this.onSessionReady?.(sess)
     return sess
   }
 

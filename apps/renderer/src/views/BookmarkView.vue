@@ -21,49 +21,24 @@
       <p>{{ t('bookmark.empty') }}</p>
     </div>
 
-    <ul v-else class="bookmark-tree">
-      <BookmarkNode
-        v-for="node in treeNodes"
-        :key="node.id"
-        :node="node"
-        :expanded-folders="expandedFolders"
-        @toggle="handleToggle"
-        @rename="handleRename"
-        @delete="handleDelete"
-        @add="handleAddChild"
-        @open="handleOpenBookmark"
-        @contextmenu="handleContextMenu"
-        @dragstart="handleDragStart"
-        @dragover="handleDragOver"
-        @drop="handleDrop"
-      />
-    </ul>
-
-    <div
-      v-if="contextMenu.visible"
-      class="context-menu"
-      :style="{
-        position: 'fixed',
-        top: `${contextMenu.y}px`,
-        left: `${contextMenu.x}px`,
-      }"
-      @mousedown.prevent
-    >
-      <ul>
-        <li @click="contextAddBookmark">
-          {{ t('bookmark.addBookmark') }}
-        </li>
-        <li v-if="contextMenu.item && !contextMenu.item.url" @click="contextAddChild">
-          {{ t('bookmark.addSubfolder') }}
-        </li>
-        <li v-if="contextMenu.item" @click="contextRename">
-          {{ t('bookmark.rename') }}
-        </li>
-        <li v-if="contextMenu.item" @click="contextDelete">
-          {{ t('bookmark.delete') }}
-        </li>
+    <Section v-else>
+      <ul class="bookmark-tree">
+        <BookmarkNode
+          v-for="node in treeNodes"
+          :key="node.id"
+          :node="node"
+          :expanded-folders="expandedFolders"
+          @toggle="handleToggle"
+          @rename="handleRename"
+          @delete="handleDelete"
+          @add="handleAddChild"
+          @open="handleOpenBookmark"
+          @dragstart="handleDragStart"
+          @dragover="handleDragOver"
+          @drop="handleDrop"
+        />
       </ul>
-    </div>
+    </Section>
   </PageLayout>
 </template>
 
@@ -72,7 +47,9 @@ import type { BookmarkCreateOptions, BookmarkItem } from '@browser/ipc-contract'
 
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import PageLayout from '@/components/PageLayout.vue'
+import Section from '@/components/Section.vue'
 import { useBookmarks } from '@/composables/useBookmarks'
+import { useConfirm } from '@/composables/useConfirm'
 import { useI18n } from '@/composables/useI18n'
 import BookmarkNode from './BookmarkNode.vue'
 
@@ -81,14 +58,8 @@ const searchTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const expandedFolders = ref<Set<string>>(new Set())
 
 const { t } = useI18n()
+const { confirm, prompt, promptForm } = useConfirm()
 const { bookmarks, moveBookmark, load } = useBookmarks()
-
-const contextMenu = ref({
-  visible: false,
-  x: 0,
-  y: 0,
-  item: null as BookmarkItem | null,
-})
 
 interface TreeNode extends BookmarkItem {
   children: TreeNode[]
@@ -141,39 +112,56 @@ function handleToggle(node: TreeNode) {
 }
 
 async function handleAddBookmark() {
-  // eslint-disable-next-line no-alert
-  const title = prompt(t('bookmark.promptTitle'))
-  if (!title) return
-  // eslint-disable-next-line no-alert
-  const url = prompt(t('bookmark.promptUrl')) || null
-  console.debug('[BookmarkView] handleAddBookmark: title url', title, url)
-  await window.browserAPI.addBookmark({ title, url })
+  const result = await promptForm({
+    title: t('bookmark.addBookmark'),
+    positiveText: t('bookmark.confirmOk'),
+    negativeText: t('bookmark.cancel'),
+    fields: [
+      { key: 'title', label: t('bookmark.labelTitle'), placeholder: t('bookmark.promptTitle'), required: true },
+      { key: 'url', label: t('bookmark.labelUrl'), placeholder: t('bookmark.promptUrl') },
+    ],
+  })
+  if (!result) return
+  const url = result.url || null
+  console.debug('[BookmarkView] handleAddBookmark: title url', result.title, url)
+  await window.browserAPI.addBookmark({ title: result.title, url })
   await load()
 }
 
 async function handleAddChild(parentNode: TreeNode | BookmarkItem) {
-  // eslint-disable-next-line no-alert
-  const title = prompt(t('bookmark.promptTitle'))
-  if (!title) return
-  // eslint-disable-next-line no-alert
-  const url = prompt(t('bookmark.promptUrl')) || null
+  const result = await promptForm({
+    title: t('bookmark.addSubfolder'),
+    positiveText: t('bookmark.confirmOk'),
+    negativeText: t('bookmark.cancel'),
+    fields: [
+      { key: 'title', label: t('bookmark.labelTitle'), placeholder: t('bookmark.promptTitle'), required: true },
+      { key: 'url', label: t('bookmark.labelUrl'), placeholder: t('bookmark.promptUrl') },
+    ],
+  })
+  if (!result) return
   const options: BookmarkCreateOptions = {
-    title,
-    url,
+    title: result.title,
+    url: result.url || null,
     parentId: parentNode.id,
   }
-  console.debug('[BookmarkView] handleAddChild: parentId title', parentNode.id, title)
+  console.debug('[BookmarkView] handleAddChild: parentId title', parentNode.id, result.title)
   await window.browserAPI.addBookmark(options)
   await load()
-  const isTreeNode = (parentNode as any).children
+  const isTreeNode = 'children' in parentNode
   if (isTreeNode && !expandedFolders.value.has(parentNode.id)) {
     expandedFolders.value.add(parentNode.id)
   }
 }
 
 async function handleRename(item: BookmarkItem) {
-  // eslint-disable-next-line no-alert
-  const newTitle = prompt(t('bookmark.promptNewTitle'), item.title)
+  const newTitle = await prompt({
+    title: t('bookmark.rename'),
+    positiveText: t('bookmark.confirmOk'),
+    negativeText: t('bookmark.cancel'),
+    label: t('bookmark.labelTitle'),
+    placeholder: t('bookmark.promptNewTitle'),
+    defaultValue: item.title,
+  })
   if (!newTitle) return
   console.debug('[BookmarkView] handleRename: id newTitle', item.id, newTitle)
   await window.browserAPI.renameBookmark({ id: item.id, title: newTitle })
@@ -181,9 +169,13 @@ async function handleRename(item: BookmarkItem) {
 }
 
 async function handleDelete(item: BookmarkItem) {
-  const confirmMsg = t('bookmark.deleteConfirm', { title: JSON.stringify(item.title) })
-  // eslint-disable-next-line no-alert
-  if (!confirm(confirmMsg)) return
+  const ok = await confirm({
+    title: t('bookmark.deleteTitle'),
+    content: t('bookmark.deleteConfirm', { title: item.title }),
+    positiveText: t('bookmark.delete'),
+    negativeText: t('bookmark.cancel'),
+  })
+  if (!ok) return
   console.debug('[BookmarkView] handleDelete: id', item.id)
   await window.browserAPI.deleteBookmark(item.id)
   await load()
@@ -226,29 +218,6 @@ async function handleDrop(event: DragEvent, node: TreeNode) {
   console.debug('[BookmarkView] drop: dragId targetParentId position', id, targetParentId, finalPosition)
   await moveBookmark(id, targetParentId, finalPosition)
   await load()
-}
-
-function contextAddBookmark() {
-  hideContextMenu()
-  handleAddBookmark()
-}
-
-function contextAddChild() {
-  if (!contextMenu.value.item) return
-  hideContextMenu()
-  handleAddChild(contextMenu.value.item)
-}
-
-function contextRename() {
-  if (!contextMenu.value.item) return
-  hideContextMenu()
-  handleRename(contextMenu.value.item)
-}
-
-function contextDelete() {
-  if (!contextMenu.value.item) return
-  hideContextMenu()
-  handleDelete(contextMenu.value.item)
 }
 
 function debouncedSearch() {
@@ -308,29 +277,12 @@ async function handleExport() {
   URL.revokeObjectURL(url)
 }
 
-function hideContextMenu() {
-  contextMenu.value.visible = false
-  contextMenu.value.item = null
-}
-
-function handleContextMenu(event: MouseEvent, item: BookmarkItem) {
-  console.debug('[BookmarkView] handleContextMenu: id', item.id)
-  contextMenu.value.visible = true
-  contextMenu.value.x = event.clientX
-  contextMenu.value.y = event.clientY
-  contextMenu.value.item = item
-}
-
-const hideContextMenuRef = () => hideContextMenu()
-
 onMounted(async () => {
-  console.debug('[BookmarkView] onMounted: 加载书签并注册全局点击关闭菜单')
+  console.debug('[BookmarkView] onMounted: 加载书签')
   await load()
-  document.addEventListener('click', hideContextMenuRef)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', hideContextMenuRef)
   if (searchTimer.value) {
     clearTimeout(searchTimer.value)
   }
@@ -350,64 +302,6 @@ onUnmounted(() => {
 .bookmark-tree {
   list-style: none;
   padding: 0;
-  margin: 0;
-}
-
-.bookmark-node {
-  list-style: none;
-}
-
-.bookmark-node-content {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  margin-bottom: 2px;
-}
-
-.bookmark-node-content:hover {
-  background: var(--bg-tertiary, #0f3460);
-}
-
-.bookmark-node-icon {
-  font-size: 14px;
-  width: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.bookmark-icon-link {
-  color: var(--color-primary, #4361ee);
-}
-
-.bookmark-icon-folder {
-  font-size: 16px;
-}
-
-.bookmark-node-title {
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bookmark-node-url {
-  font-size: 12px;
-  color: var(--text-muted, #888);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-left: auto;
-}
-
-.bookmark-children {
-  list-style: none;
-  padding-left: 24px;
   margin: 0;
 }
 
@@ -431,31 +325,5 @@ onUnmounted(() => {
   background: var(--color-primary, #4361ee);
   border-color: var(--color-primary, #4361ee);
   color: #fff;
-}
-
-.context-menu {
-  z-index: 1000;
-  min-width: 180px;
-  background: var(--bg-secondary, #16213e);
-  border: 1px solid var(--border-color, #333);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.context-menu ul {
-  list-style: none;
-  padding: 4px 0;
-  margin: 0;
-}
-
-.context-menu li {
-  padding: 8px 16px;
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--text-primary, #e0e0e0);
-}
-
-.context-menu li:hover {
-  background: var(--bg-tertiary, #0f3460);
 }
 </style>
