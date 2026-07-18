@@ -183,6 +183,22 @@
   --error-color: #d32f2f;
   /* 成功色（安全连接等正面状态） */
   --success-color: #27ae60;
+
+  /* ===== 垂直标签栏变量 ===== */
+  /* 垂直标签栏展开宽度 */
+  --vtab-width-expanded: 220px;
+  /* 垂直标签栏折叠宽度 */
+  --vtab-width-collapsed: 48px;
+  /* 垂直标签栏背景色（复用水平标签栏） */
+  --vtab-bg: var(--tabbar-bg);
+  /* 垂直标签栏 active 标签背景 */
+  --vtab-item-active-bg: var(--bg-tab-hover);
+  /* 垂直标签栏 active 指示器宽度 */
+  --vtab-indicator-width: 3px;
+  /* 垂直标签栏标签项高度 */
+  --vtab-item-height: 32px;
+  /* 垂直标签栏折叠时标签项高度 */
+  --vtab-item-height-collapsed: 40px;
 }
 
 /* ============================================================
@@ -287,6 +303,10 @@
   --error-color: #ff5555;
   /* 成功色（安全连接等正面状态） */
   --success-color: #4caf50;
+
+  /* ===== 垂直标签栏变量（深色覆盖） ===== */
+  --vtab-bg: var(--tabbar-bg);
+  --vtab-item-active-bg: var(--bg-tab-hover);
 }
 
 @layer base {

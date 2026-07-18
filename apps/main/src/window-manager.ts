@@ -34,6 +34,7 @@ import {
 } from './paths'
 import { PopoverManager } from './popover-manager'
 import { PrivacyManager } from './privacy-manager'
+import type { RequestCapturer } from './request-interceptor'
 import { SessionManager } from './session-manager'
 import { type LaunchBehavior, SettingsManager } from './settings-manager'
 import { SubscriptionManager } from './subscription-manager'
@@ -73,6 +74,9 @@ let sharedSessionManager: SessionManager | null = null
 
 /** 应用级共享 AdBlocker，由 setAdBlocker 注入后挂载到每个 session */
 let appAdBlocker: AdBlocker | null = null
+
+/** 应用级共享 RequestCapturer，由 setRequestCapturer 注入后挂载到每个 session */
+let appRequestCapturer: RequestCapturer | null = null
 
 function getSharedSessionManager(): SessionManager {
   if (!sharedSessionManager) {
@@ -351,6 +355,26 @@ export function setAdBlocker(ab: AdBlocker): void {
 /** 获取应用级共享广告拦截器（供 IPC 注册使用） */
 export function requireAdBlocker(): AdBlocker {
   return requireAdBlockerInternal()
+}
+
+/** 注入共享 RequestCapturer，并挂载到后续创建的每个 session */
+export function setRequestCapturer(rc: RequestCapturer): void {
+  console.debug('[WindowManager] setRequestCapturer: set')
+  appRequestCapturer = rc
+  if (sharedSessionManager) {
+    sharedSessionManager.setOnSessionReady((sess) => appRequestCapturer!.attach(sess))
+    for (const name of sharedSessionManager.getPartitions()) {
+      appRequestCapturer.attach(sharedSessionManager.getSession(name))
+    }
+  }
+}
+
+/** 获取应用级共享 RequestCapturer（供 IPC 注册使用） */
+export function requireRequestCapturer(): RequestCapturer {
+  if (!appRequestCapturer) {
+    throw new Error('[WindowManager] appRequestCapturer not set; call setRequestCapturer first')
+  }
+  return appRequestCapturer
 }
 
 /** 注入「窗口就绪」回调（如注册快捷键），open* 工厂会在 bootstrap 后调用 */

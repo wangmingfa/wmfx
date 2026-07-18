@@ -168,6 +168,8 @@ export interface Message {
     selectFolder: string
     aboutTitle: string
     aboutVersion: string
+    tabBarPosition: string
+    tabBarPositionOptions: { top: string; left: string }
   }
   history: {
     title: string
@@ -516,6 +518,8 @@ export const messages: Record<string, Message> = {
       selectFolder: '选择文件夹',
       aboutTitle: '关于',
       aboutVersion: '版本',
+      tabBarPosition: '标签栏位置',
+      tabBarPositionOptions: { top: '顶部', left: '左侧' },
     },
     history: {
       title: '历史记录',
@@ -832,6 +836,8 @@ export const messages: Record<string, Message> = {
       selectFolder: 'Select folder',
       aboutTitle: 'About',
       aboutVersion: 'Version',
+      tabBarPosition: 'Tab bar position',
+      tabBarPositionOptions: { top: 'Top', left: 'Left' },
     },
     history: {
       title: 'History',

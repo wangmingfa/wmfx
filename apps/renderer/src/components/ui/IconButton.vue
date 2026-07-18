@@ -1,8 +1,8 @@
 <template>
   <NTooltip
     v-if="tooltipConfig"
-    :keep-alive-on-hover="false"
-    :content-style="{ pointerEvents: 'none' }"
+    :keep-alive-on-hover="tooltipInteractive"
+    :content-style="tooltipInteractive ? undefined : { pointerEvents: 'none' }"
     v-bind="tooltipConfig.props"
   >
     <template #trigger>
@@ -79,6 +79,12 @@ const props = withDefaults(
      * 不传或空时不渲染 NTooltip。
      */
     tooltip?: string | TooltipConfig
+    /**
+     * tooltip 是否可交互（鼠标可移入其上）。
+     * 默认 false：tooltip 鼠标穿透（pointer-events:none）、移入即消失，纯提示用。
+     * true：去掉穿透并保活，可在 tooltip 内放可点击内容。
+     */
+    tooltipInteractive?: boolean
     active?: boolean
     disabled?: boolean
   }>(),
@@ -86,6 +92,7 @@ const props = withDefaults(
     gap: 6,
     hoverVariant: 'default',
     danger: false,
+    tooltipInteractive: false,
     active: false,
     disabled: false,
   },
@@ -96,7 +103,7 @@ const emit = defineEmits<{ (e: 'click', ev: MouseEvent): void }>()
 const DEFAULT_SIZE = 18
 
 /** 归一化 tooltip 配置：string → { content, props:{} }；object → { content, props: 其余字段 }；空 → null */
-const tooltipConfig = computed<{ content: string, props: Partial<TooltipProps> } | null>(() => {
+const tooltipConfig = computed<{ content: string; props: Partial<TooltipProps> } | null>(() => {
   const tip = props.tooltip
   if (!tip) return null
   if (typeof tip === 'string') {
@@ -106,7 +113,7 @@ const tooltipConfig = computed<{ content: string, props: Partial<TooltipProps> }
   return content && content.length > 0 ? { content, props: rest } : null
 })
 
-function parseIcon(arg: IconArg): { name: string, sz: number } {
+function parseIcon(arg: IconArg): { name: string; sz: number } {
   if (typeof arg === 'string') return { name: arg, sz: DEFAULT_SIZE }
   return { name: arg.name, sz: arg.size }
 }

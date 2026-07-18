@@ -74,6 +74,7 @@ export const INTERNAL_ROUTE_PREFIXES: readonly string[] = [
   '/newtab',
   '/error',
   '/cert-warning',
+  '/interceptor',
 ]
 
 /** 内部页标题硬编码映射：由 path 首段映射到中文菜单名（向后兼容用）。 */
@@ -84,6 +85,7 @@ const INTERNAL_TITLE_MAP: Record<string, string> = {
   downloads: '下载',
   proxy: '代理',
   newtab: '新标签页',
+  interceptor: '请求拦截',
 }
 
 /** 由 wmfx:// 之后的 path 推导展示标题，如 'settings/appearance' → 'Settings'（支持 i18n）。 */

@@ -1,4 +1,10 @@
-import type { QuickLink, SearchEngine, SettingsSnapshot, ThemeMode } from '@browser/ipc-contract'
+import type {
+  InterceptorRule,
+  QuickLink,
+  SearchEngine,
+  SettingsSnapshot,
+  ThemeMode,
+} from '@browser/ipc-contract'
 import { nativeTheme } from 'electron'
 import Store from 'electron-store'
 
@@ -30,6 +36,9 @@ interface SettingsSchema {
   adBlockCustomRules: string[]
   adBlockAllowlist: string[]
   forceDark: boolean
+  tabBarPosition: 'top' | 'left'
+  interceptorEnabled: boolean
+  interceptorRules: InterceptorRule[]
 }
 
 export const defaultSettings: SettingsSchema = {
@@ -58,6 +67,9 @@ export const defaultSettings: SettingsSchema = {
   adBlockCustomRules: [],
   adBlockAllowlist: [],
   forceDark: true,
+  tabBarPosition: 'top',
+  interceptorEnabled: false,
+  interceptorRules: [],
 }
 
 /** 校验 theme 值 */
@@ -263,6 +275,18 @@ export class SettingsManager {
         return typeof value === 'boolean'
           ? (value as SettingsSchema[K])
           : (defaultSettings.forceDark as SettingsSchema[K])
+      case 'tabBarPosition': {
+        if (['top', 'left'].includes(value as string)) return value as SettingsSchema[K]
+        return defaultSettings.tabBarPosition as SettingsSchema[K]
+      }
+      case 'interceptorEnabled':
+        return typeof value === 'boolean'
+          ? (value as SettingsSchema[K])
+          : (defaultSettings.interceptorEnabled as SettingsSchema[K])
+      case 'interceptorRules':
+        return Array.isArray(value)
+          ? (value as SettingsSchema[K])
+          : (defaultSettings.interceptorRules as SettingsSchema[K])
       default:
         return value
     }

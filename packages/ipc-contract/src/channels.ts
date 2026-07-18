@@ -183,6 +183,45 @@ export interface AdBlockLogEntry {
   host: string
 }
 
+// ---- Request Interceptor types ----
+
+export type RuleAction = 'block' | 'redirect' | 'mock'
+
+export interface InterceptorRule {
+  id: string
+  name: string
+  enabled: boolean
+  action: RuleAction
+  urlPattern: string
+  methods: string[]
+  resourceTypes: string[]
+  targetUrl?: string
+  mockStatusCode?: number
+  mockHeaders?: Record<string, string>
+  mockBody?: string
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CapturedRequest {
+  id: string
+  tabId: string
+  method: string
+  url: string
+  statusCode: number
+  statusLine: string
+  requestHeaders: Record<string, string>
+  responseHeaders: Record<string, string>
+  type: string
+  startTime: number
+  endTime: number
+  duration: number
+  intercepted: boolean
+  ruleId?: string
+  ruleName?: string
+  error?: string
+}
+
 /** 下载项 */
 export interface DownloadItem {
   id: string
@@ -395,6 +434,7 @@ export interface SettingsSnapshot {
   showBookmarkBar: boolean
   openBookmarkInNewTab: boolean
   forceDark: boolean
+  tabBarPosition: 'top' | 'left'
 }
 
 /** 设置为默认浏览器结果（setAsDefaultProtocolClient 跨平台生效，返回是否成功） */
@@ -514,6 +554,15 @@ export interface IpcContract {
   'adblock:getRules': () => AdBlockRule[]
   /** 返回拦截历史（按时间倒序），供「拦截历史」弹窗展示 */
   'adblock:getLog': () => AdBlockLogEntry[]
+  // Request Interceptor
+  'interceptor:getStatus': () => { enabled: boolean; capturedCount: number; ruleCount: number }
+  'interceptor:setEnabled': (enabled: boolean) => void
+  'interceptor:getRules': () => InterceptorRule[]
+  'interceptor:addRule': (rule: InterceptorRule) => void
+  'interceptor:updateRule': (rule: InterceptorRule) => void
+  'interceptor:deleteRule': (ruleId: string) => void
+  'interceptor:getCaptured': (opts?: { limit?: number; offset?: number }) => CapturedRequest[]
+  'interceptor:clearLog': () => void
   // Autocomplete
   'autocomplete:suggestions': (opts: AutocompleteQuery) => AutocompleteSuggestion[]
   // Bookmark
@@ -710,6 +759,15 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'adblock:setEnabled',
   'adblock:getRules',
   'adblock:getLog',
+  // Request Interceptor
+  'interceptor:getStatus',
+  'interceptor:setEnabled',
+  'interceptor:getRules',
+  'interceptor:addRule',
+  'interceptor:updateRule',
+  'interceptor:deleteRule',
+  'interceptor:getCaptured',
+  'interceptor:clearLog',
   // Autocomplete
   'autocomplete:suggestions',
   // Bookmark

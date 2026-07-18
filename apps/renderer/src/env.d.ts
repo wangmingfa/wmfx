@@ -98,8 +98,9 @@ declare global {
       // Bookmark
       isBookmarked: IpcInvoke['bookmark:isBookmarked']
       moveBookmark: IpcInvoke['bookmark:move']
-      onBookmarksChanged: (handler: () => void) => void
-      onBookmarkBarChanged: (handler: () => void) => void
+      onBookmarksChanged: (handler: () => void) => () => void
+      onBookmarkBarChanged: (handler: () => void) => () => void
+      onTabBarPositionChanged: (handler: () => void) => () => void
       // Find in Page
       startFind: (opts: FindInPageOptions) => void
       endFind: IpcInvoke['page:endFind']
@@ -109,7 +110,7 @@ declare global {
         handler: (data: { matches: number; activeMatch: number; tabId: string }) => void
       ) => void
       onOpenFind: (handler: (tabId: string) => void) => void
-      onFocusAddressBar: (handler: () => void) => void
+      onFocusAddressBar: (handler: () => void) => () => void
       // Tab reorder
       reorderTabs: IpcInvoke['tab:reorder']
       // Tab thumbnail
@@ -236,6 +237,15 @@ declare global {
       setAdBlockEnabled: IpcInvoke['adblock:setEnabled']
       getAdBlockRules: IpcInvoke['adblock:getRules']
       getAdBlockLog: IpcInvoke['adblock:getLog']
+      // Request Interceptor
+      interceptorGetStatus: IpcInvoke['interceptor:getStatus']
+      interceptorSetEnabled: IpcInvoke['interceptor:setEnabled']
+      interceptorGetRules: IpcInvoke['interceptor:getRules']
+      interceptorAddRule: IpcInvoke['interceptor:addRule']
+      interceptorUpdateRule: IpcInvoke['interceptor:updateRule']
+      interceptorDeleteRule: IpcInvoke['interceptor:deleteRule']
+      interceptorGetCaptured: IpcInvoke['interceptor:getCaptured']
+      interceptorClearLog: IpcInvoke['interceptor:clearLog']
       // Favicon
       faviconGet: IpcInvoke['favicon:get']
       // Theme change broadcast

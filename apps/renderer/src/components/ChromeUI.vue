@@ -1,6 +1,7 @@
 <template>
-  <div class="chrome-ui" :class="{ 'chrome-ui--incognito': isIncognito }">
-    <TabBar v-if="!isHtmlFullscreen" :is-incognito="isIncognito" />
+  <div class="chrome-ui" :class="{ 'chrome-ui--incognito': isIncognito, 'chrome-ui--left': tabBarPosition === 'left' }">
+    <VerticalTabBar v-if="tabBarPosition === 'left' && !isHtmlFullscreen" />
+    <TabBar v-else-if="!isHtmlFullscreen" :is-incognito="isIncognito" />
     <div class="chrome-main">
       <div class="chrome-content">
         <AddressBar
@@ -36,6 +37,7 @@ import AddressBar from './AddressBar.vue'
 import BookmarkBar from './BookmarkBar.vue'
 import FindBar from './FindBar.vue'
 import TabBar from './TabBar.vue'
+import VerticalTabBar from './VerticalTabBar.vue'
 import Viewport from './Viewport.vue'
 
 const { t } = useI18n()
@@ -46,6 +48,13 @@ const showBookmarkBar = ref(false)
 const isIncognito = ref(false)
 /** 当前活跃标签是否处于 HTML 全屏（Fullscreen API）状态，隐藏所有 UI chrome */
 const isHtmlFullscreen = computed(() => activeTab.value?.isHtmlFullscreen === true)
+const tabBarPosition = ref<'top' | 'left'>('top')
+
+function syncTabBarPosition(): void {
+  void window.browserAPI.getSetting('tabBarPosition').then((v) => {
+    tabBarPosition.value = (v as 'top' | 'left') ?? 'top'
+  })
+}
 
 function syncBookmarkBar(): void {
   void window.browserAPI.getSetting('showBookmarkBar').then((v) => {
@@ -76,15 +85,21 @@ async function syncActiveTab(): Promise<void> {
 }
 
 let stateChangeHandler: (state: TabState) => void
+let cleanupBookmarksChanged: (() => void) | null = null
+let cleanupBookmarkBarChanged: (() => void) | null = null
+let cleanupFocusAddressBar: (() => void) | null = null
+let cleanupTabBarPositionChanged: (() => void) | null = null
 
 onMounted(() => {
   console.debug('[ChromeUI] onMounted: initializing')
   syncActiveTab()
   syncBookmarkBar()
+  syncTabBarPosition()
   void syncWindowInfo()
 
-  window.browserAPI.onBookmarksChanged(() => syncBookmarkBar())
-  window.browserAPI.onBookmarkBarChanged(() => syncBookmarkBar())
+  cleanupBookmarksChanged = window.browserAPI.onBookmarksChanged(() => syncBookmarkBar())
+  cleanupBookmarkBarChanged = window.browserAPI.onBookmarkBarChanged(() => syncBookmarkBar())
+  cleanupTabBarPositionChanged = window.browserAPI.onTabBarPositionChanged(() => syncTabBarPosition())
 
   stateChangeHandler = (state: TabState) => {
     if (state.active) {
@@ -96,11 +111,20 @@ onMounted(() => {
   window.browserAPI.onTabStateChange(stateChangeHandler)
 
   // Cmd/Ctrl+L：主进程窗口级快捷键转发到此，聚焦地址栏（复用新开标签的聚焦请求机制）
-  window.browserAPI.onFocusAddressBar(() => requestAddressBarFocus())
+  cleanupFocusAddressBar = window.browserAPI.onFocusAddressBar(() => requestAddressBarFocus())
 })
 
 onUnmounted(() => {
   window.browserAPI.removeListener('tab:state-change', stateChangeHandler as (...args: unknown[]) => void)
+  stateChangeHandler = undefined as unknown as (state: TabState) => void
+  cleanupBookmarksChanged?.()
+  cleanupBookmarksChanged = null
+  cleanupBookmarkBarChanged?.()
+  cleanupBookmarkBarChanged = null
+  cleanupFocusAddressBar?.()
+  cleanupFocusAddressBar = null
+  cleanupTabBarPositionChanged?.()
+  cleanupTabBarPositionChanged = null
 })
 </script>
 
@@ -110,6 +134,10 @@ onUnmounted(() => {
   flex-direction: column;
   height: 100vh;
   background: var(--bg-primary);
+}
+
+.chrome-ui--left {
+  flex-direction: row;
 }
 
 .chrome-ui--incognito {

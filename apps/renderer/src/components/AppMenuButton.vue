@@ -67,6 +67,7 @@ const menuItems = computed<MenuItem[]>(() => {
     { id: 'wmfx://passwords', label: t('appMenu.passwords'), icon: 'mdi:form-textbox-password' },
     { id: 'wmfx://downloads', label: t('appMenu.downloads'), icon: 'mdi:download' },
     { id: 'wmfx://proxy', label: t('appMenu.proxy'), icon: 'mdi:network' },
+    { id: 'wmfx://interceptor', label: '请求拦截', icon: 'mdi:web' },
     { id: 'sep-2', type: 'separator' },
     { id: 'wmfx://settings', label: t('appMenu.settings'), icon: 'mdi:cog' },
     { id: 'clear-data', label: t('appMenu.clearData'), icon: 'mdi:delete-sweep' },

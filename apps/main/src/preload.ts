@@ -7,6 +7,7 @@ import type {
   BookmarkCheckResult,
   BookmarkCreateOptions,
   BookmarkItem,
+  CapturedRequest,
   CertTrustScope,
   CreateTabOptions,
   DownloadCreateOptions,
@@ -15,6 +16,7 @@ import type {
   FindInPageDirection,
   FindInPageOptions,
   HistoryItem,
+  InterceptorRule,
   LogEntry,
   NativeMenuItemDescriptor,
   PasswordEntry,
@@ -143,8 +145,9 @@ const api: {
     targetPosition: number
   }) => Promise<void>
   getDragBookmarkId: () => Promise<string | null>
-  onBookmarksChanged: (cb: () => void) => void
-  onBookmarkBarChanged: (cb: () => void) => void
+  onBookmarksChanged: (cb: () => void) => () => void
+  onBookmarkBarChanged: (cb: () => void) => () => void
+  onTabBarPositionChanged: (cb: () => void) => () => void
   // Find in Page
   startFind: (opts: FindInPageOptions) => void
   endFind: (tabId: string) => Promise<void>
@@ -214,7 +217,7 @@ const api: {
     }) => void
   ) => void
   onOpenFind: (cb: (tabId: string) => void) => void
-  onFocusAddressBar: (cb: () => void) => void
+  onFocusAddressBar: (cb: () => void) => () => void
   // Log
   log: (entry: LogEntry) => void
   // Updater
@@ -233,6 +236,19 @@ const api: {
   setAdBlockEnabled: (enabled: boolean) => Promise<void>
   getAdBlockRules: () => Promise<AdBlockRule[]>
   getAdBlockLog: () => Promise<AdBlockLogEntry[]>
+  // Request Interceptor
+  interceptorGetStatus: () => Promise<{
+    enabled: boolean
+    capturedCount: number
+    ruleCount: number
+  }>
+  interceptorSetEnabled: (enabled: boolean) => Promise<void>
+  interceptorGetRules: () => Promise<InterceptorRule[]>
+  interceptorAddRule: (rule: InterceptorRule) => Promise<void>
+  interceptorUpdateRule: (rule: InterceptorRule) => Promise<void>
+  interceptorDeleteRule: (ruleId: string) => Promise<void>
+  interceptorGetCaptured: (opts?: { limit?: number; offset?: number }) => Promise<CapturedRequest[]>
+  interceptorClearLog: () => Promise<void>
   // Favicon cache
   faviconGet: (key: string) => Promise<string | null>
   // Popover
@@ -370,8 +386,21 @@ const api: {
   openBookmarkFolder: (folderId) => ipcRenderer.invoke('bookmark:openFolder', folderId),
   dragBookmarkDrop: (opts) => ipcRenderer.invoke('bookmark:drag-drop', opts),
   getDragBookmarkId: () => ipcRenderer.invoke('bookmark:drag-get'),
-  onBookmarksChanged: (cb) => ipcRenderer.on('bookmarks:changed', () => cb()),
-  onBookmarkBarChanged: (cb) => ipcRenderer.on('bookmarkBar:changed', () => cb()),
+  onBookmarksChanged: (cb) => {
+    const listener = (): void => cb()
+    ipcRenderer.on('bookmarks:changed', listener)
+    return () => ipcRenderer.removeListener('bookmarks:changed', listener)
+  },
+  onBookmarkBarChanged: (cb) => {
+    const listener = (): void => cb()
+    ipcRenderer.on('bookmarkBar:changed', listener)
+    return () => ipcRenderer.removeListener('bookmarkBar:changed', listener)
+  },
+  onTabBarPositionChanged: (cb) => {
+    const listener = (): void => cb()
+    ipcRenderer.on('tabBarPosition:changed', listener)
+    return () => ipcRenderer.removeListener('tabBarPosition:changed', listener)
+  },
   // Find in Page
   startFind: (opts) => ipcRenderer.send('page:startFind', opts),
   endFind: (tabId) => ipcRenderer.invoke('page:endFind', tabId),
@@ -429,7 +458,11 @@ const api: {
       )
     ),
   onOpenFind: (cb) => ipcRenderer.on('page:openFind', (_e, tabId) => cb(tabId as string)),
-  onFocusAddressBar: (cb) => ipcRenderer.on('shell:focusAddressBar', () => cb()),
+  onFocusAddressBar: (cb) => {
+    const listener = (): void => cb()
+    ipcRenderer.on('shell:focusAddressBar', listener)
+    return () => ipcRenderer.removeListener('shell:focusAddressBar', listener)
+  },
   // Log
   log: (entry) => ipcRenderer.send('log:frontend', entry),
   // Updater
@@ -480,6 +513,18 @@ const api: {
   setAdBlockEnabled: (enabled: boolean) => ipcRenderer.invoke('adblock:setEnabled', enabled),
   getAdBlockRules: () => ipcRenderer.invoke('adblock:getRules'),
   getAdBlockLog: () => ipcRenderer.invoke('adblock:getLog'),
+  // Request Interceptor
+  interceptorGetStatus: () => ipcRenderer.invoke('interceptor:getStatus'),
+  interceptorSetEnabled: (enabled: boolean) =>
+    ipcRenderer.invoke('interceptor:setEnabled', enabled),
+  interceptorGetRules: () => ipcRenderer.invoke('interceptor:getRules'),
+  interceptorAddRule: (rule: InterceptorRule) => ipcRenderer.invoke('interceptor:addRule', rule),
+  interceptorUpdateRule: (rule: InterceptorRule) =>
+    ipcRenderer.invoke('interceptor:updateRule', rule),
+  interceptorDeleteRule: (ruleId: string) => ipcRenderer.invoke('interceptor:deleteRule', ruleId),
+  interceptorGetCaptured: (opts?: { limit?: number; offset?: number }) =>
+    ipcRenderer.invoke('interceptor:getCaptured', opts),
+  interceptorClearLog: () => ipcRenderer.invoke('interceptor:clearLog'),
   // Favicon cache
   faviconGet: (key: string) => ipcRenderer.invoke('favicon:get', key),
 }

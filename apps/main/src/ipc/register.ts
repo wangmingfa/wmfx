@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import process from 'node:process'
 import type {
   AutocompleteSuggestion,
+  InterceptorRule,
   IpcContract,
   QuickLink,
   SearchEngine,
@@ -21,7 +22,12 @@ import { getSearchSuggestions } from '../search-suggestions'
 import { SettingsManager } from '../settings-manager'
 import { updater } from '../updater'
 import type { BrowserWindowInstance } from '../window-manager'
-import { openIncognitoWindow, openNormalWindow, requireAdBlocker } from '../window-manager'
+import {
+  openIncognitoWindow,
+  openNormalWindow,
+  requireAdBlocker,
+  requireRequestCapturer,
+} from '../window-manager'
 
 /** Type for raw WebContents event methods (TS overloads don't cover 'found-in-page') */
 interface WebContentsEventTarget {
@@ -654,6 +660,11 @@ export function registerIpcHandlers(): void {
         if (!win.isDestroyed()) win.webContents.send('bookmarkBar:changed')
       }
     }
+    if (opts.key === 'tabBarPosition') {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send('tabBarPosition:changed')
+      }
+    }
   })
 
   handle('settings:getAll', () => {
@@ -804,6 +815,63 @@ export function registerIpcHandlers(): void {
   handle('adblock:getLog', () => {
     console.debug('[IPC] adblock:getLog')
     return adBlocker.getBlockLog()
+  })
+
+  // ---- Request Interceptor ----
+  const capturer = requireRequestCapturer()
+  const settingsManager = SettingsManager.getInstance()
+  handle('interceptor:getStatus', () => {
+    console.debug('[IPC] interceptor:getStatus')
+    const rules = (settingsManager.get('interceptorRules') as InterceptorRule[]) ?? []
+    return {
+      enabled: capturer.isEnabled(),
+      capturedCount: capturer.getCapturedCount(),
+      ruleCount: rules.length,
+    }
+  })
+  handle('interceptor:setEnabled', (_event, enabled: boolean) => {
+    console.debug('[IPC] interceptor:setEnabled', enabled)
+    settingsManager.set('interceptorEnabled' as never, enabled as never)
+    capturer.setEnabled(enabled)
+  })
+  handle('interceptor:getRules', () => {
+    console.debug('[IPC] interceptor:getRules')
+    return (settingsManager.get('interceptorRules') as InterceptorRule[]) ?? []
+  })
+  handle('interceptor:addRule', (_event, rule) => {
+    console.debug('[IPC] interceptor:addRule', rule.name)
+    const rules = ((settingsManager.get('interceptorRules') as InterceptorRule[]) ??
+      []) as InterceptorRule[]
+    rules.push(rule)
+    settingsManager.set('interceptorRules' as never, rules as never)
+  })
+  handle('interceptor:updateRule', (_event, rule) => {
+    console.debug('[IPC] interceptor:updateRule', rule.id)
+    const rules = ((settingsManager.get('interceptorRules') as InterceptorRule[]) ??
+      []) as InterceptorRule[]
+    const idx = rules.findIndex((r: InterceptorRule) => r.id === rule.id)
+    if (idx >= 0) {
+      rules[idx] = rule
+      settingsManager.set('interceptorRules' as never, rules as never)
+    }
+  })
+  handle('interceptor:deleteRule', (_event, ruleId) => {
+    console.debug('[IPC] interceptor:deleteRule', ruleId)
+    const rules = ((settingsManager.get('interceptorRules') as InterceptorRule[]) ??
+      []) as InterceptorRule[]
+    const idx = rules.findIndex((r: InterceptorRule) => r.id === ruleId)
+    if (idx >= 0) {
+      rules.splice(idx, 1)
+      settingsManager.set('interceptorRules' as never, rules as never)
+    }
+  })
+  handle('interceptor:getCaptured', (_event, opts) => {
+    console.debug('[IPC] interceptor:getCaptured')
+    return capturer.getCaptured(opts)
+  })
+  handle('interceptor:clearLog', () => {
+    console.debug('[IPC] interceptor:clearLog')
+    capturer.clearLog()
   })
 
   // Autocomplete

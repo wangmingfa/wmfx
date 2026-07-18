@@ -7,6 +7,7 @@ import CertWarningView from './views/CertWarningView.vue'
 import DownloadsView from './views/DownloadsView.vue'
 import ErrorView from './views/ErrorView.vue'
 import HistoryView from './views/HistoryView.vue'
+import InterceptorView from './views/interceptor/InterceptorView.vue'
 import NewTabView from './views/NewTab.vue'
 import PasswordsView from './views/PasswordsView.vue'
 import ProxyPage from './views/ProxyPage.vue'
@@ -30,6 +31,7 @@ export const router = createRouter({
     { path: '/passwords', component: PasswordsView },
     { path: '/downloads', component: DownloadsView },
     { path: '/proxy', component: ProxyPage },
+    { path: '/interceptor', component: InterceptorView },
     { path: '/reader', component: ReaderView },
     { path: '/newtab', component: NewTabView },
     { path: '/panel', component: PanelRoot },

@@ -17,7 +17,9 @@
       <Icon v-else icon="ic:round-folder" :width="16" :height="16" class="item-icon" />
       <span class="item-title">{{ item.title }}</span>
     </div>
-    <div v-if="children.length === 0" class="empty">空文件夹</div>
+    <div v-if="children.length === 0" class="empty">
+      空文件夹
+    </div>
   </div>
 </template>
 

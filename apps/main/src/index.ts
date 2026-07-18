@@ -1,3 +1,4 @@
+import type { InterceptorRule } from '@browser/ipc-contract'
 import { ProxyManager, resolveProxyConfigDir, type TrafficData } from '@browser/proxy'
 import { app, BrowserWindow, Menu } from 'electron'
 import { AdBlocker } from './ad-blocker'
@@ -5,6 +6,7 @@ import { registerDefaultBrowserHandlers } from './default-browser'
 import { initVueDevToolsPath } from './devtools'
 import { initNativeMenu, registerIpcHandlers } from './ipc/register'
 import { initLogger, startLogRotation } from './logger'
+import { RequestCapturer } from './request-interceptor'
 import { SettingsManager } from './settings-manager'
 import { registerAppShortcut, toggleDevTools } from './shortcut'
 import { updater } from './updater'
@@ -17,6 +19,7 @@ import {
   setAdBlocker,
   setAppProxyManager,
   setOnWindowReady,
+  setRequestCapturer,
 } from './window-manager'
 
 // 单实例锁：设为默认浏览器后，系统点击链接会尝试启动新实例，
@@ -48,6 +51,12 @@ setAppProxyManager(proxyManager)
 /** 全应用共享广告拦截器：基于 session.webRequest.onBeforeRequest 拦截广告/追踪请求 */
 const adBlocker = AdBlocker.getInstance(SettingsManager.getInstance())
 setAdBlocker(adBlocker)
+
+/** 全应用共享请求拦截器：捕获所有请求并推送到 wmfx://interceptor 页面 */
+const requestCapturer = new RequestCapturer(
+  () => (SettingsManager.getInstance().get('interceptorRules') as InterceptorRule[]) ?? []
+)
+setRequestCapturer(requestCapturer)
 
 function saveSessionState(instance: BrowserWindowInstance): void {
   // 无痕窗口不落盘会话与窗口尺寸
