@@ -1,23 +1,32 @@
 <template>
-  <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides" style="height: 100%">
-    <NDialogProvider>
-      <RouterView v-slot="{ Component }" class="router-view">
-        <component :is="Component" />
-      </RouterView>
-    </NDialogProvider>
+  <NConfigProvider
+    :theme="naiveTheme"
+    :theme-overrides="themeOverrides"
+    style="height: 100%"
+  >
+    <NMessageProvider ref="messageProviderRef">
+      <NDialogProvider>
+        <RouterView
+          v-slot="{ Component }"
+          class="router-view"
+        >
+          <component :is="Component" />
+        </RouterView>
+      </NDialogProvider>
+    </NMessageProvider>
   </NConfigProvider>
 </template>
 
 <script setup lang="ts">
-import type { GlobalThemeOverrides } from 'naive-ui'
-import { darkTheme, NConfigProvider, NDialogProvider } from 'naive-ui'
-import { computed } from 'vue'
+import type { GlobalThemeOverrides, MessageProviderInst } from 'naive-ui'
+import { darkTheme, NConfigProvider, NDialogProvider, NMessageProvider } from 'naive-ui'
+import { computed, provide, ref } from 'vue'
 import { RouterView } from 'vue-router'
 import { useTheme } from '@/composables/useTheme'
 
-console.debug('[App] setup: useTheme 初始化')
-
 const { theme } = useTheme()
+const messageProviderRef = ref<MessageProviderInst>()
+provide('messageProvider', messageProviderRef)
 const naiveTheme = computed(() => (theme.value === 'dark' ? darkTheme : undefined))
 
 console.debug('[App] resolveColor: 初始化 CSS 变量解析函数')

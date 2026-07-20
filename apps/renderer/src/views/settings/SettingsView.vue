@@ -20,6 +20,7 @@ import DownloadsView from './DownloadsView.vue'
 import GeneralView from './GeneralView.vue'
 import PrivacyView from './PrivacyView.vue'
 import { settingsSideMenu } from './settingsMenu'
+import ShortcutsView from './ShortcutsView.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -31,6 +32,7 @@ const pages = {
   downloads: { component: markRaw(DownloadsView), labelKey: 'settings.navDownloads' as const },
   about: { component: markRaw(AboutView), labelKey: 'settings.navAbout' as const },
   privacy: { component: markRaw(PrivacyView), labelKey: 'settings.navPrivacy' as const },
+  shortcuts: { component: markRaw(ShortcutsView), labelKey: 'settings.navShortcuts' as const },
 }
 
 // 依据当前路由段选取子页面；未知路由回退到 appearance

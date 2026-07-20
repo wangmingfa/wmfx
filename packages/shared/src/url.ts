@@ -7,6 +7,24 @@ export interface AddressBarResult {
 
 const DOMAIN_LIKE = /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i
 
+/** 本地路径匹配模式（Unix/Windows/相对路径） */
+const LOCAL_PATH_PATTERNS = [
+  /^\/[\w\-./]+$/, // Unix: /home/user/docs
+  /^[A-Z]:[/\\][\w\-./\\]+$/i, // Windows: C:/Users/x or C:\Users\x
+  /^~\/[\w\-./]+$/, // Unix short: ~/Documents
+  /^\.\.?\/[\w\-./]+$/, // Relative: ./src, ../tmp
+]
+
+/** 判断是否为本地文件系统路径（用于地址栏自动检测） */
+export function isLocalPath(input: string): boolean {
+  return LOCAL_PATH_PATTERNS.some((p) => p.test(input))
+}
+
+/** 将本地路径规范化为正斜杠格式（Windows 反斜杠统一为正斜杠） */
+export function normalizeLocalPath(input: string): string {
+  return input.replace(/\\/g, '/')
+}
+
 /** 各搜索引擎的搜索地址前缀（查询参数拼在后面）。 */
 export const SEARCH_ENGINE_BASE: Record<string, string> = {
   google: 'https://www.google.com/search?q=',
@@ -24,6 +42,10 @@ export function normalizeAddressBarInput(input: string): AddressBarResult {
   if (/^wmfx:\/\//i.test(trimmed)) {
     console.debug('[url] normalizeAddressBarInput: 命中 wmfx:// 前缀, 按 url 处理')
     return { type: 'url', value: trimmed }
+  }
+  if (isLocalPath(trimmed)) {
+    console.debug('[url] normalizeAddressBarInput: 命中本地路径, 按 url 处理')
+    return { type: 'url', value: normalizeLocalPath(trimmed) }
   }
   if (!trimmed.includes(' ') && DOMAIN_LIKE.test(trimmed)) {
     console.debug('[url] normalizeAddressBarInput: 类域名, 补充 https:// 前缀')
@@ -43,6 +65,13 @@ export function resolveAddressBarTarget(input: string, searchEngine: string): st
   console.debug('[url] resolveAddressBarTarget: input searchEngine', input, searchEngine)
   const { type, value } = normalizeAddressBarInput(input)
   if (type === 'url') {
+    // 本地路径 → wmfx://files/xxx，由文件浏览器处理
+    if (isLocalPath(value)) {
+      const normalized = normalizeLocalPath(value)
+      const url = `${WMFX_SCHEME}files/${normalized}`
+      console.debug('[url] resolveAddressBarTarget: 本地路径转 wmfx://files', value, '→', url)
+      return url
+    }
     console.debug('[url] resolveAddressBarTarget: 直接返回 url', value)
     return value
   }
@@ -50,6 +79,24 @@ export function resolveAddressBarTarget(input: string, searchEngine: string): st
   const target = `${base}${encodeURIComponent(value)}`
   console.debug('[url] resolveAddressBarTarget: 构造搜索 url', target)
   return target
+}
+
+/** 地址栏显示 URL：将 wmfx://files/xxx 还原为原始本地路径 /xxx，其他 URL 原样返回 */
+export function formatAddressBarUrl(url: string): string {
+  const prefix = `${WMFX_SCHEME}files/`
+  if (url.startsWith(prefix)) {
+    const raw = url.slice(prefix.length)
+    // hash 路由中路径可能被编码（空格/%2F 等），还原为用户可读的原始路径
+    let localPath = raw
+    try {
+      localPath = decodeURIComponent(raw)
+    } catch {
+      /* 非编码字符串，原样返回 */
+    }
+    console.debug('[url] formatAddressBarUrl: wmfx://files →', localPath)
+    return localPath
+  }
+  return url
 }
 
 /**
@@ -71,10 +118,14 @@ export const INTERNAL_ROUTE_PREFIXES: readonly string[] = [
   '/bookmarks',
   '/downloads',
   '/proxy',
+  '/passwords',
   '/newtab',
   '/error',
   '/cert-warning',
   '/interceptor',
+  '/files',
+  '/ftp',
+  '/sftp',
 ]
 
 /** 内部页标题硬编码映射：由 path 首段映射到中文菜单名（向后兼容用）。 */
@@ -86,6 +137,9 @@ const INTERNAL_TITLE_MAP: Record<string, string> = {
   proxy: '代理',
   newtab: '新标签页',
   interceptor: '请求拦截',
+  files: '文件',
+  ftp: 'FTP',
+  sftp: 'SFTP',
 }
 
 /** 由 wmfx:// 之后的 path 推导展示标题，如 'settings/appearance' → 'Settings'（支持 i18n）。 */

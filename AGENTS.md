@@ -157,53 +157,62 @@ import { NInput, NSelect, NSwitch } from 'naive-ui'
 | 开关 | `NSwitch` |
 | 单选 | `NRadioGroup` + `NRadioButton` |
 | 提示 | `NTooltip` |
-**M1 — 基础浏览（Phase 1）** ✅ COMPLETED
-- TabManager: WebContentsView lifecycle with event listeners
-- NavigationManager: goBack/forward/reload/stop/loadURL
-- SessionManager: default/incognito partition isolation
-- ChromeUI: TabBar + AddressBar + Viewport with ResizeObserver → setBounds
-- IPC: TabState, BrowserViewBounds, tab:*/nav:*/session:* channels
-- E2E tests updated
 
-**M2 — 浏览增强（Phase 2）** ✅ COMPLETED
-- DownloadManager (will-download + progress broadcast)
-- HistoryManager (auto-record with tabId + dedup + search)
-- BookmarkManager (folder hierarchy + HTML import/export)
-- SettingsManager (electron-store + theme/zoom/print/devtools)
-- Sidebar (fixed-width 280px, 4 views: downloads/history/bookmarks/settings)
-- DevTools (right-click on webview, per-tab)
-- Print/PDF (printPage → toPDF)
-- Zoom controls (100% default, cycles 50/75/100/125/150)
-- Theme toggle (light/dark via nativeTheme + CSS variables)
-- 28 new IPC channels, 41 total handlers
-- 12 E2E tests (7 original + 5 M2 features)
+## Vue 组件样式规范
 
-**M3 — 用户体验增强（Phase 3）** ✅ COMPLETED
-- New Tab Page (search box + quick links grid + recent history)
-- Find in Page UI (slides from AddressBar bottom-right, Ctrl+F)
-- AddressBar autocomplete (history + bookmark suggestions, 200ms debounce)
-- Bookmark star button (toggle current page bookmark, gold filled)
-- Tab drag & drop reordering (HTML5 DnD, persisted to SettingsManager)
-- 9 new IPC channels, 50 total handlers
-- 17 E2E tests (7 original + 5 M2 + 5 M3)
+- Vue 单文件组件的 `<style>` **必须使用 LESS 语法**（`lang="less"`），禁止纯 CSS 写法。
+- 使用 LESS 的**嵌套**组织样书：将子选择器、`:hover` / `:active` 等状态、以及复合类（如 `.files-list.list`）通过 `&` 嵌套在父选择器内部，避免平铺大量独立规则。
+- 示例：
+  ```less
+  .files-list {
+    flex: 1;
+    overflow-y: auto;
 
-**M3 proxy — Mihomo 代理模块** ✅ COMPLETED
-- packages/proxy: ProxyManager, MihomoProcess, ConfigManager, ApiClient, HealthChecker, TrafficMonitor, CoreDownloader
-- SubscriptionManager (moved to apps/main, depends on database)
-- 代理面板 UI: NodeView, SubscriptionView, TrafficView, LogView
-- 12 new IPC channels (proxy + subscription), 62 total handlers
-- 21 E2E tests
+    &.list {
+      display: flex;
+      flex-direction: column;
+    }
 
-**M4 — 打磨与打包** ✅ COMPLETED
-- electron-builder 三平台打包配置 (AppImage/deb/dmg/nsis)
-- 会话恢复: 关闭时保存标签页，重启时恢复
-- 窗口状态持久化 (位置/大小)
-- 崩溃恢复: render-process-gone 自动 reload
-- 后台标签挂起: 5分钟不活跃释放 WebContentsView
+    .file-item {
+      padding: 8px;
 
-**M5 — CI/CD 与分发** ⏳ NEXT
-- GitHub Actions 三平台构建矩阵
-- 代码签名: macOS Apple Developer ID, Windows Authenticode
-- 自动更新: electron-updater + GitHub Releases
-- 测试覆盖扩展: Vitest 单元测试, Playwright E2E 扩展
-- 标签悬停缩略图预览 (captureThumbnail + 300ms throttle + cache)
+      &:hover {
+        background: var(--bg-hover);
+      }
+    }
+  }
+  ```
+- 主题色、间距等统一引用 `apps/renderer/src/style.css` 中定义的 CSS 变量，不写死色值；**每个 CSS 变量必须有中文注释说明用途**。
+- 组件根节点应设置基础 `font-family: var(--font-sans)`，避免字体属性无默认值。
+
+## 浮层菜单与 Popover 规范
+
+三类浮层封装位于 `apps/renderer/src/lib/` 与 `apps/renderer/src/components/`，按"跨进程 vs 渲染进程内""是否需要遮挡背景"区分使用场景：
+
+### 1. `lib/popover.ts` —— 通用 Popover 底层（跨进程）
+- 封装 `window.browserAPI.popover*` IPC，把面板交给**主进程**用 `WebContentsView`（`PanelRoot.vue`）渲染，支持 `menu` / `addressbar` 等 `type`。
+- 适用：**菜单/面板需要超出当前 WebContentsView 边界、或需遮挡后台内容**的场景（因渲染进程内浮层会被自身 WebContentsView 裁剪）。
+- 通过 `type` 区分面板类型，`data` 传递可序列化数据；更换底层实现（不再用 WebContentsView）时，调用处代码无需改动。
+- 事件经 `onPopoverEvent` / `onPopoverDismiss` IPC 回传，内部用 `eventMap` / `dismissCallbacks` 按 `popoverId` 路由到对应实例。
+
+### 2. `lib/dropdown-menu.ts` —— 基于 Popover 的下拉菜单
+- 对 `Popover` 的封装，对外 API 与 `ContextMenu` 保持一致（`anchor` + `descriptor:{id,items}` + `onAction({menu, context:{close}})` + `onDismiss` + `mode` + `autoOpen`）。
+- 内部把 `MenuItem[]` 经 IPC 传给主进程面板，由 `PanelRoot` 渲染 `PopoverMenu.vue`；点击项经 `onPopoverEvent('select')` 回传 `id` 后路由为 `onAction`。
+- 使用场景：需要**跨 WebContentsView 边界弹出、或菜单可能超出自身视图被裁剪**的右键/下拉菜单（如 `BookmarkBar`、`TabBar`、`VerticalTabBar`、`AppMenuButton`）。
+
+### 3. `lib/context-menu.ts` + `components/ContextMenu.vue` —— 渲染进程内右键菜单
+- 不经 IPC、不新建 WebContentsView，直接用 `createApp` + `Teleport` 把 `PopoverMenu.vue` 以 `position: fixed` 渲染到 `body`、定位到光标坐标；样式与 `DropdownMenu` 完全一致（共用 `PopoverMenu.vue`）。
+- **API 与 `DropdownMenu` 同构**，调用方只需切换类名即可。
+- `mode`：
+  - `'overlay'`（默认 `'normal'`）：渲染全屏遮罩（`.context-menu-mask`）挡住整个页面，菜单浮于遮罩之上，点击遮罩即关闭——用于**不希望用户操作后台元素**的场景。
+  - `'normal'`：无遮罩，仅监听"点击外部 / Esc / 滚动 / resize"自动关闭——用于**页面自身即内容、不存在 WebContentsView 遮挡**的场景（如 `FilesView` 的右键菜单）。
+- 关闭行为（与 `DropdownMenu` 统一）：`onAction` 回调返回 `false` 表示**保持菜单打开**（如需要继续交互），其它返回值（含不返回）在回调结束后**自动关闭**；`context.close()` 仍保留作为手动关闭的逃生舱。
+
+### 选用原则
+| 场景 | 选用 |
+|------|------|
+| 菜单需跨 WebContentsView 边界 / 被自身视图裁剪 | `DropdownMenu`（`Popover`） |
+| 页面内浮层、无遮挡问题、要轻量即时 | `ContextMenu`（`mode: 'normal'`） |
+| 页面内浮层、但要挡住后台交互 | `ContextMenu`（`mode: 'overlay'`） |
+| 非菜单类面板（地址栏联想、查找栏等常驻） | 直接用 `Popover` |
+

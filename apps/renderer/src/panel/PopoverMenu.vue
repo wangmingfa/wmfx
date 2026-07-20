@@ -1,22 +1,37 @@
 <template>
-  <ul ref="rootRef" class="popover-menu">
-    <template v-for="(item, idx) in items" :key="item.id ?? idx">
-      <li v-if="item.type === 'separator'" class="popover-divider-item">
+  <ul
+    ref="rootRef"
+    class="popover-menu"
+  >
+    <template
+      v-for="(item, idx) in items"
+      :key="item.id ?? idx"
+    >
+      <li
+        v-if="item.type === 'separator'"
+        class="popover-divider-item"
+      >
         <div class="popover-divider" />
       </li>
       <li
         v-else
         class="popover-menu-item"
         :class="{
-          disabled: item.disabled,
-          danger: item.danger,
+          'disabled': item.disabled,
+          'danger': item.danger,
           'has-submenu': item.type === 'submenu',
-          active: item.id === activeId,
+          'active': item.id === activeId,
         }"
         @mouseenter="emit('hover', item.id)"
         @click="onClick(item)"
       >
-        <Icon v-if="item.icon" :icon="item.icon" class="popover-item-icon" width="16" height="16" />
+        <Icon
+          v-if="item.icon"
+          :icon="item.icon"
+          class="popover-item-icon"
+          width="16"
+          height="16"
+        />
         <span class="popover-item-label">
           <template v-if="item.accessKey && showMnemonics">
             <u>{{ item.label?.charAt(0) }}</u>
@@ -24,7 +39,10 @@
           </template>
           <template v-else>{{ item.label }}</template>
         </span>
-        <span v-if="item.shortcut" class="popover-item-shortcut">{{ item.shortcut }}</span>
+        <span
+          v-if="item.shortcut"
+          class="popover-item-shortcut"
+        >{{ item.shortcut }}</span>
         <Icon
           v-if="item.type === 'submenu'"
           icon="mdi:chevron-right"
@@ -79,7 +97,8 @@ const rootRef = ref<HTMLUListElement | null>(null)
  * 箭头图标始终指向右边（mdi:chevron-right）。
  */
 const submenuSide = computed<'left' | 'right'>(() => {
-  if (!rootRef.value) return 'right'
+  if (!rootRef.value)
+    return 'right'
   const rect = rootRef.value.getBoundingClientRect()
   const rightSpace = window.innerWidth - rect.right
   const leftSpace = rect.left

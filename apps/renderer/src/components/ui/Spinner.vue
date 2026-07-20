@@ -1,7 +1,19 @@
 <template>
-  <div class="spinner-container" :style="containerStyle">
-    <svg class="spinner" :style="svgStyle" viewBox="0 0 20 20">
-      <circle cx="10" cy="10" r="8" :style="circleStyle" />
+  <div
+    class="spinner-container"
+    :style="containerStyle"
+  >
+    <svg
+      class="spinner"
+      :style="svgStyle"
+      viewBox="0 0 20 20"
+    >
+      <circle
+        cx="10"
+        cy="10"
+        r="8"
+        :style="circleStyle"
+      />
     </svg>
   </div>
 </template>

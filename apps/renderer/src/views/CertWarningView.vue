@@ -7,14 +7,23 @@
     <p class="cert-desc">
       {{ t('certWarning.description') }}
     </p>
-    <p v-if="info" class="cert-url">
+    <p
+      v-if="info"
+      class="cert-url"
+    >
       {{ info.requestedUrl }}
     </p>
-    <p v-if="info" class="cert-error">
+    <p
+      v-if="info"
+      class="cert-error"
+    >
       {{ info.errorText }}
     </p>
 
-    <div v-if="showDetails && info" class="cert-details">
+    <div
+      v-if="showDetails && info"
+      class="cert-details"
+    >
       <p>
         <strong>{{ t('certWarning.host') }}:</strong>
         {{ info.host }}
@@ -33,17 +42,32 @@
         {{ showDetails ? t('certWarning.hideDetails') : t('certWarning.showDetails') }}
       </NButton>
       <div class="continue-section">
-        <NButton type="error" @click="showTrustOptions = !showTrustOptions">
+        <NButton
+          type="error"
+          @click="showTrustOptions = !showTrustOptions"
+        >
           {{ t('certWarning.continueAnyway') }}
         </NButton>
-        <div v-if="showTrustOptions" class="trust-options">
-          <NButton size="small" @click="trustAndContinue('once')">
+        <div
+          v-if="showTrustOptions"
+          class="trust-options"
+        >
+          <NButton
+            size="small"
+            @click="trustAndContinue('once')"
+          >
             {{ t('certWarning.trustOnce') }}
           </NButton>
-          <NButton size="small" @click="trustAndContinue('session')">
+          <NButton
+            size="small"
+            @click="trustAndContinue('session')"
+          >
             {{ t('certWarning.trustSession') }}
           </NButton>
-          <NButton size="small" @click="trustAndContinue('always')">
+          <NButton
+            size="small"
+            @click="trustAndContinue('always')"
+          >
             {{ t('certWarning.trustAlways') }}
           </NButton>
         </div>
@@ -58,7 +82,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()
-const info = ref<{ host: string; errorText: string; requestedUrl: string } | null>(null)
+const info = ref<{ host: string, errorText: string, requestedUrl: string } | null>(null)
 const showDetails = ref(false)
 const showTrustOptions = ref(false)
 
@@ -66,7 +90,8 @@ onMounted(async () => {
   try {
     info.value = await window.browserAPI.getCertWarningInfo()
     console.debug('[CertWarning] onMounted: 获取到证书警告信息 host', info.value?.host)
-  } catch {
+  }
+  catch {
     console.error('[CertWarning] onMounted: 获取证书警告信息失败')
   }
 })

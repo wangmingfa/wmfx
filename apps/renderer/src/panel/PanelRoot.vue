@@ -1,11 +1,20 @@
 <template>
-  <div v-if="isOpen" class="popover-root" :class="{ 'is-bounded': currentMode === 'bounded' }">
-    <div v-if="currentMode === 'overlay'" class="popover-backdrop" @click="dismiss" @contextmenu.prevent="dismiss" />
+  <div
+    v-if="isOpen"
+    class="popover-root"
+    :class="{ 'is-bounded': currentMode === 'bounded' }"
+  >
+    <div
+      v-if="currentMode === 'overlay'"
+      class="popover-backdrop"
+      @click="dismiss"
+      @contextmenu.prevent="dismiss"
+    />
     <div
       ref="boxRef"
       class="popover-box"
       :class="{
-        ready: boxVisible,
+        'ready': boxVisible,
         'is-overlay': currentMode === 'overlay',
         'is-addressbar': currentType === 'addressbar',
         'is-find': currentType === 'find',
@@ -101,13 +110,13 @@ const menuItems = computed(() => {
 })
 const addressBarData = computed(() => {
   if (currentType.value === 'addressbar' && currentData.value) {
-    return currentData.value as { query: string; suggestions: AutocompleteSuggestion[] }
+    return currentData.value as { query: string, suggestions: AutocompleteSuggestion[] }
   }
   return { query: '', suggestions: [] }
 })
 const findData = computed(() => {
   if (currentType.value === 'find' && currentData.value) {
-    return currentData.value as { query: string; matches: number; activeMatch: number }
+    return currentData.value as { query: string, matches: number, activeMatch: number }
   }
   return { query: '', matches: 0, activeMatch: -1 }
 })
@@ -125,7 +134,7 @@ const bookmarkFolderId = computed(() => {
 })
 const tabThumbnailData = computed(() => {
   if (currentType.value === 'tab-thumbnail' && currentData.value) {
-    return currentData.value as { src: string | null; loading: boolean; title: string; url: string }
+    return currentData.value as { src: string | null, loading: boolean, title: string, url: string }
   }
   return { src: null, loading: false, title: '', url: '' }
 })
@@ -147,7 +156,8 @@ let mouseHandler: ((e: MouseEvent) => void) | null = null
 
 function dismiss(): void {
   console.debug('[PanelRoot] dismiss: popoverId', currentPopoverId.value)
-  if (currentPopoverId.value) window.browserAPI.popoverClose(currentPopoverId.value)
+  if (currentPopoverId.value)
+    window.browserAPI.popoverClose(currentPopoverId.value)
   reset()
 }
 function reset(): void {
@@ -179,7 +189,8 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
   isOpen.value = true
   nextTick(() => {
     const el = boxRef.value
-    if (!el || !anchor.value) return
+    if (!el || !anchor.value)
+      return
     if (currentMode.value === 'bounded') {
       console.debug('[PanelRoot] onRender: bounded 模式，测量并上报盒子尺寸')
       // 内容自然尺寸上报；仅地址栏 popover 用 rect 宽度约束（覆盖原输入框宽度），
@@ -213,14 +224,15 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
           rects.push((node as HTMLElement).getBoundingClientRect())
           node = walker.nextNode()
         }
-        const left = Math.min(...rects.map((r) => r.left))
-        const top = Math.min(...rects.map((r) => r.top))
-        const right = Math.max(...rects.map((r) => r.right))
-        const bottom = Math.max(...rects.map((r) => r.bottom))
+        const left = Math.min(...rects.map(r => r.left))
+        const top = Math.min(...rects.map(r => r.top))
+        const right = Math.max(...rects.map(r => r.right))
+        const bottom = Math.max(...rects.map(r => r.bottom))
         return new DOMRect(left, top, right - left, bottom - top)
       }
       const measureMenuExtent = () => {
-        if (!boxRef.value || !boxVisible.value || currentMode.value !== 'bounded') return
+        if (!boxRef.value || !boxVisible.value || currentMode.value !== 'bounded')
+          return
         const vr = getVisualRect(boxRef.value)
         window.browserAPI.popoverMeasure(currentPopoverId.value, {
           width: vr.width,
@@ -272,10 +284,11 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
         width: `${r.width}px`,
         height: `${r.height}px`,
       }
-    } else {
+    }
+    else {
       const size = { width: el.offsetWidth, height: el.offsetHeight }
-      const resolved: PopoverAnchor =
-        anchor.value.type === 'cursor'
+      const resolved: PopoverAnchor
+        = anchor.value.type === 'cursor'
           ? { type: 'point', x: lastPointer.value.x, y: lastPointer.value.y, placement: anchor.value.placement }
           : anchor.value
       const pos = computeBoxPosition(resolved, size, { width: window.innerWidth, height: window.innerHeight })
@@ -315,19 +328,23 @@ function openCurrentSub(): void {
   }
 }
 function closeCurrentSub(): void {
-  if (activePath.value.length === 0) return // 根层级无上一级，无操作
+  if (activePath.value.length === 0)
+    return // 根层级无上一级，无操作
   const popped = activePath.value[activePath.value.length - 1]
   console.debug('[PanelRoot] closeCurrentSub: popped', popped)
   activePath.value = activePath.value.slice(0, -1)
   const parentItems = getLevelItems(menuItems.value, activePath.value)
   const idx = selectableIndexOf(parentItems, popped)
-  if (idx >= 0) activeIndex.value = idx
+  if (idx >= 0)
+    activeIndex.value = idx
 }
 function activateCurrent(): void {
   const item = activeItem.value
-  if (!item || item.disabled) return
+  if (!item || item.disabled)
+    return
   console.debug('[PanelRoot] activateCurrent: itemId type', item.id, item.type)
-  if (item.type === 'submenu') openCurrentSub()
+  if (item.type === 'submenu')
+    openCurrentSub()
   else onMenuSelect(item.id)
 }
 function onMouseLeave(): void {
@@ -338,9 +355,11 @@ function onMouseLeave(): void {
 function onHover(itemId: string): void {
   const item = findItem(menuItems.value, itemId)
   // 禁用项不响应 hover：保持当前高亮，避免 selectableIndexOf 返回 -1 时高亮跳回首项
-  if (!item || item.disabled) return
+  if (!item || item.disabled)
+    return
   const path = pathToItem(menuItems.value, itemId)
-  if (!path) return
+  if (!path)
+    return
   // pathToItem 只返回祖先链；悬停的子菜单项需把自身 id 追加进去，才能展开其 flyout
   const effectivePath = item.type === 'submenu' ? [...path, item.id] : path
   activePath.value = effectivePath
@@ -350,7 +369,8 @@ function onHover(itemId: string): void {
 function onKeydown(e: KeyboardEvent): void {
   // 键盘导航（Esc/方向键/字母助记符）仅用于菜单。addressbar 与 find 面板各自在组件内处理键盘事件
   // （find 面板需在 IME 合成期间忽略 Esc/Enter），此处不得抢占，否则会绕过其 IME 守卫直接关闭面板。
-  if (currentType.value !== 'menu') return
+  if (currentType.value !== 'menu')
+    return
   if (e.key === 'Escape') {
     e.preventDefault()
     dismiss()
@@ -360,9 +380,11 @@ function onKeydown(e: KeyboardEvent): void {
     showMnemonics.value = true
     return
   }
-  if (e.altKey) return
+  if (e.altKey)
+    return
   const n = selectable.value.length
-  if (n === 0) return
+  if (n === 0)
+    return
   console.debug('[PanelRoot] onKeydown: key selectable', e.key, n)
   switch (e.key) {
     case 'ArrowDown':
@@ -390,7 +412,7 @@ function onKeydown(e: KeyboardEvent): void {
       break
     default: {
       const hit = selectable.value.find(
-        (i) => i.accessKey && i.accessKey.toLowerCase() === e.key.toLowerCase() && !i.disabled,
+        i => i.accessKey && i.accessKey.toLowerCase() === e.key.toLowerCase() && !i.disabled,
       )
       if (hit) {
         e.preventDefault()
@@ -407,7 +429,8 @@ onMounted(() => {
   dismissHandler = (() => reset()) as (...args: unknown[]) => void
   // 主 renderer 通过 sendData 增量更新面板数据（如查找匹配计数、地址栏建议）
   dataHandler = ((popoverId: string, data: unknown) => {
-    if (popoverId === currentPopoverId.value) currentData.value = data
+    if (popoverId === currentPopoverId.value)
+      currentData.value = data
   }) as (...args: unknown[]) => void
   window.browserAPI.onPopoverRender(renderHandler)
   window.browserAPI.onPopoverDismiss(dismissHandler)
@@ -421,11 +444,16 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   console.debug('[PanelRoot] onBeforeUnmount: 注销事件监听与 observer')
-  if (renderHandler) window.browserAPI.removeListener('popover:render', renderHandler)
-  if (dismissHandler) window.browserAPI.removeListener('popover:dismiss', dismissHandler)
-  if (dataHandler) window.browserAPI.removeListener('popover:data', dataHandler)
-  if (keyHandler) window.removeEventListener('keydown', keyHandler)
-  if (mouseHandler) window.removeEventListener('mousemove', mouseHandler)
+  if (renderHandler)
+    window.browserAPI.removeListener('popover:render', renderHandler)
+  if (dismissHandler)
+    window.browserAPI.removeListener('popover:dismiss', dismissHandler)
+  if (dataHandler)
+    window.browserAPI.removeListener('popover:data', dataHandler)
+  if (keyHandler)
+    window.removeEventListener('keydown', keyHandler)
+  if (mouseHandler)
+    window.removeEventListener('mousemove', mouseHandler)
   resizeObserver?.disconnect()
   resizeObserver = null
   mutationObserver?.disconnect()

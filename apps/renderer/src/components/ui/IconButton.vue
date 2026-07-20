@@ -13,9 +13,23 @@
         :style="btnStyle"
         @click="onClick"
       >
-        <Icon v-if="prefix" :icon="prefix.name" :width="prefix.sz" :height="prefix.sz" />
-        <Icon :icon="mainIcon.name" :width="mainIcon.sz" :height="mainIcon.sz" />
-        <Icon v-if="suffix" :icon="suffix.name" :width="suffix.sz" :height="suffix.sz" />
+        <Icon
+          v-if="prefix"
+          :icon="prefix.name"
+          :width="prefix.sz"
+          :height="prefix.sz"
+        />
+        <Icon
+          :icon="mainIcon.name"
+          :width="mainIcon.sz"
+          :height="mainIcon.sz"
+        />
+        <Icon
+          v-if="suffix"
+          :icon="suffix.name"
+          :width="suffix.sz"
+          :height="suffix.sz"
+        />
       </button>
     </template>
     {{ tooltipConfig.content }}
@@ -28,9 +42,23 @@
     :style="btnStyle"
     @click="onClick"
   >
-    <Icon v-if="prefix" :icon="prefix.name" :width="prefix.sz" :height="prefix.sz" />
-    <Icon :icon="mainIcon.name" :width="mainIcon.sz" :height="mainIcon.sz" />
-    <Icon v-if="suffix" :icon="suffix.name" :width="suffix.sz" :height="suffix.sz" />
+    <Icon
+      v-if="prefix"
+      :icon="prefix.name"
+      :width="prefix.sz"
+      :height="prefix.sz"
+    />
+    <Icon
+      :icon="mainIcon.name"
+      :width="mainIcon.sz"
+      :height="mainIcon.sz"
+    />
+    <Icon
+      v-if="suffix"
+      :icon="suffix.name"
+      :width="suffix.sz"
+      :height="suffix.sz"
+    />
   </button>
 </template>
 
@@ -103,9 +131,10 @@ const emit = defineEmits<{ (e: 'click', ev: MouseEvent): void }>()
 const DEFAULT_SIZE = 18
 
 /** 归一化 tooltip 配置：string → { content, props:{} }；object → { content, props: 其余字段 }；空 → null */
-const tooltipConfig = computed<{ content: string; props: Partial<TooltipProps> } | null>(() => {
+const tooltipConfig = computed<{ content: string, props: Partial<TooltipProps> } | null>(() => {
   const tip = props.tooltip
-  if (!tip) return null
+  if (!tip)
+    return null
   if (typeof tip === 'string') {
     return tip.length > 0 ? { content: tip, props: {} } : null
   }
@@ -113,8 +142,9 @@ const tooltipConfig = computed<{ content: string; props: Partial<TooltipProps> }
   return content && content.length > 0 ? { content, props: rest } : null
 })
 
-function parseIcon(arg: IconArg): { name: string; sz: number } {
-  if (typeof arg === 'string') return { name: arg, sz: DEFAULT_SIZE }
+function parseIcon(arg: IconArg): { name: string, sz: number } {
+  if (typeof arg === 'string')
+    return { name: arg, sz: DEFAULT_SIZE }
   return { name: arg.name, sz: arg.size }
 }
 
@@ -135,24 +165,28 @@ const btnStyle = computed(() => {
     let h: number
     if (props.btnSize !== undefined) {
       h = Array.isArray(props.btnSize) ? props.btnSize[1] : props.btnSize
-    } else {
+    }
+    else {
       const allIcons = [mainIcon.value, prefix.value, suffix.value].filter(Boolean) as { sz: number }[]
-      const maxIcon = Math.max(...allIcons.map((i) => i.sz))
+      const maxIcon = Math.max(...allIcons.map(i => i.sz))
       h = toEven(maxIcon * 1.5)
     }
     style.height = `${h}px`
-  } else if (props.btnSize !== undefined) {
+  }
+  else if (props.btnSize !== undefined) {
     const [w, h] = Array.isArray(props.btnSize) ? props.btnSize : [props.btnSize, props.btnSize]
     style.width = `${w}px`
     style.height = `${h}px`
-  } else {
+  }
+  else {
     const size = toEven(DEFAULT_SIZE * 1.5)
     style.width = `${size}px`
     style.height = `${size}px`
   }
   if (props.padding !== undefined) {
     style.padding = typeof props.padding === 'number' ? `${props.padding}px` : props.padding
-  } else if (hasAffix.value && props.btnSize === undefined) {
+  }
+  else if (hasAffix.value && props.btnSize === undefined) {
     style.padding = '0 6px'
   }
   style.gap = `${props.gap}px`
@@ -160,7 +194,8 @@ const btnStyle = computed(() => {
 })
 
 function onClick(ev: MouseEvent): void {
-  if (props.disabled) return
+  if (props.disabled)
+    return
   emit('click', ev)
 }
 </script>

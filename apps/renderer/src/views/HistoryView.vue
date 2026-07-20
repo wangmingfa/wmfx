@@ -6,21 +6,40 @@
     :search-placeholder="t('history.placeholder')"
   >
     <template #actions>
-      <button class="btn btn-sm" @click="handleClear">
+      <button
+        class="btn btn-sm"
+        @click="handleClear"
+      >
         {{ t('history.clear') }}
       </button>
     </template>
 
-    <div v-if="historyItems.length === 0" class="history-empty">
+    <div
+      v-if="historyItems.length === 0"
+      class="history-empty"
+    >
       <p>{{ t('history.empty') }}</p>
     </div>
     <template v-else>
-      <Section v-for="group in groupedItems" :key="group.label" :title="group.label">
-        <SectionItem v-for="item in group.items" :key="item.id" class="history-row" @click="openInNewTab(item)">
+      <Section
+        v-for="group in groupedItems"
+        :key="group.label"
+        :title="group.label"
+      >
+        <SectionItem
+          v-for="item in group.items"
+          :key="item.id"
+          class="history-row"
+          @click="openInNewTab(item)"
+        >
           <template #label>
             <div class="history-content">
               <div class="history-item-icon">
-                <Favicon :url="item.url" :favicon="item.favicon" :size="24" />
+                <Favicon
+                  :url="item.url"
+                  :favicon="item.favicon"
+                  :size="24"
+                />
               </div>
               <div class="history-item-info">
                 <div class="history-item-title">
@@ -74,12 +93,14 @@ async function loadHistory() {
 }
 
 function debouncedSearch() {
-  if (searchTimer) clearTimeout(searchTimer)
+  if (searchTimer)
+    clearTimeout(searchTimer)
   searchTimer = setTimeout(async () => {
     console.debug('[History] debouncedSearch: query', searchQuery.value)
     if (searchQuery.value.trim()) {
       historyItems.value = await window.browserAPI.searchHistory({ query: searchQuery.value })
-    } else {
+    }
+    else {
       await loadHistory()
     }
   }, 300)
@@ -93,7 +114,8 @@ async function handleClear() {
     positiveText: t('history.clearPositive'),
     negativeText: t('history.clearNegative'),
   })
-  if (!ok) return
+  if (!ok)
+    return
   console.debug('[History] handleClear: 清空历史')
   await window.browserAPI.clearHistory()
   await loadHistory()
@@ -102,7 +124,8 @@ async function handleClear() {
 function getDomain(url: string): string {
   try {
     return new URL(url).hostname
-  } catch {
+  }
+  catch {
     return url
   }
 }
@@ -112,24 +135,31 @@ function formatVisitTime(visitTime: number): string {
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
-  if (diffMins < 1) return 'just now'
-  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffMins < 1)
+    return 'just now'
+  if (diffMins < 60)
+    return `${diffMins}m ago`
   const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffHours < 24)
+    return `${diffHours}h ago`
   const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffDays < 7)
+    return `${diffDays}d ago`
   return date.toLocaleDateString()
 }
 
 function getDateGroup(visitTime: number): 'today' | 'yesterday' | 'thisWeek' | 'earlier' {
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  if (visitTime >= startOfToday.getTime()) return 'today'
+  if (visitTime >= startOfToday.getTime())
+    return 'today'
   const startOfYesterday = new Date(startOfToday.getTime() - 86400000)
-  if (visitTime >= startOfYesterday.getTime()) return 'yesterday'
+  if (visitTime >= startOfYesterday.getTime())
+    return 'yesterday'
   const dayOfWeek = now.getDay() || 7
   const startOfWeek = new Date(startOfToday.getTime() - (dayOfWeek - 1) * 86400000)
-  if (visitTime >= startOfWeek.getTime()) return 'thisWeek'
+  if (visitTime >= startOfWeek.getTime())
+    return 'thisWeek'
   return 'earlier'
 }
 
@@ -159,7 +189,8 @@ const groupedItems = computed<HistoryGroup[]>(() => {
   const result: HistoryGroup[] = []
   for (const key of groupOrder) {
     const items = buckets.get(key)!
-    if (items.length > 0) result.push({ label: groupLabels[key], items })
+    if (items.length > 0)
+      result.push({ label: groupLabels[key], items })
   }
   return result
 })
@@ -179,7 +210,8 @@ onMounted(async () => {
   await loadHistory()
 })
 onUnmounted(() => {
-  if (searchTimer) clearTimeout(searchTimer)
+  if (searchTimer)
+    clearTimeout(searchTimer)
 })
 </script>
 

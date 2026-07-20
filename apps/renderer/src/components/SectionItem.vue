@@ -1,6 +1,12 @@
 <template>
-  <div class="section-item" :class="{ 'section-item-hoverable': hover }">
-    <div v-if="label || $slots.label" class="section-item-label">
+  <div
+    class="section-item"
+    :class="{ 'section-item-hoverable': hover }"
+  >
+    <div
+      v-if="label || $slots.label"
+      class="section-item-label"
+    >
       <slot name="label">
         {{ label }}
       </slot>

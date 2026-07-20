@@ -1,14 +1,25 @@
 <template>
   <Section :title="t('settings.sections.privacy')">
     <SectionItem :label="t('settings.adBlock')">
-      <NSwitch v-model:value="adBlockEnabled" @update:value="onToggle" />
+      <NSwitch
+        v-model:value="adBlockEnabled"
+        @update:value="onToggle"
+      />
     </SectionItem>
     <SectionItem :label="t('settings.adBlockStats', { count: status.blockedCount, rules: status.ruleCount })">
       <div class="adblock-actions">
-        <NButton size="small" tertiary @click="showRules = true">
+        <NButton
+          size="small"
+          tertiary
+          @click="showRules = true"
+        >
           {{ t('settings.adBlockRulesTitle') }}
         </NButton>
-        <NButton size="small" tertiary @click="showLog = true">
+        <NButton
+          size="small"
+          tertiary
+          @click="showLog = true"
+        >
           {{ t('settings.adBlockLogTitle') }}
         </NButton>
       </div>
@@ -40,7 +51,7 @@ const showRules = ref(false)
 const showLog = ref(false)
 
 const adBlockEnabled = ref(true)
-const status = ref<{ enabled: boolean; blockedCount: number; ruleCount: number }>({
+const status = ref<{ enabled: boolean, blockedCount: number, ruleCount: number }>({
   enabled: true,
   blockedCount: 0,
   ruleCount: 0,
@@ -51,7 +62,8 @@ async function loadStatus(): Promise<void> {
   try {
     status.value = (await window.browserAPI.getAdBlockStatus()) ?? status.value
     adBlockEnabled.value = status.value.enabled
-  } catch (err) {
+  }
+  catch (err) {
     console.error('[Settings/Privacy] Failed to load adblock status:', err)
   }
 }
@@ -61,7 +73,8 @@ async function onToggle(value: boolean): Promise<void> {
   try {
     await window.browserAPI.setAdBlockEnabled(value)
     status.value = (await window.browserAPI.getAdBlockStatus()) ?? status.value
-  } catch (err) {
+  }
+  catch (err) {
     console.error('[Settings/Privacy] Failed to toggle adblock:', err)
   }
 }

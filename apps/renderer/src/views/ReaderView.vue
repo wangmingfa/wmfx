@@ -1,21 +1,36 @@
 <template>
   <div class="reader-view">
     <div class="reader-bar">
-      <button class="reader-exit" @click="exit">
+      <button
+        class="reader-exit"
+        @click="exit"
+      >
         {{ t('reader.exit') }}
       </button>
     </div>
-    <article v-if="article" class="reader-article">
+    <article
+      v-if="article"
+      class="reader-article"
+    >
       <h1 class="reader-title">
         {{ article.title }}
       </h1>
-      <div v-if="article.byline" class="reader-byline">
+      <div
+        v-if="article.byline"
+        class="reader-byline"
+      >
         {{ t('reader.byline') }} {{ article.byline }}
       </div>
       <!-- Readability 输出未消毒，故在此用 DOMPurify 净化后再经 v-html 渲染（剥离 script/事件处理器/javascript: URI） -->
-      <div class="reader-content" v-html="sanitizedContent" />
+      <div
+        class="reader-content"
+        v-html="sanitizedContent"
+      />
     </article>
-    <div v-else class="reader-empty">
+    <div
+      v-else
+      class="reader-empty"
+    >
       {{ t('reader.failed') }}
     </div>
   </div>
@@ -48,7 +63,7 @@ function onArticle(a: ReaderArticle): void {
 async function pullArticle(): Promise<void> {
   try {
     const list = await window.browserAPI.getList()
-    const active = list.find((tab) => tab.active)
+    const active = list.find(tab => tab.active)
     if (!active) {
       console.debug('[ReaderView] pullArticle: 无 active tab')
       return
@@ -59,7 +74,8 @@ async function pullArticle(): Promise<void> {
       console.debug(`[ReaderView] pullArticle: 命中 title=${pulled.title}`)
       article.value = pulled
     }
-  } catch (err) {
+  }
+  catch (err) {
     console.error(`[ReaderView] pullArticle: 拉取失败 ${String(err)}`)
   }
 }
@@ -67,8 +83,9 @@ async function pullArticle(): Promise<void> {
 async function exit(): Promise<void> {
   console.info('[ReaderView] exit: 退出阅读模式')
   const list = await window.browserAPI.getList()
-  const active = list.find((tab) => tab.active)
-  if (active) await window.browserAPI.exitReadingMode(active.id)
+  const active = list.find(tab => tab.active)
+  if (active)
+    await window.browserAPI.exitReadingMode(active.id)
 }
 
 // 保存 onReaderArticle 返回的 disposer，供 onUnmounted 精确退订，避免监听器泄漏

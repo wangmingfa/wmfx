@@ -1,0 +1,37 @@
+{
+  "project": "wmfx — Electron 浏览器，带文件浏览器 + Mihomo 代理模块",
+  "completed": [
+    "M1 基础浏览（标签/导航/会话）",
+    "M2 浏览增强（下载/历史/书签/DevTools/缩放/主题）",
+    "M3 用户体验增强（新标签页/查找/补全/书签星标/拖拽排序/i18n/快捷键）",
+    "M3 Proxy — Mihomo 代理模块（ProxyManager/MihomoProcess/ConfigManager/ApiClient/HealthChecker/TrafficMonitor/代理面板 UI）",
+    "M4 打磨与打包（三平台打包/会话恢复/窗口状态/崩溃恢复/后台挂起）",
+    "M5 CI/CD 与分发（GitHub Actions/自动更新/测试覆盖）",
+    "Phase 3.5 浏览器可用性补全（多窗口/清除数据/缩略图/下载闭环/书签栏/历史分组/启动行为/Omnibox/无痕窗口/撤销关闭/字体编码/阅读模式）",
+    "Phase 4 广告拦截 + 密码管理器",
+    "Phase 6 文件浏览器 6.1–6.6（基础框架/文件操作/快捷键/Quick Look/快捷访问/搜索）",
+    "Phase 6.7 拖拽交互（文件拖出/链接拖入下载/内部移动复制）",
+    "Phase 6.8 下载集成（下载完成跳转/下载列表按钮）",
+    "Phase 6.9 FTP/SFTP 基础支持（basic-ftp + ssh2 实现）",
+    "Phase 6.10 安全与错误处理（validatePath 路径校验/FileBrowserError 统一错误/回收站 shell.trashItem/NMessageProvider toast 提示/shimmer 骨架屏）",
+    "Phase 6.11 测试（单元测试 isLocalPath/normalizeLocalPath + E2E 安全校验/导航/Quick Look/下载集成）"
+  ],
+  "active": [
+    "Phase 7 创意库：命令面板（Cmd+K）— 已在其他会话推进中"
+  ],
+  "blocked": [],
+  "nextMove": "Phase 7 创意库评估（剪藏/截图/命令面板/AI翻译等），随后代码签名（发布前置）",
+  "relevantFiles": [
+    "ROADMAP.md",
+    "AGENTS.md",
+    "apps/main/src/file-browser-manager.ts",
+    "apps/main/src/ipc/register.ts",
+    "apps/renderer/src/views/FilesView.vue",
+    "apps/renderer/src/views/QuickLookPanel.vue",
+    "apps/renderer/src/views/DownloadsView.vue",
+    "apps/renderer/src/composables/useToast.ts",
+    "apps/renderer/src/App.vue",
+    "packages/shared/src/i18n/messages.ts",
+    "packages/shared/src/url.ts"
+  ]
+}

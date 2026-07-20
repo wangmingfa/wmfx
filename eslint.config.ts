@@ -3,7 +3,6 @@ import antfu from '@antfu/eslint-config'
 export default antfu(
   {
     vue: true,
-    stylistic: false,
     ignores: [
       '**/*.ts',
       '**/*.tsx',
@@ -24,8 +23,12 @@ export default antfu(
     rules: {
       'no-console': 'off',
       'vue/block-order': ['error', { order: ['template', 'script', 'style'] }],
+      'vue/component-api-style': ['error', ['script-setup']],
       'vue/component-name-in-template-casing': ['error', 'PascalCase'],
+      'vue/define-emits-declaration': ['error', 'type-based'],
+      'vue/max-attributes-per-line': ['error', { singleline: { max: 1 }, multiline: { max: 1 } }],
       'vue/multi-word-component-names': 'off',
+      'vue/no-useless-concat': 'warn',
       'vue/html-self-closing': [
         'error',
         {

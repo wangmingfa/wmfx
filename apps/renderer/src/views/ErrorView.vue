@@ -7,20 +7,37 @@
     <p class="error-desc">
       {{ description }}
     </p>
-    <p v-if="info" class="error-url">
+    <p
+      v-if="info"
+      class="error-url"
+    >
       {{ info.requestedUrl }}
     </p>
-    <p v-if="info" class="error-code">
+    <p
+      v-if="info"
+      class="error-code"
+    >
       {{ info.code }} / {{ info.description }}
     </p>
-    <div v-if="info" class="error-suggestions">
+    <div
+      v-if="info"
+      class="error-suggestions"
+    >
       <p>{{ suggestions }}</p>
     </div>
     <div class="error-actions">
-      <NButton v-if="info" type="primary" @click="retry">
+      <NButton
+        v-if="info"
+        type="primary"
+        @click="retry"
+      >
         {{ t('error.retry') }}
       </NButton>
-      <NButton v-else type="primary" @click="goBack">
+      <NButton
+        v-else
+        type="primary"
+        @click="goBack"
+      >
         {{ t('error.goBack') }}
       </NButton>
     </div>
@@ -33,7 +50,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()
-const info = ref<{ code: number; description: string; requestedUrl: string } | null>(null)
+const info = ref<{ code: number, description: string, requestedUrl: string } | null>(null)
 const title = ref(t('error.title'))
 const description = ref(t('error.description'))
 const suggestions = ref(t('error.suggestions.default'))
@@ -48,7 +65,8 @@ onMounted(async () => {
       description.value = getFriendlyDescription(result.code)
       suggestions.value = getSuggestions(result.code)
     }
-  } catch {
+  }
+  catch {
     console.error('[Error] onMounted: 获取错误信息失败，回退通用错误页')
   }
 })
@@ -68,8 +86,10 @@ function getFriendlyDescription(code: number): string {
 function getSuggestions(code: number): string {
   const dns = [-105, -109]
   const conn = [-102, -101, -118, -106]
-  if (dns.includes(code)) return t('error.suggestions.dns')
-  if (conn.includes(code)) return t('error.suggestions.connection')
+  if (dns.includes(code))
+    return t('error.suggestions.dns')
+  if (conn.includes(code))
+    return t('error.suggestions.connection')
   return t('error.suggestions.default')
 }
 

@@ -1,6 +1,9 @@
 <template>
   <section class="section">
-    <h2 v-if="title" class="section-title">
+    <h2
+      v-if="title"
+      class="section-title"
+    >
       {{ title }}
     </h2>
     <div class="section-body">

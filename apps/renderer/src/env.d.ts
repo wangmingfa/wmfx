@@ -45,6 +45,22 @@ declare global {
       selectFolder: IpcInvoke['dialog:selectFolder']
       // File system
       fileExists: IpcInvoke['fs:fileExists']
+      readDir: IpcInvoke['fs:readDir']
+      stat: IpcInvoke['fs:stat']
+      mkdir: IpcInvoke['fs:mkdir']
+      rename: IpcInvoke['fs:rename']
+      deleteFiles: IpcInvoke['fs:delete']
+      copyFiles: IpcInvoke['fs:copy']
+      cutFiles: IpcInvoke['fs:cut']
+      pasteFiles: IpcInvoke['fs:paste']
+      searchDir: IpcInvoke['fs:search']
+      readFilePreview: IpcInvoke['fs:readPreview']
+      getSystemDirs: IpcInvoke['fs:getSystemDirs']
+      getFileBookmarks: IpcInvoke['fs:getBookmarks']
+      addFileBookmark: IpcInvoke['fs:addBookmark']
+      removeFileBookmark: IpcInvoke['fs:removeBookmark']
+      renameFileBookmark: IpcInvoke['fs:renameBookmark']
+      reorderFileBookmarks: IpcInvoke['fs:reorderBookmarks']
       // Clipboard
       copyText: IpcInvoke['clipboard:copy']
       // History
@@ -140,6 +156,7 @@ declare global {
       // Shell (download closure)
       showInFolder: IpcInvoke['shell:showInFolder']
       openFile: IpcInvoke['shell:openFile']
+      openFileInBrowser: IpcInvoke['shell:openFileInBrowser']
       // Proxy
       startProxy: () => Promise<void>
       stopProxy: () => Promise<void>
@@ -248,6 +265,8 @@ declare global {
       interceptorClearLog: IpcInvoke['interceptor:clearLog']
       // Favicon
       faviconGet: IpcInvoke['favicon:get']
+      // Shortcuts
+      getShortcuts: IpcInvoke['shortcuts:list']
       // Theme change broadcast
       onThemeChange: (handler: (theme: ThemeMode) => void) => void
       // Bookmark bar extras (optional, may be undefined if not implemented)

@@ -256,6 +256,17 @@ export interface BookmarkItem {
   createdAt: number
 }
 
+/** 快捷键元数据（主进程注册表映射而来，纯展示用，不含回调） */
+export interface ShortcutInfo {
+  id: string
+  accelerator: string
+  scope: 'in-app' | 'global'
+  group: 'navigation' | 'tab' | 'window' | 'devtools'
+  description: Record<string, string>
+  /** true = 设置页不展示，快捷键仍生效 */
+  hidden?: boolean
+}
+
 /** 主题设置值：用户在设置页选择的值（含 system） */
 export type ThemeMode = 'light' | 'dark' | 'system'
 /** 最终渲染主题：始终为 'light' 或 'dark'，由 ThemeMode 解析而来 */
@@ -345,6 +356,82 @@ export interface AutocompleteSuggestion {
   type: 'history' | 'bookmark' | 'search' | 'engine'
   title: string
   url: string
+}
+
+// ─── 文件浏览器类型 ─────────────────────────────────────────
+
+/** 文件/目录条目 */
+export interface FileEntry {
+  name: string
+  path: string
+  isDir: boolean
+  size: number
+  modifiedAt: number
+  createdAt: number
+  extension: string
+  isHidden: boolean
+}
+
+/** 文件状态 */
+export interface FileStat {
+  size: number
+  isDir: boolean
+  isFile: boolean
+  isSymbolicLink: boolean
+  modifiedAt: number
+  createdAt: number
+  permissions: string
+}
+
+/** 文件预览数据 */
+export interface PreviewData {
+  type: 'image' | 'text' | 'pdf' | 'audio' | 'video' | 'unknown'
+  fileName: string
+  fileSize: number
+  modifiedAt?: number
+  mimeType?: string
+  data?: string
+  truncated?: boolean
+  dimensions?: { width: number; height: number }
+}
+
+/** 文件浏览器书签 */
+export interface FileBookmark {
+  id: string
+  name: string
+  path: string
+  icon: string
+}
+
+/** 系统常用目录 */
+export interface SystemDir {
+  name: string
+  path: string
+  icon: string
+}
+
+/** 应用内剪贴板数据 */
+export interface ClipboardData {
+  paths: string[]
+  operation: 'copy' | 'cut'
+}
+
+/** FTP 连接选项 */
+export interface FtpConnectOptions {
+  host: string
+  port?: number
+  user?: string
+  password?: string
+}
+
+/** SFTP 连接选项 */
+export interface SftpConnectOptions {
+  host: string
+  port?: number
+  user?: string
+  password?: string
+  privateKeyPath?: string
+  privateKeyPassword?: string
 }
 
 /** 补全查询参数 */
@@ -475,6 +562,22 @@ export interface IpcContract {
   'dialog:selectFolder': () => string | null
   // 文件系统
   'fs:fileExists': (path: string) => boolean
+  'fs:readDir': (dirPath: string) => FileEntry[]
+  'fs:stat': (filePath: string) => FileStat
+  'fs:mkdir': (dirPath: string) => void
+  'fs:rename': (oldPath: string, newPath: string) => void
+  'fs:delete': (paths: string[]) => void
+  'fs:copy': (sources: string[], dest: string) => void
+  'fs:cut': (sources: string[], dest: string) => void
+  'fs:paste': (dest: string) => void
+  'fs:search': (dirPath: string, query: string) => FileEntry[]
+  'fs:readPreview': (filePath: string) => PreviewData
+  'fs:getSystemDirs': () => SystemDir[]
+  'fs:getBookmarks': () => FileBookmark[]
+  'fs:addBookmark': (dirPath: string, name: string) => void
+  'fs:removeBookmark': (id: string) => void
+  'fs:renameBookmark': (id: string, name: string) => void
+  'fs:reorderBookmarks': (ids: string[]) => void
   // 剪贴板
   'clipboard:copy': (text: string) => void
   // Favicon：网站图标缓存（按 origin / 归一化内部地址为 key）
@@ -602,6 +705,8 @@ export interface IpcContract {
   'shell:showInFolder': (filePath: string) => void
   /** 用系统默认应用打开文件 */
   'shell:openFile': (filePath: string) => void
+  /** 在应用内浏览器标签页中打开本地文件（本地路径 → wmfx://files 路由） */
+  'shell:openFileInBrowser': (filePath: string) => void
   // Proxy
   'proxy:start': () => void
   'proxy:stop': () => void
@@ -661,6 +766,9 @@ export interface IpcContract {
   'page:retry': () => void
   'page:getCertWarningInfo': () => CertWarningInfo | null
   'page:trustCertAndContinue': (scope: CertTrustScope) => void
+  // Shortcuts
+  /** 返回所有已声明快捷键的元数据（不含回调），供设置页展示 */
+  'shortcuts:list': () => ShortcutInfo[]
   // Native Menu
   'native-menu:open': (
     menuId: string,
@@ -702,6 +810,22 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'download:delete',
   'dialog:selectFolder',
   'fs:fileExists',
+  'fs:readDir',
+  'fs:stat',
+  'fs:mkdir',
+  'fs:rename',
+  'fs:delete',
+  'fs:copy',
+  'fs:cut',
+  'fs:paste',
+  'fs:search',
+  'fs:readPreview',
+  'fs:getSystemDirs',
+  'fs:getBookmarks',
+  'fs:addBookmark',
+  'fs:removeBookmark',
+  'fs:renameBookmark',
+  'fs:reorderBookmarks',
   'clipboard:copy',
   'favicon:get',
   'favicon:set',
@@ -797,6 +921,7 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   // Shell (download closure)
   'shell:showInFolder',
   'shell:openFile',
+  'shell:openFileInBrowser',
   // Proxy
   'proxy:start',
   'proxy:stop',
@@ -832,6 +957,8 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'page:retry',
   'page:getCertWarningInfo',
   'page:trustCertAndContinue',
+  // Shortcuts
+  'shortcuts:list',
   // Native Menu
   'native-menu:open',
   'native-menu:close',

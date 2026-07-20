@@ -2,27 +2,51 @@
   <div class="download-panel">
     <div class="download-panel-header">
       <span>{{ t('downloads.title') }}</span>
-      <button class="download-show-all" @click="showAll">
+      <button
+        class="download-show-all"
+        @click="showAll"
+      >
         {{ t('downloads.showAll') }}
       </button>
     </div>
 
-    <div v-if="items.length === 0" class="download-panel-empty">
+    <div
+      v-if="items.length === 0"
+      class="download-panel-empty"
+    >
       {{ t('downloads.empty') }}
     </div>
 
-    <ul v-else class="download-panel-list">
-      <li v-for="item in items" :key="item.id" class="download-row">
-        <Icon class="download-row-icon" :icon="downloadIcon(item.state)" :width="18" :height="18" />
+    <ul
+      v-else
+      class="download-panel-list"
+    >
+      <li
+        v-for="item in items"
+        :key="item.id"
+        class="download-row"
+      >
+        <Icon
+          class="download-row-icon"
+          :icon="downloadIcon(item.state)"
+          :width="18"
+          :height="18"
+        />
         <div class="download-row-main">
-          <div class="download-row-name" :title="item.filename">
+          <div
+            class="download-row-name"
+            :title="item.filename"
+          >
             {{ item.filename }}
           </div>
           <div class="download-row-meta">
             <span v-if="item.state === 'downloading'">{{ progressPercent(item) }}%</span>
             <span v-else>{{ stateLabel(item.state) }}</span>
           </div>
-          <div v-if="item.state === 'downloading' || item.state === 'paused'" class="download-row-bar">
+          <div
+            v-if="item.state === 'downloading' || item.state === 'paused'"
+            class="download-row-bar"
+          >
             <div
               class="download-row-fill"
               :class="{ paused: item.state === 'paused' }"
@@ -37,7 +61,11 @@
             :title="t('downloads.pause')"
             @click="pause(item.id)"
           >
-            <Icon icon="ic:round-pause" :width="16" :height="16" />
+            <Icon
+              icon="ic:round-pause"
+              :width="16"
+              :height="16"
+            />
           </button>
           <button
             v-if="item.state === 'paused'"
@@ -45,7 +73,11 @@
             :title="t('downloads.resume')"
             @click="resume(item.id)"
           >
-            <Icon icon="ic:round-play-arrow" :width="16" :height="16" />
+            <Icon
+              icon="ic:round-play-arrow"
+              :width="16"
+              :height="16"
+            />
           </button>
           <button
             v-if="['pending', 'downloading', 'paused'].includes(item.state)"
@@ -53,7 +85,11 @@
             :title="t('downloads.cancel')"
             @click="cancel(item.id)"
           >
-            <Icon icon="ic:round-close" :width="16" :height="16" />
+            <Icon
+              icon="ic:round-close"
+              :width="16"
+              :height="16"
+            />
           </button>
           <button
             v-if="item.state === 'completed'"
@@ -61,7 +97,11 @@
             :title="t('downloads.showInFolder')"
             @click="showInFolder(item.path)"
           >
-            <Icon icon="mdi:folder-open-outline" :width="16" :height="16" />
+            <Icon
+              icon="mdi:folder-open-outline"
+              :width="16"
+              :height="16"
+            />
           </button>
           <button
             v-if="item.state === 'completed'"
@@ -69,9 +109,17 @@
             :title="t('downloads.openFile')"
             @click="openFile(item.path)"
           >
-            <Icon icon="mdi:open-in-app" :width="16" :height="16" />
+            <Icon
+              icon="mdi:open-in-app"
+              :width="16"
+              :height="16"
+            />
           </button>
-          <span v-if="item.state === 'completed'" class="download-row-danger" :title="t('downloads.dangerousWarning')">
+          <span
+            v-if="item.state === 'completed'"
+            class="download-row-danger"
+            :title="t('downloads.dangerousWarning')"
+          >
             ⚠
           </span>
         </div>
@@ -100,16 +148,22 @@ const { t } = useI18n()
 const items = computed(() => props.data?.items ?? [])
 
 function progressPercent(item: DownloadItem): number {
-  if (!item.totalBytes) return 0
+  if (!item.totalBytes)
+    return 0
   return Math.min(100, Math.round((item.receivedBytes / item.totalBytes) * 100))
 }
 
 function downloadIcon(state: DownloadState): string {
-  if (state === 'downloading') return 'ic:round-download'
-  if (state === 'paused') return 'ic:round-pause'
-  if (state === 'completed') return 'ic:round-check-circle'
-  if (state === 'cancelled') return 'ic:round-cancel'
-  if (state === 'error') return 'ic:round-error'
+  if (state === 'downloading')
+    return 'ic:round-download'
+  if (state === 'paused')
+    return 'ic:round-pause'
+  if (state === 'completed')
+    return 'ic:round-check-circle'
+  if (state === 'cancelled')
+    return 'ic:round-cancel'
+  if (state === 'error')
+    return 'ic:round-error'
   return 'ic:round-download'
 }
 

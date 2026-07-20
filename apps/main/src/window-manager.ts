@@ -56,6 +56,8 @@ export interface BrowserWindowInstance {
   certTrustStore: CertTrustStore
   /** 是否为独立无痕窗口（整窗隔离，非窗口内无痕标签） */
   isIncognito: boolean
+  /** 当前窗口对应的会话名（'default' | 'incognito'），新建标签默认沿用此会话 */
+  sessionId: string
 }
 
 /** 创建窗口时传入的可选项 */
@@ -295,6 +297,7 @@ export function createWindow(
     popoverManager,
     certTrustStore,
     isIncognito,
+    sessionId: defaultSessionName,
   }
 
   // 注册到全局实例表，供 IPC getInstance(event) 按 sender 窗口定位

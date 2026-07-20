@@ -1,5 +1,9 @@
 <template>
-  <PageLayout :title="t('appMenu.proxy')" icon="mdi:network" :body-scroll="false">
+  <PageLayout
+    :title="t('appMenu.proxy')"
+    icon="mdi:network"
+    :body-scroll="false"
+  >
     <template #search>
       <div class="proxy-tabs">
         <button
@@ -15,7 +19,11 @@
     </template>
 
     <template #actions>
-      <button class="proxy-toggle" :class="{ on: proxyRunning }" @click="toggleProxy">
+      <button
+        class="proxy-toggle"
+        :class="{ on: proxyRunning }"
+        @click="toggleProxy"
+      >
         {{ proxyRunning ? t('proxy.on') : t('proxy.off') }}
       </button>
     </template>
@@ -53,7 +61,8 @@ async function toggleProxy(): Promise<void> {
   console.debug('[ProxyPanel] toggleProxy: 当前 running', proxyRunning.value)
   if (proxyRunning.value) {
     await window.browserAPI.stopProxy()
-  } else {
+  }
+  else {
     await window.browserAPI.startProxy()
   }
   await checkStatus()

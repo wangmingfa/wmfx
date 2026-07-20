@@ -6,6 +6,7 @@ import BookmarkView from './views/BookmarkView.vue'
 import CertWarningView from './views/CertWarningView.vue'
 import DownloadsView from './views/DownloadsView.vue'
 import ErrorView from './views/ErrorView.vue'
+import FilesView from './views/FilesView.vue'
 import HistoryView from './views/HistoryView.vue'
 import InterceptorView from './views/interceptor/InterceptorView.vue'
 import NewTabView from './views/NewTab.vue'
@@ -26,6 +27,7 @@ export const router = createRouter({
     { path: '/settings/downloads', component: SettingsView },
     { path: '/settings/about', component: SettingsView },
     { path: '/settings/privacy', component: SettingsView },
+    { path: '/settings/shortcuts', component: SettingsView },
     { path: '/history', component: HistoryView },
     { path: '/bookmarks', component: BookmarkView },
     { path: '/passwords', component: PasswordsView },
@@ -37,6 +39,9 @@ export const router = createRouter({
     { path: '/panel', component: PanelRoot },
     { path: '/error', component: ErrorView },
     { path: '/cert-warning', component: CertWarningView },
+    { path: '/files/:pathMatch(.*)*', component: FilesView },
+    { path: '/ftp/:pathMatch(.*)*', component: FilesView },
+    { path: '/sftp/:pathMatch(.*)*', component: FilesView },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })

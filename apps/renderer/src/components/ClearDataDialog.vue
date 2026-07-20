@@ -8,12 +8,21 @@
   >
     <div class="clear-data-body">
       <div class="cd-section">
-        <NCheckbox v-for="opt in typeOptions" :key="opt.value" v-model:checked="selected[opt.value]" class="cd-check">
+        <NCheckbox
+          v-for="opt in typeOptions"
+          :key="opt.value"
+          v-model:checked="selected[opt.value]"
+          class="cd-check"
+        >
           {{ opt.label }}
         </NCheckbox>
       </div>
 
-      <NText v-if="feedback" :type="feedbackType" class="cd-feedback">
+      <NText
+        v-if="feedback"
+        :type="feedbackType"
+        class="cd-feedback"
+      >
         {{ feedback }}
       </NText>
     </div>
@@ -23,7 +32,12 @@
         <NButton @click="emit('update:show', false)">
           {{ t('settings.clearDataCancel') }}
         </NButton>
-        <NButton type="primary" :disabled="!hasSelection || loading" :loading="loading" @click="onClear">
+        <NButton
+          type="primary"
+          :disabled="!hasSelection || loading"
+          :loading="loading"
+          @click="onClear"
+        >
           {{ t('settings.openClearDialog') }}
         </NButton>
       </div>
@@ -57,7 +71,7 @@ const typeOptions = computed(() => [
   { value: 'formData' as DataType, label: t('settings.dataFormData') },
 ])
 
-const hasSelection = computed(() => (Object.keys(selected) as DataType[]).some((k) => selected[k]))
+const hasSelection = computed(() => (Object.keys(selected) as DataType[]).some(k => selected[k]))
 
 const loading = ref(false)
 const feedback = ref('')
@@ -65,21 +79,24 @@ const feedbackType = ref<'success' | 'error'>('success')
 
 async function onClear(): Promise<void> {
   console.debug(`[ClearDataDialog] onClear`)
-  if (!hasSelection.value) return
+  if (!hasSelection.value)
+    return
   loading.value = true
   feedback.value = ''
-  const types = (Object.keys(selected) as DataType[]).filter((k) => selected[k])
+  const types = (Object.keys(selected) as DataType[]).filter(k => selected[k])
   try {
     await window.browserAPI.clearPrivacyData({ types })
     feedbackType.value = 'success'
     feedback.value = t('settings.clearDataSuccess')
     console.info(`[ClearDataDialog] onClear: success types=${JSON.stringify(types)}`)
     setTimeout(emit, 800, 'update:show', false)
-  } catch (err) {
+  }
+  catch (err) {
     feedbackType.value = 'error'
     feedback.value = t('settings.clearDataError')
     console.error(`[ClearDataDialog] onClear: failed`, err)
-  } finally {
+  }
+  finally {
     loading.value = false
   }
 }

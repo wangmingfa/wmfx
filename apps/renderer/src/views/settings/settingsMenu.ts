@@ -21,5 +21,11 @@ export const settingsSideMenu: SideMenuItem[] = [
     icon: 'mdi:shield',
     to: '/settings/privacy',
   },
+  {
+    key: 'shortcuts',
+    labelKey: 'settings.navShortcuts',
+    icon: 'mdi:keyboard',
+    to: '/settings/shortcuts',
+  },
   { key: 'about', labelKey: 'settings.navAbout', icon: 'mdi:information', to: '/settings/about' },
 ]

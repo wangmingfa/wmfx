@@ -1,6 +1,9 @@
 <template>
   <div class="new-tab">
-    <div ref="settingsWrapperRef" class="settings-wrapper">
+    <div
+      ref="settingsWrapperRef"
+      class="settings-wrapper"
+    >
       <IconButton
         icon="ic:round-settings"
         :btn-size="32"
@@ -8,17 +11,26 @@
         title="设置"
         @click="settingsOpen = !settingsOpen"
       />
-      <div v-if="settingsOpen" class="settings-panel">
+      <div
+        v-if="settingsOpen"
+        class="settings-panel"
+      >
         <div class="settings-title">
           {{ t('settings.title') }}
         </div>
         <div class="setting-row">
           <span class="setting-label">{{ t('newTab.openInNewTab') }}</span>
-          <NSwitch v-model:value="openInNewTab" size="small" />
+          <NSwitch
+            v-model:value="openInNewTab"
+            size="small"
+          />
         </div>
       </div>
     </div>
-    <div ref="searchBoxRef" class="search-box">
+    <div
+      ref="searchBoxRef"
+      class="search-box"
+    >
       <IconButton
         class="engine-trigger"
         :icon="{ name: currentEngineIcon, size: 18 }"
@@ -35,10 +47,20 @@
         :placeholder="t('search.placeholder')"
         @keydown.enter="onSearch"
       />
-      <button class="search-btn" @click="onSearch">
-        <Icon icon="mdi:magnify" width="20" height="20" />
+      <button
+        class="search-btn"
+        @click="onSearch"
+      >
+        <Icon
+          icon="mdi:magnify"
+          width="20"
+          height="20"
+        />
       </button>
-      <div v-if="engineDropdownVisible" class="engine-dropdown">
+      <div
+        v-if="engineDropdownVisible"
+        class="engine-dropdown"
+      >
         <button
           v-for="engine in engines"
           :key="engine.key"
@@ -46,22 +68,45 @@
           :class="{ active: currentEngine === engine.key }"
           @mousedown.prevent="selectEngine(engine.key)"
         >
-          <Icon :icon="engine.icon" width="16" height="16" />
+          <Icon
+            :icon="engine.icon"
+            width="16"
+            height="16"
+          />
           <span>{{ engine.label }}</span>
         </button>
       </div>
     </div>
     <div class="quick-links">
-      <div v-for="link in quickLinks" :key="link.id" class="quick-link" @click="openLink(link.url)">
-        <Icon class="quick-link-icon" icon="mdi:earth" width="20" height="20" />
+      <div
+        v-for="link in quickLinks"
+        :key="link.id"
+        class="quick-link"
+        @click="openLink(link.url)"
+      >
+        <Icon
+          class="quick-link-icon"
+          icon="mdi:earth"
+          width="20"
+          height="20"
+        />
         <span class="quick-link-title">{{ link.title }}</span>
       </div>
     </div>
     <div class="recent-history">
       <h3>{{ t('newTab.recentHistory') }}</h3>
-      <div v-for="item in recentHistory" :key="item.id" class="recent-item" @click="openLink(item.url)">
+      <div
+        v-for="item in recentHistory"
+        :key="item.id"
+        class="recent-item"
+        @click="openLink(item.url)"
+      >
         <span class="recent-favicon">
-          <Favicon :url="item.url" :favicon="item.favicon" :size="16" />
+          <Favicon
+            :url="item.url"
+            :favicon="item.favicon"
+            :size="16"
+          />
         </span>
         <span class="recent-title">{{ item.title || item.url }}</span>
       </div>
@@ -99,7 +144,7 @@ const engines = computed(() => [
 ])
 
 const currentEngineIcon = computed(() => {
-  return engines.value.find((e) => e.key === currentEngine.value)?.icon ?? 'logos:google-icon'
+  return engines.value.find(e => e.key === currentEngine.value)?.icon ?? 'logos:google-icon'
 })
 
 function selectEngine(key: string): void {
@@ -151,7 +196,8 @@ function openLink(url: string): void {
   console.debug('[NewTab] openLink: url newTab', url, openInNewTab.value)
   if (openInNewTab.value) {
     window.browserAPI.createTab({ url })
-  } else {
+  }
+  else {
     window.browserAPI.loadURLCurrent(url)
   }
 }

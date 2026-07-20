@@ -1,9 +1,20 @@
 <template>
   <div class="tab-thumbnail-panel">
     <div class="tab-thumbnail-img-wrap">
-      <img v-if="data.src && !imgError" :src="data.src" class="tab-thumbnail-img" @error="imgError = true" />
-      <div v-else-if="data.loading" class="tab-thumbnail-loading" />
-      <div v-else class="tab-thumbnail-no-preview">
+      <img
+        v-if="data.src && !imgError"
+        :src="data.src"
+        class="tab-thumbnail-img"
+        @error="imgError = true"
+      />
+      <div
+        v-else-if="data.loading"
+        class="tab-thumbnail-loading"
+      />
+      <div
+        v-else
+        class="tab-thumbnail-no-preview"
+      >
         无法预览
       </div>
     </div>

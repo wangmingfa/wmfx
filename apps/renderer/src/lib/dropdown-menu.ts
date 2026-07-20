@@ -4,7 +4,11 @@ import { Popover } from './popover'
 export interface DropdownMenuOptions {
   anchor: PopoverAnchor
   descriptor: { id: string; items: MenuItem[] }
-  onAction: (payload: { menu: MenuItem; context: { close: () => void } }) => void
+  /**
+   * 菜单项点击后的回调。返回 false 表示"保持菜单打开"（如需要继续交互），
+   * 其它情况（返回 true / undefined / 不返回）将在回调结束后自动关闭菜单。
+   */
+  onAction: (payload: { menu: MenuItem; context: { close: () => void } }) => boolean | void
   onDismiss?: () => void
   mode?: PopoverMode
   autoOpen?: boolean
@@ -43,7 +47,9 @@ export class DropdownMenu {
           const menu = this.findMenuItem(this.descriptor.items, eventData)
           if (menu) {
             console.debug('[DropdownMenu] select: id', menu.id)
-            this.onAction({ menu, context: { close: () => this.close() } })
+            const result = this.onAction({ menu, context: { close: () => this.close() } })
+            // 返回 false 表示保持打开；其它情况自动关闭
+            if (result !== false) this.close()
           } else {
             console.warn('[DropdownMenu] select: unknown menu id', eventData)
           }

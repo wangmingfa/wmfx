@@ -124,6 +124,7 @@ export interface Message {
     navDownloads: string
     navAbout: string
     navPrivacy: string
+    navShortcuts: string
     openClearDialog: string
     clearDataDesc: string
     clearDataTitle: string
@@ -321,6 +322,56 @@ export interface Message {
     host: string
     error: string
   }
+  shortcuts: {
+    navGroupNavigation: string
+    navGroupTab: string
+    navGroupWindow: string
+    navGroupDevtools: string
+    scopeInApp: string
+    scopeGlobal: string
+    emptyGlobal: string
+  }
+  files: {
+    systemDirs: string
+    bookmarks: string
+    searchPlaceholder: string
+    sortName: string
+    sortSize: string
+    sortModified: string
+    sortType: string
+    listView: string
+    iconView: string
+    emptyDir: string
+    itemCount: string
+    open: string
+    openInNewTab: string
+    rename: string
+    delete: string
+    copy: string
+    cut: string
+    newFolder: string
+    addBookmark: string
+    paste: string
+    selectAll: string
+    selected: string
+    totalCount: string
+    selectedCount: string
+    nameCol: string
+    kindCol: string
+    sizeCol: string
+    dateCol: string
+    openInBrowser: string
+    kindFolder: string
+    kindImage: string
+    kindVideo: string
+    kindAudio: string
+    kindPdf: string
+    kindArchive: string
+    kindCode: string
+    kindDoc: string
+    kindOther: string
+    accessDenied: string
+  }
 }
 
 /**
@@ -351,6 +402,9 @@ export interface I18nParams {
   'about.updateAvailable': { version: string }
   'about.downloading': { percent: string | number }
   'about.versionArch': { version: string; arch: string }
+  'files.itemCount': { count: number | string }
+  'files.totalCount': { count: number | string }
+  'files.selectedCount': { count: number | string }
 }
 
 export const messages: Record<string, Message> = {
@@ -520,6 +574,16 @@ export const messages: Record<string, Message> = {
       aboutVersion: '版本',
       tabBarPosition: '标签栏位置',
       tabBarPositionOptions: { top: '顶部', left: '左侧' },
+      navShortcuts: '快捷键',
+    },
+    shortcuts: {
+      navGroupNavigation: '导航',
+      navGroupTab: '标签',
+      navGroupWindow: '窗口',
+      navGroupDevtools: '开发者工具',
+      scopeInApp: '应用内',
+      scopeGlobal: '全局',
+      emptyGlobal: '暂无全局快捷键',
     },
     history: {
       title: '历史记录',
@@ -670,6 +734,47 @@ export const messages: Record<string, Message> = {
       trustAlways: '始终信任此网站',
       host: '主机',
       error: '错误',
+    },
+    files: {
+      systemDirs: '系统目录',
+      bookmarks: '文件书签',
+      searchPlaceholder: '搜索当前目录…',
+      sortName: '名称',
+      sortSize: '大小',
+      sortModified: '修改时间',
+      sortType: '类型',
+      listView: '列表视图',
+      iconView: '图标视图',
+      emptyDir: '此文件夹为空',
+      itemCount: '共 {count} 项',
+      open: '打开',
+      openInNewTab: '在新标签页打开',
+      rename: '重命名',
+      delete: '删除',
+      copy: '复制',
+      cut: '剪切',
+      newFolder: '新建文件夹',
+      addBookmark: '添加当前目录为书签',
+      paste: '粘贴',
+      selectAll: '全选',
+      selected: '已选中',
+      totalCount: '总共 {count} 个项目',
+      selectedCount: '已选择 {count} 个项目',
+      nameCol: '名称',
+      kindCol: '种类',
+      sizeCol: '大小',
+      dateCol: '修改时间',
+      openInBrowser: '在浏览器中打开',
+      kindFolder: '文件夹',
+      kindImage: '图片',
+      kindVideo: '视频',
+      kindAudio: '音频',
+      kindPdf: 'PDF',
+      kindArchive: '压缩包',
+      kindCode: '代码',
+      kindDoc: '文档',
+      kindOther: '其他',
+      accessDenied: '该目录受保护或无权访问',
     },
   },
   'en-US': {
@@ -838,6 +943,16 @@ export const messages: Record<string, Message> = {
       aboutVersion: 'Version',
       tabBarPosition: 'Tab bar position',
       tabBarPositionOptions: { top: 'Top', left: 'Left' },
+      navShortcuts: 'Shortcuts',
+    },
+    shortcuts: {
+      navGroupNavigation: 'Navigation',
+      navGroupTab: 'Tabs',
+      navGroupWindow: 'Window',
+      navGroupDevtools: 'Developer Tools',
+      scopeInApp: 'In-app',
+      scopeGlobal: 'Global',
+      emptyGlobal: 'No global shortcuts',
     },
     history: {
       title: 'History',
@@ -990,6 +1105,47 @@ export const messages: Record<string, Message> = {
       trustAlways: 'Always trust this site',
       host: 'Host',
       error: 'Error',
+    },
+    files: {
+      systemDirs: 'System Directories',
+      bookmarks: 'File Bookmarks',
+      searchPlaceholder: 'Search current directory…',
+      sortName: 'Name',
+      sortSize: 'Size',
+      sortModified: 'Modified',
+      sortType: 'Type',
+      listView: 'List view',
+      iconView: 'Icon view',
+      emptyDir: 'This folder is empty',
+      itemCount: '{count} items',
+      open: 'Open',
+      openInNewTab: 'Open in new tab',
+      rename: 'Rename',
+      delete: 'Delete',
+      copy: 'Copy',
+      cut: 'Cut',
+      newFolder: 'New Folder',
+      addBookmark: 'Add current directory to bookmarks',
+      paste: 'Paste',
+      selectAll: 'Select All',
+      selected: 'selected',
+      totalCount: '{count} items total',
+      selectedCount: '{count} items selected',
+      nameCol: 'Name',
+      kindCol: 'Kind',
+      sizeCol: 'Size',
+      dateCol: 'Modified',
+      openInBrowser: 'Open in Browser',
+      kindFolder: 'Folder',
+      kindImage: 'Image',
+      kindVideo: 'Video',
+      kindAudio: 'Audio',
+      kindPdf: 'PDF',
+      kindArchive: 'Archive',
+      kindCode: 'Code',
+      kindDoc: 'Document',
+      kindOther: 'Other',
+      accessDenied: 'This directory is protected or access denied',
     },
   },
 }

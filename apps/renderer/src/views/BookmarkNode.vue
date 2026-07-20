@@ -1,5 +1,8 @@
 <template>
-  <li class="bookmark-node" :class="{ 'bookmark-folder': node.isFolder, 'bookmark-item': !node.isFolder }">
+  <li
+    class="bookmark-node"
+    :class="{ 'bookmark-folder': node.isFolder, 'bookmark-item': !node.isFolder }"
+  >
     <SectionItem class="bookmark-row">
       <template #label>
         <div
@@ -10,12 +13,21 @@
           @dragover.prevent="(e) => $emit('dragover', e, node)"
           @drop.prevent="(e) => $emit('drop', e, node)"
         >
-          <span v-if="node.isFolder" class="bookmark-node-icon">{{ expanded ? '▾' : '▸' }}</span>
-          <span class="bookmark-node-icon" :class="node.isFolder ? 'bookmark-icon-folder' : 'bookmark-icon-link'">
+          <span
+            v-if="node.isFolder"
+            class="bookmark-node-icon"
+          >{{ expanded ? '▾' : '▸' }}</span>
+          <span
+            class="bookmark-node-icon"
+            :class="node.isFolder ? 'bookmark-icon-folder' : 'bookmark-icon-link'"
+          >
             {{ node.isFolder ? '📁' : '🔗' }}
           </span>
           <span class="bookmark-node-title">{{ node.title }}</span>
-          <span v-if="!node.isFolder && node.url" class="bookmark-node-url">{{ node.url }}</span>
+          <span
+            v-if="!node.isFolder && node.url"
+            class="bookmark-node-url"
+          >{{ node.url }}</span>
         </div>
       </template>
 
@@ -43,7 +55,10 @@
       </div>
     </SectionItem>
 
-    <ul v-show="node.isFolder && expanded" class="bookmark-children">
+    <ul
+      v-show="node.isFolder && expanded"
+      class="bookmark-children"
+    >
       <BookmarkNode
         v-for="child in node.children"
         :key="child.id"
@@ -96,7 +111,8 @@ const { t } = useI18n()
 const expanded = computed(() => props.expandedFolders.has(props.node.id))
 
 function handleToggle() {
-  if (!props.node.isFolder) return
+  if (!props.node.isFolder)
+    return
   console.debug('[BookmarkNode] handleToggle: id', props.node.id)
   emit('toggle', props.node)
 }

@@ -9,6 +9,7 @@ import { initLogger, startLogRotation } from './logger'
 import { RequestCapturer } from './request-interceptor'
 import { SettingsManager } from './settings-manager'
 import { registerAppShortcut, toggleDevTools } from './shortcut'
+import { SHORTCUT_REGISTRY } from './shortcut-registry'
 import { updater } from './updater'
 import type { BrowserWindowInstance } from './window-manager'
 import {
@@ -111,88 +112,87 @@ function wireWindowShortcuts(instance: BrowserWindowInstance): void {
   const win = instance.window
   console.debug('[App] wireWindowShortcuts: windowId=%s', win.id)
 
-  registerAppShortcut(win, 'F12', () => {
-    const focused = BrowserWindow.getFocusedWindow()
-    const inst = focused
-      ? globalThis.browserInstances.get(String(focused.id))
-      : globalThis.browserInstances.get(String(win.id))
-    if (!inst) return
-    const activeTabId = inst.tabManager.getActiveTabId()
-    if (!activeTabId) return
-    const wc = inst.tabManager.getWebContents(activeTabId)
-    if (!wc) return
-    if (wc.isDevToolsOpened()) {
-      wc.closeDevTools()
-    } else {
-      wc.openDevTools()
+  // 按 id 分发 action 回调（回调保留原 index.ts 逻辑，不进注册表）
+  const actions: Record<string, () => void> = {
+    find: () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) return
+      const inst = globalThis.browserInstances.get(String(focused.id))
+      if (!inst) return
+      const activeTabId = inst.tabManager.getActiveTabId()
+      if (!activeTabId) return
+      focused.webContents.send('page:openFind', activeTabId)
+    },
+    'focus-url': () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) return
+      focused.webContents.send('shell:focusAddressBar')
+    },
+    'devtools-page': () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      const inst = focused
+        ? globalThis.browserInstances.get(String(focused.id))
+        : globalThis.browserInstances.get(String(win.id))
+      if (!inst) return
+      const activeTabId = inst.tabManager.getActiveTabId()
+      if (!activeTabId) return
+      const wc = inst.tabManager.getWebContents(activeTabId)
+      if (!wc) return
+      if (wc.isDevToolsOpened()) wc.closeDevTools()
+      else wc.openDevTools()
+    },
+    'devtools-app': () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) return
+      const inst = globalThis.browserInstances.get(String(focused.id))
+      if (!inst) return
+      toggleDevTools(inst.window, inst.window.webContents)
+    },
+    'close-tab': () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) return
+      const inst = globalThis.browserInstances.get(String(focused.id))
+      if (!inst) return
+      const activeTabId = inst.tabManager.getActiveTabId()
+      if (!activeTabId) return
+      inst.tabManager.close(activeTabId)
+      closeWindowIfEmpty(inst)
+    },
+    reload: () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) return
+      const inst = globalThis.browserInstances.get(String(focused.id))
+      if (!inst) return
+      const activeTabId = inst.tabManager.getActiveTabId()
+      if (!activeTabId) return
+      inst.navigationManager.reload(activeTabId)
+    },
+    'reopen-tab': () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) return
+      const inst = globalThis.browserInstances.get(String(focused.id))
+      if (!inst) return
+      inst.tabManager.reopenClosed()
+    },
+    'new-incognito': () => {
+      console.debug('[App] shortcut: new incognito window')
+      openIncognitoWindow()
+    },
+    'new-window': () => {
+      console.debug('[App] shortcut: new normal window')
+      openNormalWindow()
+    },
+  }
+
+  for (const def of SHORTCUT_REGISTRY) {
+    if (def.scope !== 'in-app') continue
+    const cb = actions[def.id]
+    if (!cb) {
+      console.warn('[App] wireWindowShortcuts: 注册表有定义但缺少 action 回调，id=%s', def.id)
+      continue
     }
-  })
-
-  registerAppShortcut(win, 'CmdOrCtrl+F', () => {
-    const focused = BrowserWindow.getFocusedWindow()
-    if (!focused) return
-    const inst = globalThis.browserInstances.get(String(focused.id))
-    if (!inst) return
-    const activeTabId = inst.tabManager.getActiveTabId()
-    if (!activeTabId) return
-    focused.webContents.send('page:openFind', activeTabId)
-  })
-
-  registerAppShortcut(win, 'CmdOrCtrl+L', () => {
-    const focused = BrowserWindow.getFocusedWindow()
-    if (!focused) return
-    focused.webContents.send('shell:focusAddressBar')
-  })
-
-  registerAppShortcut(win, 'CmdOrCtrl+F12', () => {
-    const focused = BrowserWindow.getFocusedWindow()
-    if (!focused) return
-    const inst = globalThis.browserInstances.get(String(focused.id))
-    if (!inst) return
-    toggleDevTools(inst.window, inst.window.webContents)
-  })
-
-  // 关末标签则关窗（不退出应用）
-  registerAppShortcut(win, 'CmdOrCtrl+W', () => {
-    const focused = BrowserWindow.getFocusedWindow()
-    if (!focused) return
-    const inst = globalThis.browserInstances.get(String(focused.id))
-    if (!inst) return
-    const activeTabId = inst.tabManager.getActiveTabId()
-    if (!activeTabId) return
-    inst.tabManager.close(activeTabId)
-    closeWindowIfEmpty(inst)
-  })
-
-  registerAppShortcut(win, 'F5', () => {
-    const focused = BrowserWindow.getFocusedWindow()
-    if (!focused) return
-    const inst = globalThis.browserInstances.get(String(focused.id))
-    if (!inst) return
-    const activeTabId = inst.tabManager.getActiveTabId()
-    if (!activeTabId) return
-    inst.navigationManager.reload(activeTabId)
-  })
-
-  registerAppShortcut(win, 'CmdOrCtrl+Shift+T', () => {
-    const focused = BrowserWindow.getFocusedWindow()
-    if (!focused) return
-    const inst = globalThis.browserInstances.get(String(focused.id))
-    if (!inst) return
-    inst.tabManager.reopenClosed()
-  })
-
-  // Cmd/Ctrl+Shift+N 新建独立无痕窗口（Chrome 约定）
-  registerAppShortcut(win, 'CmdOrCtrl+Shift+N', () => {
-    console.debug('[App] shortcut: new incognito window')
-    openIncognitoWindow()
-  })
-
-  // Cmd/Ctrl+N 新建普通窗口
-  registerAppShortcut(win, 'CmdOrCtrl+N', () => {
-    console.debug('[App] shortcut: new normal window')
-    openNormalWindow()
-  })
+    registerAppShortcut(win, def.accelerator, cb)
+  }
 }
 
 // 新窗口（含 IPC / 快捷键创建）统一走此回调绑定快捷键

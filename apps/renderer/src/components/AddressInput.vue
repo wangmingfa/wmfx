@@ -1,10 +1,29 @@
 <template>
-  <div ref="wrapRef" class="address-input-wrap">
-    <span v-if="favicon" class="favicon-icon">
-      <Favicon :url="url ?? ''" :favicon="favicon" :size="14" />
+  <div
+    ref="wrapRef"
+    class="address-input-wrap"
+  >
+    <span
+      v-if="favicon"
+      class="favicon-icon"
+    >
+      <Favicon
+        :url="url ?? ''"
+        :favicon="favicon"
+        :size="14"
+      />
     </span>
-    <span v-else class="security-indicator" :class="securityState" :title="securityTitle">
-      <Icon :icon="securityIcon" :width="14" :height="14" />
+    <span
+      v-else
+      class="security-indicator"
+      :class="securityState"
+      :title="securityTitle"
+    >
+      <Icon
+        :icon="securityIcon"
+        :width="14"
+        :height="14"
+      />
     </span>
     <input
       ref="inputRef"
@@ -38,9 +57,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
-  input: [event: Event]
-  focus: []
-  keydown: [event: KeyboardEvent]
+  'input': [event: Event]
+  'focus': []
+  'keydown': [event: KeyboardEvent]
 }>()
 
 const inputRef = ref<HTMLInputElement>()
@@ -48,14 +67,18 @@ const wrapRef = ref<HTMLDivElement>()
 const { t } = useI18n()
 
 const securityIcon = computed(() => {
-  if (props.securityState === 'secure') return 'mdi:lock'
-  if (props.securityState === 'insecure') return 'mdi:alert'
+  if (props.securityState === 'secure')
+    return 'mdi:lock'
+  if (props.securityState === 'insecure')
+    return 'mdi:alert'
   return 'mdi:application'
 })
 
 const securityTitle = computed(() => {
-  if (props.securityState === 'secure') return t('addressBar.secure')
-  if (props.securityState === 'insecure') return t('addressBar.insecure')
+  if (props.securityState === 'secure')
+    return t('addressBar.secure')
+  if (props.securityState === 'insecure')
+    return t('addressBar.insecure')
   return t('addressBar.internal')
 })
 

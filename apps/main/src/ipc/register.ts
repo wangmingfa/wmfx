@@ -14,12 +14,14 @@ import { getAppVersion } from '../app-version'
 import { isDefaultBrowser, setAsDefaultBrowser } from '../default-browser'
 import { clearDragBookmark, getDragBookmark, setDragBookmark } from '../drag-state'
 import { getFavicon, setFaviconByKey } from '../favicon-cache'
+import { FileBrowserManager } from '../file-browser-manager'
 import { handleFrontendLog } from '../logger'
 import { NativeIconManager } from '../native-icon-manager'
 import { NativeMenuManager } from '../native-menu-manager'
 import { PasswordManager } from '../password-manager'
 import { getSearchSuggestions } from '../search-suggestions'
 import { SettingsManager } from '../settings-manager'
+import { SHORTCUT_REGISTRY } from '../shortcut-registry'
 import { updater } from '../updater'
 import type { BrowserWindowInstance } from '../window-manager'
 import {
@@ -335,6 +337,73 @@ export function registerIpcHandlers(): void {
   handle('fs:fileExists', (_event, filePath) => {
     console.debug('[IPC] fs:fileExists: path', filePath)
     return fs.existsSync(filePath)
+  })
+
+  // 文件浏览器：目录读写 / 文件操作 / 系统目录 / 书签 / 预览
+  const fileBrowser = FileBrowserManager.getInstance()
+  handle('fs:readDir', (_event, dirPath) => {
+    console.info('[IPC] fs:readDir: dirPath', dirPath)
+    return fileBrowser.readDir(dirPath)
+  })
+  handle('fs:stat', (_event, filePath) => {
+    console.debug('[IPC] fs:stat: filePath', filePath)
+    return fileBrowser.stat(filePath)
+  })
+  handle('fs:mkdir', (_event, dirPath) => {
+    console.info('[IPC] fs:mkdir: dirPath', dirPath)
+    return fileBrowser.mkdir(dirPath)
+  })
+  handle('fs:rename', (_event, oldPath, newPath) => {
+    console.info('[IPC] fs:rename: oldPath → newPath', oldPath, newPath)
+    return fileBrowser.rename(oldPath, newPath)
+  })
+  handle('fs:delete', (_event, paths) => {
+    console.info('[IPC] fs:delete: paths', paths)
+    return fileBrowser.delete(paths)
+  })
+  handle('fs:copy', (_event, sources, dest) => {
+    console.info('[IPC] fs:copy: sources → dest', sources, dest)
+    return fileBrowser.copy(sources, dest)
+  })
+  handle('fs:cut', (_event, sources, dest) => {
+    console.info('[IPC] fs:cut: sources → dest', sources, dest)
+    return fileBrowser.cut(sources, dest)
+  })
+  handle('fs:paste', (_event, dest) => {
+    console.info('[IPC] fs:paste: dest', dest)
+    return fileBrowser.paste(dest)
+  })
+  handle('fs:search', (_event, dirPath, query) => {
+    console.info('[IPC] fs:search: dirPath query', dirPath, query)
+    return fileBrowser.searchDir(dirPath, query)
+  })
+  handle('fs:readPreview', (_event, filePath) => {
+    console.debug('[IPC] fs:readPreview: filePath', filePath)
+    return fileBrowser.readFilePreview(filePath)
+  })
+  handle('fs:getSystemDirs', () => {
+    console.debug('[IPC] fs:getSystemDirs')
+    return fileBrowser.getSystemDirs()
+  })
+  handle('fs:getBookmarks', () => {
+    console.debug('[IPC] fs:getBookmarks')
+    return fileBrowser.getBookmarks()
+  })
+  handle('fs:addBookmark', (_event, dirPath, name) => {
+    console.info('[IPC] fs:addBookmark: dirPath name', dirPath, name)
+    return fileBrowser.addBookmark(dirPath, name)
+  })
+  handle('fs:removeBookmark', (_event, id) => {
+    console.info('[IPC] fs:removeBookmark: id', id)
+    return fileBrowser.removeBookmark(id)
+  })
+  handle('fs:renameBookmark', (_event, id, name) => {
+    console.info('[IPC] fs:renameBookmark: id name', id, name)
+    return fileBrowser.renameBookmark(id, name)
+  })
+  handle('fs:reorderBookmarks', (_event, ids) => {
+    console.debug('[IPC] fs:reorderBookmarks: ids', ids)
+    return fileBrowser.reorderBookmarks(ids)
   })
 
   // 剪贴板：复制文本
@@ -670,6 +739,12 @@ export function registerIpcHandlers(): void {
   handle('settings:getAll', () => {
     console.debug('[IPC] settings:getAll')
     return SettingsManager.getInstance().getAll()
+  })
+
+  // Keyboard shortcuts
+  handle('shortcuts:list', () => {
+    console.debug('[IPC] shortcuts:list')
+    return SHORTCUT_REGISTRY
   })
 
   // ---- Password manager ----
@@ -1225,6 +1300,17 @@ export function registerIpcHandlers(): void {
     shell.openPath(filePath).catch((err) => {
       console.error('[IPC] shell:openFile: failed', filePath, err)
     })
+  })
+  handle('shell:openFileInBrowser', (event, filePath) => {
+    console.info('[IPC] shell:openFileInBrowser: path', filePath)
+    const inst = getInstance(event)
+    if (!inst) {
+      console.debug('[IPC] shell:openFileInBrowser: no instance')
+      return
+    }
+    // 本地路径经地址解析转为 wmfx://files 内部路由，统一由文件浏览器呈现
+    const url = resolveAddressBarTarget(filePath, 'google')
+    inst.tabManager.create({ url, sessionId: inst.sessionId })
   })
 
   // Proxy

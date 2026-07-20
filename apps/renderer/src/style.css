@@ -167,16 +167,37 @@
   --text-muted: #aaa;
   /* 分隔线 / 边框色 */
   --border-color: #e0e0e0;
+  /* 列表表头等内部竖线分割色（比 border-color 略深，保证可见） */
+  --divider-color: #c4c4c4;
   /* 品牌强调色 #6366F1 */
   --accent-color: #6366F1;
   /* 危险色（删除、错误提示） */
   --danger-color: #d32f2f;
+  /* 警告色（受保护/无权限目录提示） */
+  --warning-color: #b26a00;
+  --warning-bg: #fff6e6;
   /* 地址栏输入框背景色 */
   --url-input-bg: #eaf0f9;
   /* hover / 激活态背景色（明显深于 bg-secondary 以便区分） */
   --bg-hover: #e8e8e8;
   /* 更淡的 hover 背景色（列表行等大面积 hover 用，弱于 --bg-hover） */
   --bg-hover-subtle: #f0f0f0;
+  /* 选中项背景色（明显区别于 hover，带强调色淡底） */
+  --bg-selected: #d6dcfb;
+  /* 输入框/搜索框背景色 */
+  --bg-input: #f0f0f2;
+  /* 输入框聚焦背景色 */
+  --bg-input-focus: #ffffff;
+  /* 拖拽悬停区域背景色 */
+  --bg-drag-over: #eef1fb;
+  /* 表头等次级背景色 */
+  --bg-subtle: #f5f5f7;
+  /* 浮层/表头背景（未单独定义时回退 bg-subtle） */
+  --bg-header: #f1f1f1;
+  /* 强调色半透明（列宽拖拽指示等） */
+  --accent-color-translucent: rgba(99, 102, 241, 0.25);
+  /* 骨架屏高亮色 */
+  --bg-elevated: #ffffff;
   /* 标签页 hover 背景色 */
   --bg-tab-hover: #9ec0f9;
   /* 错误提示文字色 */
@@ -287,16 +308,37 @@
   --text-muted: #777;
   /* 分隔线 / 边框色 */
   --border-color: #3c3c3c;
+  /* 列表表头等内部竖线分割色（比 border-color 略深，保证可见） */
+  --divider-color: #5a5a5a;
   /* 品牌强调色（链接、按钮高亮）#6366F1 */
   --accent-color: #6366F1;
   /* 危险色（删除、错误提示） */
   --danger-color: #ff5555;
+  /* 警告色（受保护/无权限目录提示） */
+  --warning-color: #e0a85a;
+  --warning-bg: #3a2f1a;
   /* 地址栏输入框背景色 */
   --url-input-bg: #242424;
   /* hover / 激活态背景色（略亮于 bg-primary） */
   --bg-hover: #404040;
   /* 更淡的 hover 背景色（列表行等大面积 hover 用，弱于 --bg-hover） */
   --bg-hover-subtle: #333333;
+  /* 选中项背景色（明显区别于 hover，带强调色淡底） */
+  --bg-selected: #2d3a66;
+  /* 输入框/搜索框背景色 */
+  --bg-input: #2a2a2a;
+  /* 输入框聚焦背景色 */
+  --bg-input-focus: #303030;
+  /* 拖拽悬停区域背景色 */
+  --bg-drag-over: #1f294a;
+  /* 表头等次级背景色 */
+  --bg-subtle: #2b2b2b;
+  /* 浮层/表头背景（未单独定义时回退 bg-subtle） */
+  --bg-header: #3a3a3a;
+  /* 强调色半透明（列宽拖拽指示等） */
+  --accent-color-translucent: rgba(99, 102, 241, 0.35);
+  /* 骨架屏高亮色 */
+  --bg-elevated: #3a3a3a;
   /* 标签页 hover 背景色 */
   --bg-tab-hover: #1d4974;
   /* 错误提示文字色 */
@@ -436,18 +478,39 @@
   --text-muted: #8a7aa8;
   /* 分隔线/边框 */
   --border-color: #4a3568;
+  /* 列表表头等内部竖线分割色（比 border-color 略深，保证可见） */
+  --divider-color: #6b4d92;
   /* 地址栏输入框背景 */
   --url-input-bg: #3d2a56;
   /* hover 态背景 */
   --bg-hover: #4a3568;
   /* 更淡的 hover 背景色（列表行等大面积 hover 用，弱于 --bg-hover） */
   --bg-hover-subtle: #3f2d5a;
+  /* 选中项背景色（明显区别于 hover，带强调色淡底） */
+  --bg-selected: #4a3a72;
+  /* 输入框/搜索框背景色 */
+  --bg-input: #2e2142;
+  /* 输入框聚焦背景色 */
+  --bg-input-focus: #352650;
+  /* 拖拽悬停区域背景色 */
+  --bg-drag-over: #3a2a58;
+  /* 表头等次级背景色 */
+  --bg-subtle: #2b1f3f;
+  /* 浮层/表头背景（未单独定义时回退 bg-subtle） */
+  --bg-header: #3a2952;
+  /* 强调色半透明（列宽拖拽指示等） */
+  --accent-color-translucent: rgba(167, 139, 250, 0.35);
+  /* 骨架屏高亮色 */
+  --bg-elevated: #4a3568;
   /* 标签页 hover 背景 */
   --bg-tab-hover: #4a3568;
   /* 强调色（无痕紫） */
   --accent-color: #a78bfa;
   /* 危险色 */
   --danger-color: #ff6b8a;
+  /* 警告色（受保护/无权限目录提示） */
+  --warning-color: #e8a06a;
+  --warning-bg: #3a2740;
   /* 错误提示文字 */
   --error-color: #ff6b8a;
   /* 成功色 */

@@ -7,15 +7,28 @@
     @update:show="(v: boolean) => emit('update:show', v)"
   >
     <div class="log-body">
-      <NInput v-model:value="keyword" :placeholder="t('settings.adBlockRulesSearch')" clearable class="log-search" />
+      <NInput
+        v-model:value="keyword"
+        :placeholder="t('settings.adBlockRulesSearch')"
+        clearable
+        class="log-search"
+      />
       <div class="log-scroll">
-        <div v-for="(entry, idx) in filtered" :key="`${entry.time}-${idx}`" class="log-row">
+        <div
+          v-for="(entry, idx) in filtered"
+          :key="`${entry.time}-${idx}`"
+          class="log-row"
+        >
           <div class="log-main">
             <span class="log-url">{{ entry.url }}</span>
             <span class="log-time">{{ formatTime(entry.time) }}</span>
           </div>
         </div>
-        <NEmpty v-if="filtered.length === 0" :description="t('settings.adBlockLogEmpty')" class="log-empty" />
+        <NEmpty
+          v-if="filtered.length === 0"
+          :description="t('settings.adBlockLogEmpty')"
+          class="log-empty"
+        />
       </div>
     </div>
 
@@ -48,8 +61,9 @@ const keyword = ref('')
 
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
-  if (!kw) return logs.value
-  return logs.value.filter((r) => r.url.toLowerCase().includes(kw) || r.host.toLowerCase().includes(kw))
+  if (!kw)
+    return logs.value
+  return logs.value.filter(r => r.url.toLowerCase().includes(kw) || r.host.toLowerCase().includes(kw))
 })
 
 function formatTime(time: number): string {
@@ -62,7 +76,8 @@ async function load(): Promise<void> {
   console.debug('[AdBlockLogDialog] load')
   try {
     logs.value = (await window.browserAPI.getAdBlockLog()) ?? []
-  } catch (err) {
+  }
+  catch (err) {
     console.error('[AdBlockLogDialog] Failed to load log:', err)
     logs.value = []
   }
@@ -70,7 +85,8 @@ async function load(): Promise<void> {
 
 // 每次打开时拉取最新拦截历史
 watch(toRef(props, 'show'), (open) => {
-  if (open) void load()
+  if (open)
+    void load()
 })
 </script>
 

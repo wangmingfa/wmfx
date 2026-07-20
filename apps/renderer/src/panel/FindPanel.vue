@@ -12,14 +12,37 @@
       @compositionend="onCompositionEnd"
     />
     <span class="find-counter">{{ data.matches > 0 ? `${data.activeMatch + 1}/${data.matches}` : '0/0' }}</span>
-    <button class="find-btn" :disabled="data.matches === 0" @mousedown.prevent="emit('event', 'find-prev')">
-      <Icon icon="ic:round-keyboard-arrow-up" width="18" height="18" />
+    <button
+      class="find-btn"
+      :disabled="data.matches === 0"
+      @mousedown.prevent="emit('event', 'find-prev')"
+    >
+      <Icon
+        icon="ic:round-keyboard-arrow-up"
+        width="18"
+        height="18"
+      />
     </button>
-    <button class="find-btn" :disabled="data.matches === 0" @mousedown.prevent="emit('event', 'find-next')">
-      <Icon icon="ic:round-keyboard-arrow-down" width="18" height="18" />
+    <button
+      class="find-btn"
+      :disabled="data.matches === 0"
+      @mousedown.prevent="emit('event', 'find-next')"
+    >
+      <Icon
+        icon="ic:round-keyboard-arrow-down"
+        width="18"
+        height="18"
+      />
     </button>
-    <button class="find-btn close-btn" @mousedown.prevent="emit('event', 'close')">
-      <Icon icon="ic:sharp-close" width="20" height="20" />
+    <button
+      class="find-btn close-btn"
+      @mousedown.prevent="emit('event', 'close')"
+    >
+      <Icon
+        icon="ic:sharp-close"
+        width="20"
+        height="20"
+      />
     </button>
   </div>
 </template>
@@ -33,7 +56,7 @@ import { useI18n } from '@/composables/useI18n'
 
 const props = defineProps<{
   popoverId: string
-  data: { query: string; matches: number; activeMatch: number; focusNonce?: number }
+  data: { query: string, matches: number, activeMatch: number, focusNonce?: number }
 }>()
 
 const emit = defineEmits<{
@@ -81,7 +104,8 @@ function focusInput(): void {
 onMounted(focusInput)
 
 onUnmounted(() => {
-  if (debounceTimer) clearTimeout(debounceTimer)
+  if (debounceTimer)
+    clearTimeout(debounceTimer)
 })
 
 // 再次 Ctrl+F：组件不会重挂载，靠 focusNonce 变化触发聚焦并全选
@@ -92,7 +116,8 @@ watch(
 
 function onInput(value: string): void {
   localQuery.value = value
-  if (debounceTimer) clearTimeout(debounceTimer)
+  if (debounceTimer)
+    clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
     console.debug('[FindPanel] onInput: debounce 提交搜索 query', value)
     emit('event', 'update-query', value)
@@ -102,7 +127,8 @@ function onInput(value: string): void {
 function onKeydown(e: KeyboardEvent): void {
   // IME 合成期间（如中文选词），Enter/Esc 属于输入法操作（确认/取消候选），
   // 不应触发翻页或关闭面板。isComposing 为 true 或 keyCode 229 均表示合成中。
-  if (e.isComposing || e.keyCode === 229 || composing.value) return
+  if (e.isComposing || e.keyCode === 229 || composing.value)
+    return
   if (e.key === 'Enter') {
     e.preventDefault()
     // 回车立即翻页：若还有未提交的关键字，先立刻提交搜索再翻页
@@ -113,7 +139,8 @@ function onKeydown(e: KeyboardEvent): void {
     }
     console.debug('[FindPanel] onKeydown: Enter 翻页 dir', e.shiftKey ? 'prev' : 'next')
     emit('event', e.shiftKey ? 'find-prev' : 'find-next')
-  } else if (e.key === 'Escape') {
+  }
+  else if (e.key === 'Escape') {
     e.preventDefault()
     emit('event', 'close')
   }

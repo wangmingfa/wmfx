@@ -6,18 +6,30 @@
     :search-placeholder="t('bookmark.searchPlaceholder')"
   >
     <template #actions>
-      <button class="btn btn-sm" @click="handleImport">
+      <button
+        class="btn btn-sm"
+        @click="handleImport"
+      >
         {{ t('bookmark.import') }}
       </button>
-      <button class="btn btn-sm" @click="handleExport">
+      <button
+        class="btn btn-sm"
+        @click="handleExport"
+      >
         {{ t('bookmark.export') }}
       </button>
-      <button class="btn btn-sm btn-primary" @click="handleAddBookmark">
+      <button
+        class="btn btn-sm btn-primary"
+        @click="handleAddBookmark"
+      >
         {{ t('bookmark.add') }}
       </button>
     </template>
 
-    <div v-if="treeNodes.length === 0" class="bookmark-empty">
+    <div
+      v-if="treeNodes.length === 0"
+      class="bookmark-empty"
+    >
       <p>{{ t('bookmark.empty') }}</p>
     </div>
 
@@ -84,7 +96,8 @@ function buildTree(items: BookmarkItem[]): TreeNode[] {
   for (const node of itemMap.values()) {
     if (node.parentId === null) {
       roots.push(node)
-    } else {
+    }
+    else {
       const parent = itemMap.get(node.parentId)
       if (parent) {
         parent.children.push(node)
@@ -101,12 +114,14 @@ function buildTree(items: BookmarkItem[]): TreeNode[] {
 }
 
 function handleToggle(node: TreeNode) {
-  if (!node.isFolder) return
+  if (!node.isFolder)
+    return
   const id = node.id
   console.debug('[BookmarkView] handleToggle: id', id)
   if (expandedFolders.value.has(id)) {
     expandedFolders.value.delete(id)
-  } else {
+  }
+  else {
     expandedFolders.value.add(id)
   }
 }
@@ -121,7 +136,8 @@ async function handleAddBookmark() {
       { key: 'url', label: t('bookmark.labelUrl'), placeholder: t('bookmark.promptUrl') },
     ],
   })
-  if (!result) return
+  if (!result)
+    return
   const url = result.url || null
   console.debug('[BookmarkView] handleAddBookmark: title url', result.title, url)
   await window.browserAPI.addBookmark({ title: result.title, url })
@@ -138,7 +154,8 @@ async function handleAddChild(parentNode: TreeNode | BookmarkItem) {
       { key: 'url', label: t('bookmark.labelUrl'), placeholder: t('bookmark.promptUrl') },
     ],
   })
-  if (!result) return
+  if (!result)
+    return
   const options: BookmarkCreateOptions = {
     title: result.title,
     url: result.url || null,
@@ -162,7 +179,8 @@ async function handleRename(item: BookmarkItem) {
     placeholder: t('bookmark.promptNewTitle'),
     defaultValue: item.title,
   })
-  if (!newTitle) return
+  if (!newTitle)
+    return
   console.debug('[BookmarkView] handleRename: id newTitle', item.id, newTitle)
   await window.browserAPI.renameBookmark({ id: item.id, title: newTitle })
   await load()
@@ -175,7 +193,8 @@ async function handleDelete(item: BookmarkItem) {
     positiveText: t('bookmark.delete'),
     negativeText: t('bookmark.cancel'),
   })
-  if (!ok) return
+  if (!ok)
+    return
   console.debug('[BookmarkView] handleDelete: id', item.id)
   await window.browserAPI.deleteBookmark(item.id)
   await load()
@@ -211,9 +230,9 @@ async function handleDrop(event: DragEvent, node: TreeNode) {
   // 两层分类：拖到文件夹则归到该文件夹下，拖到书签则归到其同级
   const targetParentId = node.isFolder ? node.id : node.parentId
   // 计算目标兄弟列表时排除被拖拽项自身（其在重插入前会被移除），避免索引偏移
-  const siblings = bookmarks.value.filter((s) => s.parentId === targetParentId && s.id !== id)
+  const siblings = bookmarks.value.filter(s => s.parentId === targetParentId && s.id !== id)
   // 在过滤后的列表中查找落点目标节点，插入到其之前（drop-before 语义）
-  const targetIndex = siblings.findIndex((s) => s.id === node.id)
+  const targetIndex = siblings.findIndex(s => s.id === node.id)
   const finalPosition = targetIndex < 0 ? siblings.length : targetIndex
   console.debug('[BookmarkView] drop: dragId targetParentId position', id, targetParentId, finalPosition)
   await moveBookmark(id, targetParentId, finalPosition)
@@ -228,7 +247,8 @@ function debouncedSearch() {
     console.debug('[BookmarkView] debouncedSearch: query', searchQuery.value)
     if (searchQuery.value.trim()) {
       bookmarks.value = await window.browserAPI.searchBookmarks({ query: searchQuery.value })
-    } else {
+    }
+    else {
       await load()
     }
   }, 300)

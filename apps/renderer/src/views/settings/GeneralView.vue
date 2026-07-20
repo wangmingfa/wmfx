@@ -29,7 +29,11 @@
     </SectionItem>
 
     <SectionItem :label="t('settings.defaultFont')">
-      <NSelect v-model:value="defaultFont" :options="fontOptions" @update:value="saveSetting('defaultFont', $event)" />
+      <NSelect
+        v-model:value="defaultFont"
+        :options="fontOptions"
+        @update:value="saveSetting('defaultFont', $event)"
+      />
     </SectionItem>
 
     <SectionItem :label="t('settings.defaultFontSize')">
@@ -77,10 +81,24 @@
   <Section :title="t('settings.sections.system')">
     <SectionItem :label="t('settings.defaultBrowser')">
       <div class="default-browser-row">
-        <span v-if="isDefaultBrowser" class="default-browser-status">{{ t('settings.isDefaultBrowser') }}</span>
-        <span v-else-if="failedTip" class="default-browser-status error">{{ t('settings.defaultBrowserFailed') }}</span>
-        <span v-else class="default-browser-status muted">{{ t('settings.notDefaultBrowser') }}</span>
-        <NButton type="primary" :disabled="isDefaultBrowser" :loading="setting" @click="makeDefault">
+        <span
+          v-if="isDefaultBrowser"
+          class="default-browser-status"
+        >{{ t('settings.isDefaultBrowser') }}</span>
+        <span
+          v-else-if="failedTip"
+          class="default-browser-status error"
+        >{{ t('settings.defaultBrowserFailed') }}</span>
+        <span
+          v-else
+          class="default-browser-status muted"
+        >{{ t('settings.notDefaultBrowser') }}</span>
+        <NButton
+          type="primary"
+          :disabled="isDefaultBrowser"
+          :loading="setting"
+          @click="makeDefault"
+        >
           {{ t('settings.makeDefault') }}
         </NButton>
       </div>
@@ -89,7 +107,11 @@
 
   <Section :title="t('settings.sections.language')">
     <SectionItem :label="t('settings.language')">
-      <NSelect v-model:value="currentLang" :options="languageOptions" @update:value="saveLanguage()" />
+      <NSelect
+        v-model:value="currentLang"
+        :options="languageOptions"
+        @update:value="saveLanguage()"
+      />
     </SectionItem>
   </Section>
 </template>
@@ -174,17 +196,21 @@ const setting = ref(false)
 const failedTip = ref(false)
 
 async function makeDefault(): Promise<void> {
-  if (isDefaultBrowser.value || setting.value) return
+  if (isDefaultBrowser.value || setting.value)
+    return
   setting.value = true
   failedTip.value = false
   try {
     const res = await window.browserAPI.setDefaultBrowser()
     isDefaultBrowser.value = res.success
-    if (!res.success) failedTip.value = true
-  } catch (err) {
+    if (!res.success)
+      failedTip.value = true
+  }
+  catch (err) {
     console.error('[Settings/General] Failed to set default browser:', err)
     failedTip.value = true
-  } finally {
+  }
+  finally {
     setting.value = false
   }
 }
@@ -193,7 +219,8 @@ async function saveSetting(key: string, value: unknown): Promise<void> {
   console.debug('[Settings/General] saveSetting: key', key)
   try {
     await window.browserAPI.setSetting({ key, value })
-  } catch (err) {
+  }
+  catch (err) {
     console.error(`[Settings/General] Failed to save setting ${key}:`, err)
   }
 }
@@ -203,7 +230,8 @@ async function saveLanguage(): Promise<void> {
   try {
     await window.browserAPI.setSetting({ key: 'currentLang', value: currentLang.value })
     setLang(currentLang.value)
-  } catch (err) {
+  }
+  catch (err) {
     console.error('[Settings/General] Failed to save language setting:', err)
   }
 }

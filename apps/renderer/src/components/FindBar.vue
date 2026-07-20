@@ -83,24 +83,29 @@ function createPopover(s: FindState): void {
 
 function onPanelEvent(eventName: string, eventData?: unknown): void {
   const tabId = props.activeTabId
-  if (!tabId) return
+  if (!tabId)
+    return
   console.debug('[FindBar] onPanelEvent: event tabId', eventName, tabId)
   const s = getState(tabId)
   if (eventName === 'update-query' && typeof eventData === 'string') {
     s.query = eventData
     if (s.query) {
       window.browserAPI.startFind({ tabId, searchText: s.query })
-    } else {
+    }
+    else {
       window.browserAPI.endFind(tabId)
       s.matches = 0
       s.activeMatch = -1
       popover?.sendData(panelData(s))
     }
-  } else if (eventName === 'find-next') {
+  }
+  else if (eventName === 'find-next') {
     window.browserAPI.findNext({ tabId, forward: true })
-  } else if (eventName === 'find-prev') {
+  }
+  else if (eventName === 'find-prev') {
     window.browserAPI.findNext({ tabId, forward: false })
-  } else if (eventName === 'close') {
+  }
+  else if (eventName === 'close') {
     close(tabId)
   }
 }
@@ -108,18 +113,21 @@ function onPanelEvent(eventName: string, eventData?: unknown): void {
 // 打开当前 tab 的查找栏：新建或复用 popover，回显该 tab 的关键字并恢复高亮
 function open(): void {
   const tabId = props.activeTabId
-  if (!tabId) return
+  if (!tabId)
+    return
   console.debug('[FindBar] open: tabId', tabId)
   const s = getState(tabId)
   s.visible = true
   focusNonce++
   if (!popover) {
     createPopover(s)
-  } else {
+  }
+  else {
     popover.reopen(computeAnchor(), panelData(s))
   }
   // 有历史关键字则重新触发查找以恢复高亮
-  if (s.query) window.browserAPI.startFind({ tabId, searchText: s.query })
+  if (s.query)
+    window.browserAPI.startFind({ tabId, searchText: s.query })
 }
 
 function close(tabId: string): void {
@@ -133,19 +141,21 @@ function close(tabId: string): void {
   popover = null
 }
 
-function onFoundInPage(data: { matches: number; activeMatch: number; tabId: string }): void {
+function onFoundInPage(data: { matches: number, activeMatch: number, tabId: string }): void {
   const s = getState(data.tabId)
   s.matches = data.matches
   s.activeMatch = data.activeMatch
   console.debug('[FindBar] onFoundInPage: tabId matches active', data.tabId, data.matches, data.activeMatch)
   // 仅当结果属于当前激活 tab 时才回显到面板
-  if (data.tabId === props.activeTabId && s.visible) popover?.sendData(panelData(s))
+  if (data.tabId === props.activeTabId && s.visible)
+    popover?.sendData(panelData(s))
 }
 
 // Ctrl/Cmd+F 由主进程窗口级快捷键（registerAppShortcut）统一处理，转发 page:openFind 到此打开查找栏
 function onOpenFind(tabId: string): void {
   console.debug('[FindBar] onOpenFind: tabId', tabId)
-  if (tabId === props.activeTabId) open()
+  if (tabId === props.activeTabId)
+    open()
 }
 
 // tab 关闭：清理其查找状态与高亮
@@ -168,10 +178,13 @@ watch(
     const s = getState(tabId)
     if (s.visible) {
       console.debug('[FindBar] watch activeTabId: restore visible tabId', tabId)
-      if (!popover) createPopover(s)
+      if (!popover)
+        createPopover(s)
       else popover.reopen(computeAnchor(), panelData(s))
-      if (s.query) window.browserAPI.startFind({ tabId, searchText: s.query })
-    } else {
+      if (s.query)
+        window.browserAPI.startFind({ tabId, searchText: s.query })
+    }
+    else {
       console.debug('[FindBar] watch activeTabId: hide tabId', tabId)
       popover?.close()
       popover = null

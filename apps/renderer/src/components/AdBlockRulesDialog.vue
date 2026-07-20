@@ -10,15 +10,32 @@
       <p class="rules-hint">
         {{ t('settings.adBlockRulesHint') }}
       </p>
-      <NInput v-model:value="keyword" :placeholder="t('settings.adBlockRulesSearch')" clearable class="rules-search" />
+      <NInput
+        v-model:value="keyword"
+        :placeholder="t('settings.adBlockRulesSearch')"
+        clearable
+        class="rules-search"
+      />
       <div class="rules-scroll">
-        <div v-for="rule in filtered" :key="rule.host" class="rule-row">
+        <div
+          v-for="rule in filtered"
+          :key="rule.host"
+          class="rule-row"
+        >
           <span class="rule-host">{{ rule.host }}</span>
-          <NTag size="small" :type="tagType(rule.source)" round>
+          <NTag
+            size="small"
+            :type="tagType(rule.source)"
+            round
+          >
             {{ sourceLabel(rule.source) }}
           </NTag>
         </div>
-        <NEmpty v-if="filtered.length === 0" :description="t('settings.adBlockRulesEmpty')" class="rules-empty" />
+        <NEmpty
+          v-if="filtered.length === 0"
+          :description="t('settings.adBlockRulesEmpty')"
+          class="rules-empty"
+        />
       </div>
     </div>
 
@@ -52,8 +69,9 @@ const keyword = ref('')
 
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
-  if (!kw) return rules.value
-  return rules.value.filter((r) => r.host.toLowerCase().includes(kw))
+  if (!kw)
+    return rules.value
+  return rules.value.filter(r => r.host.toLowerCase().includes(kw))
 })
 
 function sourceLabel(source: RuleSource): string {
@@ -74,7 +92,8 @@ async function load(): Promise<void> {
   console.debug('[AdBlockRulesDialog] load')
   try {
     rules.value = (await window.browserAPI.getAdBlockRules()) ?? []
-  } catch (err) {
+  }
+  catch (err) {
     console.error('[AdBlockRulesDialog] Failed to load rules:', err)
     rules.value = []
   }
@@ -82,7 +101,8 @@ async function load(): Promise<void> {
 
 // 每次打开时拉取最新规则
 watch(toRef(props, 'show'), (open) => {
-  if (open) void load()
+  if (open)
+    void load()
 })
 </script>
 

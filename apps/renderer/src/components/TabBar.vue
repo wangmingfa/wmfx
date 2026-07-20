@@ -1,15 +1,19 @@
 <template>
-  <div ref="tabBarRef" class="tab-bar" :class="{ 'mac-os': isMacOS, 'window-incognito': isIncognito }">
+  <div
+    ref="tabBarRef"
+    class="tab-bar"
+    :class="{ 'mac-os': isMacOS, 'window-incognito': isIncognito }"
+  >
     <div
       v-for="(tab, index) in tabs"
       :key="tab.id"
       class="tab-item"
       :class="{
-        active: tab.active,
-        incognito: tab.sessionId === 'incognito',
-        dragging: draggingIndex === index,
+        'active': tab.active,
+        'incognito': tab.sessionId === 'incognito',
+        'dragging': draggingIndex === index,
         'drag-over': dragOverIndex === index,
-        pinned: tab.isPinned,
+        'pinned': tab.isPinned,
         'menu-open': tab.id === activeMenuTabId,
         'tab-loading': showTabLoading(tab),
       }"
@@ -25,7 +29,7 @@
       @drop="onDrop($event, index)"
       @dragend="onDragEnd"
     >
-      <!--填充下方的圆角过度-->
+      <!-- 填充下方的圆角过度 -->
       <template v-if="tab.active">
         <svg
           :width="tabItemBackgroundBorderRadius"
@@ -56,11 +60,26 @@
           height="14"
         />
         <!-- 内部页面不显示 loading -->
-        <Spinner v-else-if="showTabLoading(tab)" class="tab-spinner" :size="16" />
-        <Favicon v-else :url="tab.navigation.displayUrl" :favicon="tab.favicon" :size="14" />
+        <Spinner
+          v-else-if="showTabLoading(tab)"
+          class="tab-spinner"
+          :size="16"
+        />
+        <Favicon
+          v-else
+          :url="tab.navigation.displayUrl"
+          :favicon="tab.favicon"
+          :size="14"
+        />
       </div>
       <span class="tab-title">{{ tab.title || 'New Tab' }}</span>
-      <Icon v-if="tab.isMuted" class="tab-mute" icon="mdi:volume-off" :width="iconSize" :height="iconSize" />
+      <Icon
+        v-if="tab.isMuted"
+        class="tab-mute"
+        icon="mdi:volume-off"
+        :width="iconSize"
+        :height="iconSize"
+      />
       <IconButton
         v-if="!tab.isPinned"
         class="tab-close"
@@ -70,16 +89,44 @@
         @click.stop="closeTab(tab.id)"
       />
     </div>
-    <IconButton class="tab-new" icon="ic:round-plus" @click="createNewTab" />
-    <div v-if="!isMacOS" class="window-controls">
-      <div class="window-btn" @click="minimizeWindow">
-        <Icon icon="mdi:window-minimize" width="22" height="22" />
+    <IconButton
+      class="tab-new"
+      icon="ic:round-plus"
+      @click="createNewTab"
+    />
+    <div
+      v-if="!isMacOS"
+      class="window-controls"
+    >
+      <div
+        class="window-btn"
+        @click="minimizeWindow"
+      >
+        <Icon
+          icon="mdi:window-minimize"
+          width="22"
+          height="22"
+        />
       </div>
-      <div class="window-btn" @click="maximizeWindow">
-        <Icon :icon="isMaximized ? 'mdi:window-restore' : 'mdi:window-maximize'" width="22" height="22" />
+      <div
+        class="window-btn"
+        @click="maximizeWindow"
+      >
+        <Icon
+          :icon="isMaximized ? 'mdi:window-restore' : 'mdi:window-maximize'"
+          width="22"
+          height="22"
+        />
       </div>
-      <div class="window-btn close-btn" @click="closeWindow">
-        <Icon icon="mdi:window-close" width="22" height="22" />
+      <div
+        class="window-btn close-btn"
+        @click="closeWindow"
+      >
+        <Icon
+          icon="mdi:window-close"
+          width="22"
+          height="22"
+        />
       </div>
     </div>
   </div>
@@ -245,13 +292,13 @@ function tabWidthFor(tab: TabState): number {
   if (tab.isPinned) {
     return PIN_WIDTH
   }
-  const pinnedCount = tabs.value.filter((t) => t.isPinned).length
+  const pinnedCount = tabs.value.filter(t => t.isPinned).length
   const unpinnedCount = count - pinnedCount
   if (unpinnedCount === 0) {
     return TAB_MAX
   }
-  const available =
-    tabBarWidth.value - PADDING_LEFT - PADDING_RIGHT - NEW_BTN_WIDTH - WINDOW_CONTROLS_WIDTH - (count - 1) * TAB_GAP
+  const available
+    = tabBarWidth.value - PADDING_LEFT - PADDING_RIGHT - NEW_BTN_WIDTH - WINDOW_CONTROLS_WIDTH - (count - 1) * TAB_GAP
   const equal = Math.floor((available - pinnedCount * PIN_WIDTH) / unpinnedCount)
   return Math.max(TAB_MIN, Math.min(TAB_MAX, equal))
 }
@@ -303,7 +350,8 @@ function onTabContextMenu(event: MouseEvent, tab: TabState): void {
 
 // --- 标签悬停缩略图（popover 实现） ---
 function onTabEnter(event: MouseEvent, tab: TabState): void {
-  if (tab.active || tab.isPinned) return
+  if (tab.active || tab.isPinned)
+    return
   cancelHoverLeave()
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   hoverDelayTimer = setTimeout(() => {
@@ -336,7 +384,8 @@ function onTabEnter(event: MouseEvent, tab: TabState): void {
     if (!thumbnailCache.has(tab.id)) {
       void window.browserAPI.captureThumbnail(tab.id).then((dataUrl: string | null) => {
         if (hoverPopoverTabId === tab.id) {
-          if (dataUrl) thumbnailCache.set(tab.id, dataUrl)
+          if (dataUrl)
+            thumbnailCache.set(tab.id, dataUrl)
           hoverPopover?.sendData({ ...data, src: dataUrl, loading: false })
         }
       })
@@ -423,9 +472,12 @@ onMounted(() => {
 
 onUnmounted(() => {
   cleanup()
-  if (resizeObserver) resizeObserver.disconnect()
-  if (hoverDelayTimer) clearTimeout(hoverDelayTimer)
-  if (hoverLeaveTimer) clearTimeout(hoverLeaveTimer)
+  if (resizeObserver)
+    resizeObserver.disconnect()
+  if (hoverDelayTimer)
+    clearTimeout(hoverDelayTimer)
+  if (hoverLeaveTimer)
+    clearTimeout(hoverLeaveTimer)
   hoverPopover?.close()
 })
 </script>

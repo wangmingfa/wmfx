@@ -6,41 +6,72 @@
     :search-placeholder="t('passwords.searchPlaceholder')"
   >
     <template #actions>
-      <button class="btn btn-sm btn-primary" @click="openAdd">
+      <button
+        class="btn btn-sm btn-primary"
+        @click="openAdd"
+      >
         {{ t('passwords.add') }}
       </button>
     </template>
 
-    <div v-if="passwords.length === 0" class="empty">
+    <div
+      v-if="passwords.length === 0"
+      class="empty"
+    >
       <p>{{ searchQuery.trim() ? t('passwords.noResult') : t('passwords.empty') }}</p>
     </div>
 
-    <ul v-else class="pw-list">
-      <li v-for="item in passwords" :key="item.id" class="pw-item">
+    <ul
+      v-else
+      class="pw-list"
+    >
+      <li
+        v-for="item in passwords"
+        :key="item.id"
+        class="pw-item"
+      >
         <div class="pw-main">
           <div class="pw-domain">
             {{ item.domain }}
-            <span v-if="item.username" class="pw-username">· {{ item.username }}</span>
+            <span
+              v-if="item.username"
+              class="pw-username"
+            >· {{ item.username }}</span>
           </div>
           <div class="pw-pass">
             <span class="pw-pass-text">{{ revealed.has(item.id) ? item.password : '••••••••' }}</span>
-            <button class="link-btn" @click="toggleReveal(item)">
+            <button
+              class="link-btn"
+              @click="toggleReveal(item)"
+            >
               {{ revealed.has(item.id) ? t('passwords.hide') : t('passwords.reveal') }}
             </button>
           </div>
-          <div v-if="item.note" class="pw-note">
+          <div
+            v-if="item.note"
+            class="pw-note"
+          >
             {{ item.note }}
           </div>
         </div>
 
         <div class="pw-actions">
-          <button class="link-btn" @click="copyPassword(item)">
+          <button
+            class="link-btn"
+            @click="copyPassword(item)"
+          >
             {{ t('passwords.copy') }}
           </button>
-          <button class="link-btn" @click="openEdit(item)">
+          <button
+            class="link-btn"
+            @click="openEdit(item)"
+          >
             {{ t('passwords.edit') }}
           </button>
-          <button class="link-btn danger" @click="remove(item)">
+          <button
+            class="link-btn danger"
+            @click="remove(item)"
+          >
             {{ t('passwords.delete') }}
           </button>
         </div>
@@ -57,11 +88,17 @@
       <div class="form">
         <label class="field">
           <span class="field-label">{{ t('passwords.domain') }}</span>
-          <NInput v-model:value="form.domain" :placeholder="t('passwords.domainPlaceholder')" />
+          <NInput
+            v-model:value="form.domain"
+            :placeholder="t('passwords.domainPlaceholder')"
+          />
         </label>
         <label class="field">
           <span class="field-label">{{ t('passwords.username') }}</span>
-          <NInput v-model:value="form.username" :placeholder="t('passwords.usernamePlaceholder')" />
+          <NInput
+            v-model:value="form.username"
+            :placeholder="t('passwords.usernamePlaceholder')"
+          />
         </label>
         <label class="field">
           <span class="field-label">{{ t('passwords.password') }}</span>
@@ -84,10 +121,17 @@
       </div>
       <template #footer>
         <div class="modal-footer">
-          <button class="btn btn-sm" @click="showModal = false">
+          <button
+            class="btn btn-sm"
+            @click="showModal = false"
+          >
             {{ t('passwords.cancel') }}
           </button>
-          <button class="btn btn-sm btn-primary" :disabled="!canSave" @click="save">
+          <button
+            class="btn btn-sm btn-primary"
+            :disabled="!canSave"
+            @click="save"
+          >
             {{ t('passwords.save') }}
           </button>
         </div>
@@ -120,7 +164,8 @@ async function loadAll(): Promise<void> {
 }
 
 async function debouncedSearch(): Promise<void> {
-  if (searchTimer) clearTimeout(searchTimer)
+  if (searchTimer)
+    clearTimeout(searchTimer)
   searchTimer = setTimeout(async () => {
     console.debug('[Passwords] search: query', searchQuery.value)
     passwords.value = await window.browserAPI.searchPasswords({ query: searchQuery.value })
@@ -167,7 +212,8 @@ async function save(): Promise<void> {
 async function remove(item: PasswordEntry): Promise<void> {
   console.debug('[Passwords] remove: id', item.id)
   // eslint-disable-next-line no-alert
-  if (!confirm(t('passwords.deleteConfirm', { domain: item.domain }))) return
+  if (!confirm(t('passwords.deleteConfirm', { domain: item.domain })))
+    return
   await window.browserAPI.deletePassword(item.id)
   revealed.value.delete(item.id)
   await loadAll()
@@ -176,7 +222,8 @@ async function remove(item: PasswordEntry): Promise<void> {
 function toggleReveal(item: PasswordEntry): void {
   console.debug('[Passwords] toggleReveal: id', item.id)
   const next = new Set(revealed.value)
-  if (next.has(item.id)) next.delete(item.id)
+  if (next.has(item.id))
+    next.delete(item.id)
   else next.add(item.id)
   revealed.value = next
 }
@@ -198,7 +245,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (searchTimer) clearTimeout(searchTimer)
+  if (searchTimer)
+    clearTimeout(searchTimer)
   // onPasswordsChanged 通过 ipcRenderer.on 注册，卸载时无需手动移除（renderer 进程单例 contextBridge 会随视图销毁回收）
 })
 </script>

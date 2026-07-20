@@ -42,5 +42,11 @@
   },
   "files": {
     "includes": ["apps/**/*.ts", "packages/**/*.ts", "scripts/**/*.ts", "*.ts", "vite.config.ts"]
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["apps/main/src/shortcut-registry.ts"],
+      "formatter": { "enabled": false }
+    }
+  ]
 }

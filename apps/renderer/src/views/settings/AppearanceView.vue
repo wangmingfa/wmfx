@@ -1,8 +1,17 @@
 <template>
   <Section :title="t('settings.sections.theme')">
     <SectionItem :label="t('settings.theme')">
-      <NRadioGroup :value="themeSetting" class="settings-radio-group" @update:value="onThemeChange">
-        <NRadio v-for="mode in themeModes" :key="mode.value" :value="mode.value" :label="mode.label" />
+      <NRadioGroup
+        :value="themeSetting"
+        class="settings-radio-group"
+        @update:value="onThemeChange"
+      >
+        <NRadio
+          v-for="mode in themeModes"
+          :key="mode.value"
+          :value="mode.value"
+          :label="mode.label"
+        />
       </NRadioGroup>
     </SectionItem>
   </Section>
@@ -74,7 +83,7 @@ import { useTheme } from '@/composables/useTheme'
 const { t } = useI18n()
 const { themeSetting } = useTheme()
 
-const themeModes: { label: string; value: ThemeMode }[] = [
+const themeModes: { label: string, value: ThemeMode }[] = [
   { label: t('settings.themeModes.light'), value: 'light' },
   { label: t('settings.themeModes.dark'), value: 'dark' },
   { label: t('settings.themeModes.system'), value: 'system' },

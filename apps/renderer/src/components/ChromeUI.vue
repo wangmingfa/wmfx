@@ -1,7 +1,13 @@
 <template>
-  <div class="chrome-ui" :class="{ 'chrome-ui--incognito': isIncognito, 'chrome-ui--left': tabBarPosition === 'left' }">
+  <div
+    class="chrome-ui"
+    :class="{ 'chrome-ui--incognito': isIncognito, 'chrome-ui--left': tabBarPosition === 'left' }"
+  >
     <VerticalTabBar v-if="tabBarPosition === 'left' && !isHtmlFullscreen" />
-    <TabBar v-else-if="!isHtmlFullscreen" :is-incognito="isIncognito" />
+    <TabBar
+      v-else-if="!isHtmlFullscreen"
+      :is-incognito="isIncognito"
+    />
     <div class="chrome-main">
       <div class="chrome-content">
         <AddressBar
@@ -16,12 +22,22 @@
           :is-reader-mode="activeTab.isReaderMode"
         />
         <BookmarkBar v-if="showBookmarkBar && !isHtmlFullscreen" />
-        <Viewport v-if="activeTab" :tab-id="activeTab.id" />
+        <Viewport
+          v-if="activeTab"
+          :tab-id="activeTab.id"
+        />
       </div>
-      <FindBar v-if="!isHtmlFullscreen" :active-tab-id="activeTab?.id ?? null" />
+      <FindBar
+        v-if="!isHtmlFullscreen"
+        :active-tab-id="activeTab?.id ?? null"
+      />
     </div>
     <!-- 独立无痕窗口指示徽标（整窗隔离，关闭即焚） -->
-    <div v-if="isIncognito && !isHtmlFullscreen" class="incognito-badge" :title="t('appMenu.incognitoWindow')">
+    <div
+      v-if="isIncognito && !isHtmlFullscreen"
+      class="incognito-badge"
+      :title="t('appMenu.incognitoWindow')"
+    >
       <span class="incognito-dot" />
       <span class="incognito-label">{{ t('appMenu.incognitoWindow') }}</span>
     </div>
@@ -69,7 +85,8 @@ async function syncWindowInfo(): Promise<void> {
     const info = await window.browserAPI.getWindowInfo()
     isIncognito.value = Boolean(info?.isIncognito)
     console.debug('[ChromeUI] syncWindowInfo: isIncognito', isIncognito.value)
-  } catch (err) {
+  }
+  catch (err) {
     console.warn('[ChromeUI] syncWindowInfo: failed', err)
   }
 }
@@ -77,7 +94,7 @@ async function syncWindowInfo(): Promise<void> {
 async function syncActiveTab(): Promise<void> {
   console.debug('[ChromeUI] syncActiveTab: enter')
   const tabs = await window.browserAPI.getList()
-  const active = tabs.find((t) => t.active)
+  const active = tabs.find(t => t.active)
   if (active) {
     activeTab.value = active
     console.debug('[ChromeUI] syncActiveTab: activeTabId', active.id)

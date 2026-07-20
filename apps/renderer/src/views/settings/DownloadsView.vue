@@ -2,7 +2,10 @@
   <Section :title="t('settings.sections.downloadLocation')">
     <SectionItem :label="t('settings.downloadPath')">
       <div class="download-path-control">
-        <span class="download-path-text" :class="{ 'is-empty': !downloadPath }">
+        <span
+          class="download-path-text"
+          :class="{ 'is-empty': !downloadPath }"
+        >
           {{ downloadPath || t('settings.downloadPathEmpty') }}
         </span>
         <NButton @click="chooseFolder">
@@ -32,7 +35,8 @@ async function saveSetting(key: string, value: unknown): Promise<void> {
   console.debug('[Settings/Downloads] saveSetting: key', key)
   try {
     await window.browserAPI.setSetting({ key, value })
-  } catch (err) {
+  }
+  catch (err) {
     console.error(`[Settings/Downloads] Failed to save setting ${key}:`, err)
   }
 }

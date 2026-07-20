@@ -44,7 +44,8 @@ const menuItems = computed<MenuItem[]>(() => {
   const bookmarksChildren: MenuItem[] = []
   if (showBookmarkBar.value) {
     bookmarksChildren.push({ id: 'hide-bar', label: t('appMenu.hideBookmarkBar'), icon: 'mdi:bookmark-off' })
-  } else {
+  }
+  else {
     bookmarksChildren.push({ id: 'show-bar', label: t('appMenu.showBookmarkBar'), icon: 'mdi:bookmark' })
   }
   bookmarksChildren.push({ id: 'all-bookmarks', label: t('appMenu.allBookmarks'), icon: 'mdi:bookmark-multiple' })
@@ -130,11 +131,12 @@ async function runMenuItem(id: string): Promise<void> {
     return
   }
   const list = await window.browserAPI.getList()
-  const existing = list.find((t) => t.navigation.displayUrl === id || t.navigation.displayUrl.startsWith(`${id}/`))
+  const existing = list.find(t => t.navigation.displayUrl === id || t.navigation.displayUrl.startsWith(`${id}/`))
   if (existing) {
     console.debug('[AppMenuButton] runMenuItem: activate existing tab id', existing.id)
     window.browserAPI.activateTab(existing.id)
-  } else {
+  }
+  else {
     console.debug('[AppMenuButton] runMenuItem: create new tab url', id)
     window.browserAPI.createTab({ url: id })
   }
@@ -144,10 +146,11 @@ async function openBookmarkManager(): Promise<void> {
   console.debug('[AppMenuButton] openBookmarkManager: enter')
   const id = 'wmfx://bookmarks'
   const list = await window.browserAPI.getList()
-  const existing = list.find((t) => t.navigation.displayUrl === id || t.navigation.displayUrl.startsWith(`${id}/`))
+  const existing = list.find(t => t.navigation.displayUrl === id || t.navigation.displayUrl.startsWith(`${id}/`))
   if (existing) {
     window.browserAPI.activateTab(existing.id)
-  } else {
+  }
+  else {
     window.browserAPI.createTab({ url: id })
   }
 }

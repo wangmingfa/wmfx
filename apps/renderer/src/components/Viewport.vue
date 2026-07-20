@@ -1,5 +1,9 @@
 <template>
-  <div id="browser-viewport" ref="viewportRef" style="flex: 1; min-height: 0; width: 100%; height: 100%" />
+  <div
+    id="browser-viewport"
+    ref="viewportRef"
+    style="flex: 1; min-height: 0; width: 100%; height: 100%"
+  />
 </template>
 
 <script setup lang="ts">
@@ -14,7 +18,8 @@ let resizeObserver: ResizeObserver | null = null
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 function sendBounds(): void {
-  if (!viewportRef.value) return
+  if (!viewportRef.value)
+    return
   const rect = viewportRef.value.getBoundingClientRect()
   console.debug('[Viewport] sendBounds: tabId x y w h', props.tabId, rect.left, rect.top, rect.width, rect.height)
   window.browserAPI.setViewportBounds(props.tabId, {
@@ -36,7 +41,8 @@ watch(
 onMounted(() => {
   console.debug('[Viewport] onMounted: tabId', props.tabId)
   resizeObserver = new ResizeObserver(() => {
-    if (debounceTimer) clearTimeout(debounceTimer)
+    if (debounceTimer)
+      clearTimeout(debounceTimer)
     debounceTimer = setTimeout(sendBounds, 30)
   })
   resizeObserver.observe(viewportRef.value!)

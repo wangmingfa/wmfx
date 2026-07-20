@@ -6,7 +6,10 @@
     @mouseleave="onBarLeave"
   >
     <div class="vtab-list">
-      <template v-for="tab in tabs" :key="tab.id">
+      <template
+        v-for="tab in tabs"
+        :key="tab.id"
+      >
         <div
           v-if="!tab.isPinned && isFirstUnpinned(tab)"
           class="vtab-separator"
@@ -29,10 +32,21 @@
           @mouseenter="onTabEnter($event, tab)"
           @mouseleave="onTabLeave"
         >
-          <div v-if="tab.active" class="vtab-indicator" />
+          <div
+            v-if="tab.active"
+            class="vtab-indicator"
+          />
           <div class="vtab-favicon">
-            <Favicon v-if="!showTabLoading(tab)" :url="tab.navigation.displayUrl" :favicon="tab.favicon" :size="16" />
-            <Spinner v-else :size="14" />
+            <Favicon
+              v-if="!showTabLoading(tab)"
+              :url="tab.navigation.displayUrl"
+              :favicon="tab.favicon"
+              :size="16"
+            />
+            <Spinner
+              v-else
+              :size="14"
+            />
           </div>
           <template v-if="isExpanded">
             <div class="vtab-title">
@@ -50,8 +64,14 @@
         </div>
       </template>
     </div>
-    <div class="vtab-new" @click="createNewTab()">
-      <IconButton icon="ic:round-plus" :btn-size="24" />
+    <div
+      class="vtab-new"
+      @click="createNewTab()"
+    >
+      <IconButton
+        icon="ic:round-plus"
+        :btn-size="24"
+      />
     </div>
   </div>
 </template>
@@ -100,9 +120,10 @@ let hoverPopoverTabId: string | null = null
 let barLeaveTimer: ReturnType<typeof setTimeout> | null = null
 
 function isFirstUnpinned(tab: TabState): boolean {
-  if (tab.isPinned) return false
-  const idx = tabs.value.findIndex((t) => t.id === tab.id)
-  return tabs.value.findIndex((t) => !t.isPinned) === idx
+  if (tab.isPinned)
+    return false
+  const idx = tabs.value.findIndex(t => t.id === tab.id)
+  return tabs.value.findIndex(t => !t.isPinned) === idx
 }
 
 function showTabLoading(tab: TabState): boolean {
@@ -198,7 +219,8 @@ function runTabAction(id: string, tab: TabState): void {
 
 // --- Hover thumbnail popover ---
 function onTabEnter(event: MouseEvent, tab: TabState): void {
-  if (tab.active || tab.isPinned) return
+  if (tab.active || tab.isPinned)
+    return
   cancelHoverLeave()
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   hoverDelayTimer = setTimeout(() => {
@@ -229,7 +251,8 @@ function onTabEnter(event: MouseEvent, tab: TabState): void {
     if (!thumbnailCache.has(tab.id)) {
       void window.browserAPI.captureThumbnail(tab.id).then((dataUrl: string | null) => {
         if (hoverPopoverTabId === tab.id) {
-          if (dataUrl) thumbnailCache.set(tab.id, dataUrl)
+          if (dataUrl)
+            thumbnailCache.set(tab.id, dataUrl)
           hoverPopover?.sendData({ ...data, src: dataUrl, loading: false })
         }
       })
@@ -268,13 +291,15 @@ function closeHoverPopover(): void {
 
 // --- Drag & drop ---
 function onDragStart(event: DragEvent, tab: TabState): void {
-  if (!event.dataTransfer) return
+  if (!event.dataTransfer)
+    return
   event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('text/plain', tab.id)
 }
 
 function onDragOver(event: DragEvent, tab: TabState): void {
-  if (!event.dataTransfer) return
+  if (!event.dataTransfer)
+    return
   dragOverTabId.value = tab.id
 }
 
@@ -283,12 +308,15 @@ function onDragLeave(): void {
 }
 
 function onDrop(event: DragEvent, targetTab: TabState): void {
-  if (!event.dataTransfer) return
+  if (!event.dataTransfer)
+    return
   const srcId = event.dataTransfer.getData('text/plain')
-  if (!srcId || srcId === targetTab.id) return
-  const srcIdx = tabs.value.findIndex((t) => t.id === srcId)
-  const targetIdx = tabs.value.findIndex((t) => t.id === targetTab.id)
-  if (srcIdx < 0 || targetIdx < 0) return
+  if (!srcId || srcId === targetTab.id)
+    return
+  const srcIdx = tabs.value.findIndex(t => t.id === srcId)
+  const targetIdx = tabs.value.findIndex(t => t.id === targetTab.id)
+  if (srcIdx < 0 || targetIdx < 0)
+    return
   const [moved] = tabs.value.splice(srcIdx, 1)
   tabs.value.splice(targetIdx, 0, moved)
   applyOrder()
@@ -307,9 +335,12 @@ onMounted(() => {
 
 onUnmounted(() => {
   cleanup()
-  if (hoverDelayTimer) clearTimeout(hoverDelayTimer)
-  if (hoverLeaveTimer) clearTimeout(hoverLeaveTimer)
-  if (barLeaveTimer) clearTimeout(barLeaveTimer)
+  if (hoverDelayTimer)
+    clearTimeout(hoverDelayTimer)
+  if (hoverLeaveTimer)
+    clearTimeout(hoverLeaveTimer)
+  if (barLeaveTimer)
+    clearTimeout(barLeaveTimer)
   hoverPopover?.close()
 })
 </script>

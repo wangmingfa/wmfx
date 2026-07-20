@@ -2,16 +2,39 @@
   <div class="about-page">
     <!-- 第一行：logo + 应用名称 -->
     <div class="about-header">
-      <img class="about-logo" src="/logo.png" alt="logo" />
+      <img
+        class="about-logo"
+        src="/logo.png"
+        alt="logo"
+      />
       <span class="about-app-name">WMFX</span>
     </div>
 
     <!-- 第二行：状态卡片（图标 + 中间信息 + 右侧操作） -->
     <div class="about-status-card">
-      <div class="about-status-icon" :class="iconClass">
-        <Icon v-if="icon === 'check'" icon="mdi:check-circle" width="28" height="28" />
-        <Icon v-else-if="icon === 'download'" icon="mdi:cloud-download" width="28" height="28" />
-        <Icon v-else icon="mdi:loading" width="28" height="28" class="about-spin" />
+      <div
+        class="about-status-icon"
+        :class="iconClass"
+      >
+        <Icon
+          v-if="icon === 'check'"
+          icon="mdi:check-circle"
+          width="28"
+          height="28"
+        />
+        <Icon
+          v-else-if="icon === 'download'"
+          icon="mdi:cloud-download"
+          width="28"
+          height="28"
+        />
+        <Icon
+          v-else
+          icon="mdi:loading"
+          width="28"
+          height="28"
+          class="about-spin"
+        />
       </div>
 
       <div class="about-status-main">
@@ -24,10 +47,20 @@
       </div>
 
       <div class="about-status-action">
-        <NButton v-if="status.state === 'downloaded'" type="primary" :loading="restarting" @click="restart">
+        <NButton
+          v-if="status.state === 'downloaded'"
+          type="primary"
+          :loading="restarting"
+          @click="restart"
+        >
           {{ t('about.restartToUpdate') }}
         </NButton>
-        <NButton v-else type="primary" :loading="updating" @click="checkUpdates">
+        <NButton
+          v-else
+          type="primary"
+          :loading="updating"
+          @click="checkUpdates"
+        >
           {{ updating ? t('about.checking') : t('about.checkForUpdates') }}
         </NButton>
       </div>
@@ -56,8 +89,10 @@ const versionText = computed(() =>
 // 状态图标：最新/无更新显示勾；检查中/下载中显示转圈；有新版本未下载显示下载
 const icon = computed<'check' | 'download' | 'loading'>(() => {
   const s = status.value.state
-  if (s === 'checking' || s === 'downloading') return 'loading'
-  if (s === 'available') return 'download'
+  if (s === 'checking' || s === 'downloading')
+    return 'loading'
+  if (s === 'available')
+    return 'download'
   return 'check'
 })
 
@@ -90,7 +125,8 @@ async function checkUpdates(): Promise<void> {
   updating.value = true
   try {
     await window.browserAPI.checkForUpdates()
-  } finally {
+  }
+  finally {
     updating.value = false
   }
 }
@@ -100,7 +136,8 @@ async function restart(): Promise<void> {
   restarting.value = true
   try {
     await window.browserAPI.restartAndInstall()
-  } catch {
+  }
+  catch {
     console.error('[About] restart 失败')
     restarting.value = false
   }
@@ -115,7 +152,8 @@ onMounted(async () => {
   console.debug('[About] onMounted: 加载应用信息与更新状态')
   try {
     appInfo.value = await window.browserAPI.getAppInfo()
-  } catch {
+  }
+  catch {
     /* 开发期无此 API 时静默降级 */
   }
   status.value = await window.browserAPI.getUpdaterStatus()

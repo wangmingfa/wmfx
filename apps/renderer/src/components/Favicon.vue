@@ -17,7 +17,11 @@
     alt=""
     @error="loadError = true"
   />
-  <DefaultFavicon v-else :size="size" :color="resolvedColor" />
+  <DefaultFavicon
+    v-else
+    :size="size"
+    :color="resolvedColor"
+  />
 </template>
 
 <script setup lang="ts">
@@ -36,7 +40,7 @@ const props = withDefaults(
     /** 图标尺寸（px），默认 16 */
     size?: number
     /** 默认图标颜色：传字符串两侧同色；传 { dark, light } 按当前主题取对应色 */
-    color?: string | { dark: string; light: string }
+    color?: string | { dark: string, light: string }
   }>(),
   {
     favicon: null,
@@ -53,6 +57,9 @@ const INTERNAL_ICONS: Record<string, string> = {
   downloads: 'mdi:download',
   proxy: 'mdi:network',
   settings: 'mdi:cog',
+  files: 'mdi:folder',
+  ftp: 'mdi:server-network',
+  sftp: 'mdi:shield-key',
 }
 
 const { theme } = useTheme()
@@ -69,8 +76,10 @@ const internalIconName = computed(() => {
 
 const resolvedColor = computed(() => {
   const c = props.color
-  if (!c) return undefined
-  if (typeof c === 'string') return c
+  if (!c)
+    return undefined
+  if (typeof c === 'string')
+    return c
   return theme.value === 'dark' ? c.dark : c.light
 })
 

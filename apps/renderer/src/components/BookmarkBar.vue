@@ -1,6 +1,9 @@
 <template>
   <div class="bookmark-bar">
-    <div ref="listRef" class="bookmark-list">
+    <div
+      ref="listRef"
+      class="bookmark-list"
+    >
       <div
         v-for="item in visibleItems"
         :key="item.id"
@@ -13,7 +16,13 @@
         @dragend="onDragEnd"
         @contextmenu.prevent="onContextMenu(item, $event)"
       >
-        <img v-if="item.favicon" class="favicon" :src="item.favicon" :alt="item.title" draggable="false" />
+        <img
+          v-if="item.favicon"
+          class="favicon"
+          :src="item.favicon"
+          :alt="item.title"
+          draggable="false"
+        />
         <Icon
           v-else
           :icon="item.url ? 'carbon:bookmark-filled' : 'carbon:folder'"
@@ -24,8 +33,17 @@
         <span class="label">{{ item.title }}</span>
       </div>
     </div>
-    <button v-if="overflowItems.length > 0" class="overflow-btn" :title="t('bookmark.more')" @click="openOverflow">
-      <Icon icon="ic:round-keyboard-double-arrow-right" width="18" height="18" />
+    <button
+      v-if="overflowItems.length > 0"
+      class="overflow-btn"
+      :title="t('bookmark.more')"
+      @click="openOverflow"
+    >
+      <Icon
+        icon="ic:round-keyboard-double-arrow-right"
+        width="18"
+        height="18"
+      />
     </button>
   </div>
 </template>
@@ -52,7 +70,8 @@ let resizeObserver: ResizeObserver | null = null
 /** 测量列表可用宽度与各书签项宽度，把放不下的项归入溢出区 */
 function relayout(): void {
   const list = listRef.value
-  if (!list) return
+  if (!list)
+    return
   console.debug('[BookmarkBar] relayout: topItems', topItems.value.length)
   const avail = list.clientWidth
   const children = Array.from(list.children) as HTMLElement[]
@@ -65,7 +84,8 @@ function relayout(): void {
     if (used + w <= avail || fit.length === 0) {
       fit.push(topItems.value[i])
       used += w
-    } else {
+    }
+    else {
       over.push(topItems.value[i])
     }
   }
@@ -90,7 +110,8 @@ async function openBookmark(item: BookmarkItem): Promise<void> {
   const openInNewTab = Boolean(await getSetting('openBookmarkInNewTab'))
   if (openInNewTab) {
     window.browserAPI.createTab({ url: item.url as string })
-  } else {
+  }
+  else {
     window.browserAPI.loadURLCurrent(item.url as string)
   }
 }
@@ -101,7 +122,8 @@ async function onClick(item: BookmarkItem): Promise<void> {
 }
 
 function onContextMenu(item: BookmarkItem, event: MouseEvent): void {
-  if (!item.url) return
+  if (!item.url)
+    return
   console.debug('[BookmarkBar] onContextMenu: id', item.id)
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const menu = new DropdownMenu({
@@ -121,7 +143,8 @@ function onContextMenu(item: BookmarkItem, event: MouseEvent): void {
     onAction: ({ menu: action }) => {
       if (action.id === 'open-new') {
         window.browserAPI.createTab({ url: item.url as string })
-      } else if (action.id === 'delete') {
+      }
+      else if (action.id === 'delete') {
         void window.browserAPI.deleteBookmark(item.id)
       }
     },
@@ -140,7 +163,7 @@ function openOverflow(event: MouseEvent): void {
     },
     descriptor: {
       id: 'bookmark-bar-overflow',
-      items: overflowItems.value.map((it) => ({
+      items: overflowItems.value.map(it => ({
         id: `overflow-${it.id}`,
         label: it.title,
         icon: it.url ? 'carbon:bookmark-filled' : 'carbon:folder',
@@ -148,8 +171,9 @@ function openOverflow(event: MouseEvent): void {
     },
     onAction: ({ menu: action }) => {
       const id = action.id.replace('overflow-', '')
-      const item = overflowItems.value.find((it) => it.id === id)
-      if (item) void openBookmark(item)
+      const item = overflowItems.value.find(it => it.id === id)
+      if (item)
+        void openBookmark(item)
     },
   })
   void menu
@@ -175,9 +199,10 @@ function onDragOver(item: BookmarkItem, event: DragEvent): void {
 function onDrop(item: BookmarkItem, event: DragEvent): void {
   event.preventDefault()
   const id = dragId.value
-  if (!id) return
-  const siblings = (byParent.value.get(item.parentId) ?? []).filter((s) => s.id !== id)
-  const position = siblings.findIndex((s) => s.id === item.id)
+  if (!id)
+    return
+  const siblings = (byParent.value.get(item.parentId) ?? []).filter(s => s.id !== id)
+  const position = siblings.findIndex(s => s.id === item.id)
   const finalPosition = position < 0 ? siblings.length : position
   console.debug('[BookmarkBar] onDrop: dragId targetParentId position', id, item.parentId, finalPosition)
   void moveBookmark(id, item.parentId, finalPosition)

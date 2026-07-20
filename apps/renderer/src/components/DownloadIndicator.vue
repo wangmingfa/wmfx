@@ -1,5 +1,8 @@
 <template>
-  <span ref="btnRef" class="download-indicator-wrap">
+  <span
+    ref="btnRef"
+    class="download-indicator-wrap"
+  >
     <IconButton
       icon="mdi:download"
       :size="iconSize"
@@ -7,7 +10,10 @@
       :tooltip="t('downloads.title')"
       @click.stop="toggle"
     />
-    <span v-if="hasActiveDownloads" class="download-dot" />
+    <span
+      v-if="hasActiveDownloads"
+      class="download-dot"
+    />
   </span>
 </template>
 
@@ -30,7 +36,7 @@ const downloads = ref<DownloadItem[]>([])
 
 /** 是否有进行中/排队/暂停的下载（决定是否显示小圆点） */
 const hasActiveDownloads = computed(() =>
-  downloads.value.some((d) => ['pending', 'downloading', 'paused'].includes(d.state)),
+  downloads.value.some(d => ['pending', 'downloading', 'paused'].includes(d.state)),
 )
 
 /** 拉取最近下载（按创建时间倒序，取前 5 条） */
@@ -92,7 +98,8 @@ function closePopover(): void {
 
 function toggle(): void {
   console.debug('[DownloadIndicator] toggle: isOpen', isOpen.value)
-  if (isOpen.value) closePopover()
+  if (isOpen.value)
+    closePopover()
   else openPopover()
 }
 
@@ -102,32 +109,39 @@ function onPanelEvent(eventName: string, eventData?: unknown): void {
   if (eventName === 'show-all') {
     closePopover()
     void showAll()
-  } else if (eventName === 'pause' && typeof eventData === 'string') {
+  }
+  else if (eventName === 'pause' && typeof eventData === 'string') {
     void window.browserAPI.pauseDownload(eventData)
-  } else if (eventName === 'resume' && typeof eventData === 'string') {
+  }
+  else if (eventName === 'resume' && typeof eventData === 'string') {
     void window.browserAPI.resumeDownload(eventData)
-  } else if (eventName === 'cancel' && typeof eventData === 'string') {
+  }
+  else if (eventName === 'cancel' && typeof eventData === 'string') {
     void window.browserAPI.cancelDownload(eventData)
-  } else if (eventName === 'showInFolder' && typeof eventData === 'string') {
+  }
+  else if (eventName === 'showInFolder' && typeof eventData === 'string') {
     void window.browserAPI.showInFolder(eventData)
-  } else if (eventName === 'openFile' && typeof eventData === 'string') {
+  }
+  else if (eventName === 'openFile' && typeof eventData === 'string') {
     void window.browserAPI.openFile(eventData)
   }
 }
 
 /** 进度广播：增量更新对应项；遇到新下载 id 则补齐并临时弹出下拉（对齐 Chrome） */
-function onProgress(data: { id: string; state: string; receivedBytes: number; totalBytes: number }): void {
+function onProgress(data: { id: string, state: string, receivedBytes: number, totalBytes: number }): void {
   console.debug('[DownloadIndicator] onProgress: id state', data.id, data.state)
-  const existing = downloads.value.find((d) => d.id === data.id)
+  const existing = downloads.value.find(d => d.id === data.id)
   if (existing) {
     existing.state = data.state as DownloadState
     existing.receivedBytes = data.receivedBytes
     existing.totalBytes = data.totalBytes
-  } else {
+  }
+  else {
     console.debug('[DownloadIndicator] onProgress: new download id', data.id)
     void loadDownloads().then(() => {
       // 有新下载且下拉未打开时，临时弹出（对齐 Chrome 行为）
-      if (!isOpen.value) openPopover()
+      if (!isOpen.value)
+        openPopover()
     })
   }
   // 下拉打开时同步最新列表
@@ -145,12 +159,13 @@ async function showAll(): Promise<void> {
   console.debug('[DownloadIndicator] showAll: enter')
   const list = await window.browserAPI.getList()
   const existing = list.find(
-    (tab) =>
+    tab =>
       tab.navigation.displayUrl === 'wmfx://downloads' || tab.navigation.displayUrl.startsWith('wmfx://downloads/'),
   )
   if (existing) {
     window.browserAPI.activateTab(existing.id)
-  } else {
+  }
+  else {
     window.browserAPI.createTab({ url: 'wmfx://downloads' })
   }
 }

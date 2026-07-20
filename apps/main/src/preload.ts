@@ -13,6 +13,9 @@ import type {
   DownloadCreateOptions,
   DownloadItem,
   DownloadListOptions,
+  FileBookmark,
+  FileEntry,
+  FileStat,
   FindInPageDirection,
   FindInPageOptions,
   HistoryItem,
@@ -26,9 +29,12 @@ import type {
   PopoverMode,
   PopoverOpenOptions,
   PopoverType,
+  PreviewData,
   QuickLink,
   SetDefaultBrowserResult,
   SettingsSnapshot,
+  ShortcutInfo,
+  SystemDir,
   TabPrintOptions,
   TabPrintToPdfOptions,
   TabState,
@@ -122,6 +128,8 @@ const api: {
   getSetting: (key: string) => Promise<unknown>
   setSetting: ({ key, value }: { key: string; value: unknown }) => Promise<void>
   getAllSettings: () => Promise<SettingsSnapshot>
+  // Shortcuts
+  getShortcuts: () => Promise<ShortcutInfo[]>
   // Theme
   getTheme: () => Promise<ThemeMode>
   setTheme: (theme: ThemeMode) => Promise<void>
@@ -172,8 +180,24 @@ const api: {
   // Shell (download closure)
   showInFolder: (filePath: string) => Promise<void>
   openFile: (filePath: string) => Promise<void>
+  openFileInBrowser: (filePath: string) => Promise<void>
   // File system
   fileExists: (path: string) => Promise<boolean>
+  readDir: (dirPath: string) => Promise<FileEntry[]>
+  stat: (filePath: string) => Promise<FileStat>
+  mkdir: (dirPath: string) => Promise<void>
+  rename: (oldPath: string, newPath: string) => Promise<void>
+  deleteFiles: (paths: string[]) => Promise<void>
+  copyFiles: (sources: string[], dest: string) => Promise<void>
+  cutFiles: (sources: string[], dest: string) => Promise<void>
+  pasteFiles: (dest: string) => Promise<void>
+  searchDir: (dirPath: string, query: string) => Promise<FileEntry[]>
+  readFilePreview: (filePath: string) => Promise<PreviewData>
+  getSystemDirs: () => Promise<SystemDir[]>
+  getFileBookmarks: () => Promise<FileBookmark[]>
+  addFileBookmark: (dirPath: string, name: string) => Promise<void>
+  removeFileBookmark: (id: string) => Promise<void>
+  reorderFileBookmarks: (ids: string[]) => Promise<void>
   // Clipboard
   copyText: (text: string) => Promise<void>
   // Proxy
@@ -365,6 +389,8 @@ const api: {
   getSetting: (key) => ipcRenderer.invoke('settings:get', key),
   setSetting: ({ key, value }) => ipcRenderer.invoke('settings:set', { key, value }),
   getAllSettings: () => ipcRenderer.invoke('settings:getAll'),
+  // Shortcuts
+  getShortcuts: () => ipcRenderer.invoke('shortcuts:list'),
   // Theme
   getTheme: () => ipcRenderer.invoke('theme:get'),
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
@@ -423,8 +449,25 @@ const api: {
   // Shell (download closure)
   showInFolder: (filePath) => ipcRenderer.invoke('shell:showInFolder', filePath),
   openFile: (filePath) => ipcRenderer.invoke('shell:openFile', filePath),
+  openFileInBrowser: (filePath) => ipcRenderer.invoke('shell:openFileInBrowser', filePath),
   // File system
   fileExists: (path) => ipcRenderer.invoke('fs:fileExists', path),
+  readDir: (dirPath) => ipcRenderer.invoke('fs:readDir', dirPath),
+  stat: (filePath) => ipcRenderer.invoke('fs:stat', filePath),
+  mkdir: (dirPath) => ipcRenderer.invoke('fs:mkdir', dirPath),
+  rename: (oldPath, newPath) => ipcRenderer.invoke('fs:rename', oldPath, newPath),
+  deleteFiles: (paths) => ipcRenderer.invoke('fs:delete', paths),
+  copyFiles: (sources, dest) => ipcRenderer.invoke('fs:copy', sources, dest),
+  cutFiles: (sources, dest) => ipcRenderer.invoke('fs:cut', sources, dest),
+  pasteFiles: (dest) => ipcRenderer.invoke('fs:paste', dest),
+  searchDir: (dirPath, query) => ipcRenderer.invoke('fs:search', dirPath, query),
+  readFilePreview: (filePath) => ipcRenderer.invoke('fs:readPreview', filePath),
+  getSystemDirs: () => ipcRenderer.invoke('fs:getSystemDirs'),
+  getFileBookmarks: () => ipcRenderer.invoke('fs:getBookmarks'),
+  addFileBookmark: (dirPath, name) => ipcRenderer.invoke('fs:addBookmark', dirPath, name),
+  removeFileBookmark: (id) => ipcRenderer.invoke('fs:removeBookmark', id),
+  renameFileBookmark: (id, name) => ipcRenderer.invoke('fs:renameBookmark', id, name),
+  reorderFileBookmarks: (ids) => ipcRenderer.invoke('fs:reorderBookmarks', ids),
   // Clipboard
   copyText: (text) => ipcRenderer.invoke('clipboard:copy', text),
   // Proxy

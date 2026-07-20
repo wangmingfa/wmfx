@@ -1,5 +1,11 @@
 <template>
-  <Icon class="default-favicon" icon="mdi:earth" :width="size" :height="size" :style="color ? { color } : undefined" />
+  <Icon
+    class="default-favicon"
+    icon="mdi:earth"
+    :width="size"
+    :height="size"
+    :style="color ? { color } : undefined"
+  />
 </template>
 
 <script setup lang="ts">

@@ -1,9 +1,23 @@
 <template>
   <div class="address-bar">
-    <IconButton icon="ic:round-arrow-back" :disabled="!canGoBack" @click="goBack" />
-    <IconButton icon="ic:round-arrow-forward" :disabled="!canGoForward" @click="goForward" />
-    <IconButton :icon="isLoading ? 'ic:round-close' : 'ic:round-refresh'" @click="isLoading ? stop() : reload()" />
-    <IconButton icon="ic:round-home" @click="goHome" />
+    <IconButton
+      icon="ic:round-arrow-back"
+      :disabled="!canGoBack"
+      @click="goBack"
+    />
+    <IconButton
+      icon="ic:round-arrow-forward"
+      :disabled="!canGoForward"
+      @click="goForward"
+    />
+    <IconButton
+      :icon="isLoading ? 'ic:round-close' : 'ic:round-refresh'"
+      @click="isLoading ? stop() : reload()"
+    />
+    <IconButton
+      icon="ic:round-home"
+      @click="goHome"
+    />
     <IconButton
       v-if="isExternal"
       :icon="isReaderMode ? 'mdi:book-open-page-variant' : 'mdi:book-open-outline'"
@@ -25,7 +39,10 @@
         @keydown.escape="onEscape"
       />
       <div class="url-input-actions">
-        <button class="zoom-display" @click="cycleZoom">
+        <button
+          class="zoom-display"
+          @click="cycleZoom"
+        >
           {{ currentZoomLevel }}
         </button>
         <IconButton
@@ -34,7 +51,11 @@
           :tooltip="forceDarkEnabled ? t('settings.forceDarkOff') : t('settings.forceDarkOn')"
           @click="toggleForceDark(!forceDarkEnabled)"
         />
-        <IconButton icon="ic:round-print" :tooltip="t('settings.printPage')" @click="printPage" />
+        <IconButton
+          icon="ic:round-print"
+          :tooltip="t('settings.printPage')"
+          @click="printPage"
+        />
         <IconButton
           v-if="isExternal"
           :icon="isBookmarked ? 'ic:round-star' : 'ic:round-star-outline'"
@@ -50,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { ADDRESS_BAR_PLACEHOLDER, isWmfxUrl, resolveAddressBarTarget } from '@browser/shared'
+import { ADDRESS_BAR_PLACEHOLDER, formatAddressBarUrl, isWmfxUrl, resolveAddressBarTarget } from '@browser/shared'
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { useAddressBarFocus } from '../composables/useAddressBarFocus'
@@ -103,9 +124,11 @@ const actionsRightPadding = computed(() => {
 async function toggleReader(): Promise<void> {
   console.info(`[AddressBar] toggleReader: tabId=${props.tabId} isReader=${props.isReaderMode}`)
   try {
-    if (props.isReaderMode) await window.browserAPI.exitReadingMode(props.tabId)
+    if (props.isReaderMode)
+      await window.browserAPI.exitReadingMode(props.tabId)
     else await window.browserAPI.enterReadingMode(props.tabId)
-  } catch (err) {
+  }
+  catch (err) {
     console.error(`[AddressBar] toggleReader failed: ${String(err)}`)
   }
 }
@@ -113,7 +136,7 @@ async function toggleReader(): Promise<void> {
 const searchEngine = ref('google')
 const urlInput = ref('')
 const inputRef = ref<InstanceType<typeof AddressInput>>()
-const suggestions = ref<{ type: 'history' | 'bookmark' | 'search' | 'engine'; title: string; url: string }[]>([])
+const suggestions = ref<{ type: 'history' | 'bookmark' | 'search' | 'engine', title: string, url: string }[]>([])
 const activeIndex = ref(-1)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let currentPopover: Popover | null = null
@@ -163,7 +186,7 @@ function onEnter(): void {
 function onEscape(): void {
   console.debug('[AddressBar] onEscape: reverting and blurring')
   closePopover()
-  urlInput.value = props.url ?? ''
+  urlInput.value = formatAddressBarUrl(props.url ?? '')
   inputRef.value?.blur()
 }
 
@@ -195,7 +218,8 @@ function openPopover(): void {
     onEvent: (eventName, eventData) => {
       if (eventName === 'select' && typeof eventData === 'string') {
         selectSuggestion(eventData)
-      } else if (eventName === 'update-query' && typeof eventData === 'string') {
+      }
+      else if (eventName === 'update-query' && typeof eventData === 'string') {
         urlInput.value = eventData
         fetchSuggestions()
         currentPopover?.sendData({
@@ -205,16 +229,18 @@ function openPopover(): void {
           securityState: props.securityState,
           url: props.url,
         })
-      } else if (eventName === 'navigate' && typeof eventData === 'string') {
+      }
+      else if (eventName === 'navigate' && typeof eventData === 'string') {
         urlInput.value = eventData
         navigate()
-      } else if (eventName === 'close') {
-        urlInput.value = props.url ?? ''
+      }
+      else if (eventName === 'close') {
+        urlInput.value = formatAddressBarUrl(props.url ?? '')
         closePopover()
       }
     },
     onDismiss: () => {
-      urlInput.value = props.url ?? ''
+      urlInput.value = formatAddressBarUrl(props.url ?? '')
       currentPopover = null
       suggestions.value = []
       activeIndex.value = -1
@@ -234,7 +260,8 @@ function closePopover(): void {
 }
 
 function fetchSuggestions(): void {
-  if (debounceTimer) clearTimeout(debounceTimer)
+  if (debounceTimer)
+    clearTimeout(debounceTimer)
   if (!urlInput.value.trim()) {
     suggestions.value = []
     return
@@ -273,7 +300,7 @@ watch(
       return
     }
     if (newUrl !== urlInput.value) {
-      urlInput.value = newUrl
+      urlInput.value = formatAddressBarUrl(newUrl)
     }
   },
   { immediate: true },
@@ -307,7 +334,8 @@ async function goHome(): Promise<void> {
 
 function navigate(): void {
   const raw = urlInput.value.trim()
-  if (!raw) return
+  if (!raw)
+    return
   // 识别是否为链接：是则按原流程加载，否则用默认搜索引擎搜索
   const url = resolveAddressBarTarget(raw, searchEngine.value)
   console.info('[AddressBar] navigate: raw target', raw, url)
@@ -322,7 +350,8 @@ async function getZoomLevel(): Promise<number> {
     const response = await window.browserAPI.getZoom(props.tabId)
     const index = ZOOM_FACTORS.indexOf(response.factor)
     return index !== -1 ? index : 2
-  } catch (err) {
+  }
+  catch (err) {
     console.warn('[AddressBar] getZoomLevel failed', String(err))
     return 2
   }
@@ -363,7 +392,8 @@ async function syncBookmarkStatus(): Promise<void> {
     const result = await window.browserAPI.isBookmarked(url)
     isBookmarked.value = result.isBookmarked
     console.debug('[AddressBar] syncBookmarkStatus: url isBookmarked', url, result.isBookmarked)
-  } else {
+  }
+  else {
     isBookmarked.value = false
   }
 }
@@ -382,7 +412,8 @@ async function toggleBookmark(): Promise<void> {
       await window.browserAPI.deleteBookmark(result.id)
     }
     isBookmarked.value = false
-  } else {
+  }
+  else {
     console.info('[AddressBar] toggleBookmark: adding bookmark url', url)
     await window.browserAPI.addBookmark({
       title: url,

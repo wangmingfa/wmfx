@@ -1,11 +1,23 @@
 <template>
   <section class="page">
-    <header ref="headerEl" class="page-header">
+    <header
+      ref="headerEl"
+      class="page-header"
+    >
       <div class="page-header-left">
         <slot name="icon">
-          <Icon v-if="icon" :icon="icon" class="page-header-icon" width="22" height="22" />
+          <Icon
+            v-if="icon"
+            :icon="icon"
+            class="page-header-icon"
+            width="22"
+            height="22"
+          />
         </slot>
-        <h1 v-if="title" class="page-header-title">
+        <h1
+          v-if="title"
+          class="page-header-title"
+        >
           {{ title }}
         </h1>
       </div>
@@ -29,14 +41,23 @@
       </div>
     </header>
 
-    <main class="page-body" :class="{ 'no-scroll': !bodyScroll }">
-      <div class="page-body-inner" :class="{ fill: !bodyScroll }">
+    <main
+      class="page-body"
+      :class="{ 'no-scroll': !bodyScroll }"
+    >
+      <div
+        class="page-body-inner"
+        :class="{ fill: !bodyScroll }"
+      >
         <slot />
       </div>
     </main>
 
     <!-- 左侧悬浮菜单：绝对定位于内容列左侧，不占据文档流，不会把 page-body-inner 往右挤 -->
-    <nav v-if="sideMenu?.length" class="page-side-menu">
+    <nav
+      v-if="sideMenu?.length"
+      class="page-side-menu"
+    >
       <RouterLink
         v-for="item in sideMenu"
         :key="item.key"
@@ -44,7 +65,13 @@
         class="page-side-menu-item"
         :class="{ 'is-active': item.to && isActive(item.to) }"
       >
-        <Icon v-if="item.icon" :icon="item.icon" width="18" height="18" class="page-side-menu-icon" />
+        <Icon
+          v-if="item.icon"
+          :icon="item.icon"
+          width="18"
+          height="18"
+          class="page-side-menu-icon"
+        />
         <span>{{ t(item.labelKey) }}</span>
       </RouterLink>
     </nav>
@@ -136,8 +163,8 @@ const sideMenuSlot = computed(() => (props.sideMenu?.length ? SIDE_MENU_WIDTH + 
  */
 function measureScrollbarGutter(): number {
   const probe = document.createElement('div')
-  probe.style.cssText =
-    'position:absolute;top:-9999px;width:100px;height:100px;overflow-y:auto;scrollbar-gutter:stable;visibility:hidden;'
+  probe.style.cssText
+    = 'position:absolute;top:-9999px;width:100px;height:100px;overflow-y:auto;scrollbar-gutter:stable;visibility:hidden;'
   document.body.appendChild(probe)
   const width = probe.offsetWidth - probe.clientWidth
   document.body.removeChild(probe)
@@ -181,7 +208,8 @@ onMounted(() => {
   measure()
   // 仅需在头部高度变化时重算侧边栏顶部（如标题换行）；内容列居中由纯 CSS 处理，无需观察主体。
   resizeObserver = new ResizeObserver(measure)
-  if (headerEl.value) resizeObserver.observe(headerEl.value)
+  if (headerEl.value)
+    resizeObserver.observe(headerEl.value)
   window.addEventListener('resize', onWindowResize)
 })
 onBeforeUnmount(() => {
