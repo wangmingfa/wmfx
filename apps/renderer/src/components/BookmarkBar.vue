@@ -245,7 +245,7 @@ watch(topItems, () => nextTick(relayout), { deep: true })
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-primary);
   overflow: hidden;
-  padding-right: 4px;
+  padding: 0 4px;
 }
 
 .bookmark-list {

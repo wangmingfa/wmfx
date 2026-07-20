@@ -11,7 +11,7 @@ import type {
   SystemDir,
 } from '@browser/ipc-contract'
 import { Client as FtpClient } from 'basic-ftp'
-import { app, clipboard, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, clipboard, nativeImage, shell } from 'electron'
 import { type SFTPWrapper, Client as SftpClient } from 'ssh2'
 export interface FileOpResult {
   success: boolean
@@ -85,6 +85,11 @@ export class FileBrowserManager {
 
   // 书签持久化路径
   private readonly bookmarksPath: string = path.join(app.getPath('userData'), 'file-bookmarks.json')
+
+  // 实时目录监听：按目录路径引用计数，多标签/多窗口共享同一 fs.watch
+  private dirWatchers = new Map<string, { watcher: fs.FSWatcher; refCount: number }>()
+  // 每个目录的去抖定时器，避免高频事件触发过多次广播
+  private dirWatchTimers = new Map<string, NodeJS.Timeout>()
 
   // 活动会话
   private ftpSessions = new Map<string, FtpClient>()
@@ -849,6 +854,75 @@ export class FileBrowserManager {
       console.debug('[FileBrowserManager] saveBookmarks: saved', this.fileBookmarks.length)
     } catch (err) {
       console.error('[FileBrowserManager] saveBookmarks error:', err)
+    }
+  }
+
+  // ─── 实时目录监听（fs.watch） ──────────────────────────────
+
+  /** 开始监听目录变化；按目录路径引用计数，首次建立 watcher，重复调用仅 +1 */
+  watchDir(dirPath: string): void {
+    const validated = validatePath(dirPath)
+    console.debug('[FileBrowserManager] watchDir: dirPath', validated)
+    const existing = this.dirWatchers.get(validated)
+    if (existing) {
+      existing.refCount += 1
+      return
+    }
+    let watcher: fs.FSWatcher
+    try {
+      watcher = fs.watch(validated, { recursive: false }, () => {
+        // fs.watch 在 macOS 不保证 filename，且事件密集；统一去抖后广播目录路径
+        this.scheduleChangedBroadcast(validated)
+      })
+    } catch (err) {
+      console.error('[FileBrowserManager] watchDir error:', err)
+      return
+    }
+    watcher.on('error', (err) => {
+      console.error('[FileBrowserManager] watch error:', validated, err)
+      this.closeWatcher(validated)
+    })
+    this.dirWatchers.set(validated, { watcher, refCount: 1 })
+  }
+
+  /** 停止监听目录变化；引用计数归零时关闭并移除 watcher */
+  unwatchDir(dirPath: string): void {
+    const validated = validatePath(dirPath)
+    console.debug('[FileBrowserManager] unwatchDir: dirPath', validated)
+    const existing = this.dirWatchers.get(validated)
+    if (!existing) return
+    existing.refCount -= 1
+    if (existing.refCount <= 0) this.closeWatcher(validated)
+  }
+
+  /** 去抖广播：目录内容变化后通知所有渲染窗口重载该目录 */
+  private scheduleChangedBroadcast(dirPath: string): void {
+    const prev = this.dirWatchTimers.get(dirPath)
+    if (prev) clearTimeout(prev)
+    const timer = setTimeout(() => {
+      this.dirWatchTimers.delete(dirPath)
+      console.info('[FileBrowserManager] fs:changed broadcast:', dirPath)
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send('fs:changed', dirPath)
+      }
+    }, 300)
+    this.dirWatchTimers.set(dirPath, timer)
+  }
+
+  /** 关闭并清理指定目录的 watcher */
+  private closeWatcher(dirPath: string): void {
+    const existing = this.dirWatchers.get(dirPath)
+    if (!existing) return
+    try {
+      existing.watcher.close()
+    } catch (err) {
+      console.error('[FileBrowserManager] closeWatcher error:', err)
+    }
+    this.dirWatchers.delete(dirPath)
+    const timer = this.dirWatchTimers.get(dirPath)
+    if (timer) {
+      clearTimeout(timer)
+      this.dirWatchTimers.delete(dirPath)
     }
   }
 

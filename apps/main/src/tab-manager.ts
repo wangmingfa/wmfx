@@ -504,12 +504,6 @@ export class TabManager {
     return isDark ? '#353535' : '#ffffff'
   }
 
-  /** 当前是否处于暗色主题（按全局 theme 设置；供外壳背景色等判断）。 */
-  private isDarkNow(): boolean {
-    const theme = this.settingsManager?.get('theme') ?? 'system'
-    return theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors)
-  }
-
   /** 主题切换时同步所有标签页视图的背景色，避免导航时闪烁旧底色。 */
   updateAllViewBackgrounds(): void {
     const bg = this.resolveViewBackgroundColor()
@@ -550,8 +544,12 @@ export class TabManager {
     return result
   }
 
-  /** 主题切换时对所有外部页重注入/移除暗色 CSS（内部页由 theme:change 广播控制）。 */
+  /** 主题切换时对所有外部页重注入/移除暗色 CSS（内部页由 theme:change 广播控制）。forceDark 关闭时不注入。 */
   reapplyDarkForTheme(isDark: boolean): void {
+    if (this.settingsManager?.get('forceDark') !== true) {
+      console.debug('[TabManager] reapplyDarkForTheme: forceDark off, skip')
+      return
+    }
     const targets = this.getExternalWebContents()
     console.info(`[TabManager] reapplyDarkForTheme: isDark=${isDark} count=${targets.length}`)
     for (const wc of targets) {
@@ -823,9 +821,9 @@ export class TabManager {
       tab.state.canGoForward = wc.navigationHistory.canGoForward()
       this.broadcastState(tab)
 
-      // 外部页页内导航（hash/history）：维持暗色 CSS；处于阅读态则退出
+      // 外部页页内导航（hash/history）：按 forceDark 设置维持暗色 CSS；处于阅读态则退出
       if (!tab.isInternal && !isWmfxUrl(url)) {
-        this.pageEnhanceManager.applyDark(wc, this.isDarkNow())
+        this.pageEnhanceManager.applyDark(wc, this.settingsManager?.get('forceDark') === true)
         if (tab.readerView?.getVisible()) {
           this.exitReadingMode(tab.id)
         }

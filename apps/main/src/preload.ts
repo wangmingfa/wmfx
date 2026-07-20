@@ -9,6 +9,7 @@ import type {
   BookmarkItem,
   CapturedRequest,
   CertTrustScope,
+  CommandPaletteData,
   CreateTabOptions,
   DownloadCreateOptions,
   DownloadItem,
@@ -197,7 +198,11 @@ const api: {
   getFileBookmarks: () => Promise<FileBookmark[]>
   addFileBookmark: (dirPath: string, name: string) => Promise<void>
   removeFileBookmark: (id: string) => Promise<void>
+  renameFileBookmark: (id: string, name: string) => Promise<void>
   reorderFileBookmarks: (ids: string[]) => Promise<void>
+  watchDir: (dirPath: string) => Promise<void>
+  unwatchDir: (dirPath: string) => Promise<void>
+  onFilesChanged: (cb: (dirPath: string) => void) => () => void
   // Clipboard
   copyText: (text: string) => Promise<void>
   // Proxy
@@ -242,6 +247,8 @@ const api: {
   ) => void
   onOpenFind: (cb: (tabId: string) => void) => void
   onFocusAddressBar: (cb: () => void) => () => void
+  onOpenCommandPalette: (cb: () => void) => () => void
+  onOpenSettings: (cb: () => void) => () => void
   // Log
   log: (entry: LogEntry) => void
   // Updater
@@ -316,6 +323,10 @@ const api: {
   nativeMenuClose: (menuId: string) => Promise<void>
   onNativeMenuAction: (cb: (payload: { menuId: string; itemId: string }) => void) => void
   onNativeMenuClosed: (cb: (menuId: string) => void) => void
+  // Command Palette
+  commandPaletteGetData: () => Promise<CommandPaletteData>
+  commandPaletteExecute: (opts: { type: string; id: string; data?: unknown }) => Promise<void>
+  commandPaletteSaveRecent: (actionId: string) => Promise<void>
 } = {
   ping: (message) => ipcRenderer.invoke('app:ping', message),
   createTab: (opts) => ipcRenderer.invoke('tab:create', opts),
@@ -466,8 +477,16 @@ const api: {
   getFileBookmarks: () => ipcRenderer.invoke('fs:getBookmarks'),
   addFileBookmark: (dirPath, name) => ipcRenderer.invoke('fs:addBookmark', dirPath, name),
   removeFileBookmark: (id) => ipcRenderer.invoke('fs:removeBookmark', id),
-  renameFileBookmark: (id, name) => ipcRenderer.invoke('fs:renameBookmark', id, name),
+  renameFileBookmark: (id: string, name: string) =>
+    ipcRenderer.invoke('fs:renameBookmark', id, name),
   reorderFileBookmarks: (ids) => ipcRenderer.invoke('fs:reorderBookmarks', ids),
+  watchDir: (dirPath) => ipcRenderer.invoke('fs:watch', dirPath),
+  unwatchDir: (dirPath) => ipcRenderer.invoke('fs:unwatch', dirPath),
+  onFilesChanged: (cb) => {
+    const listener = (_e: unknown, dirPath: string): void => cb(dirPath)
+    ipcRenderer.on('fs:changed', listener)
+    return () => ipcRenderer.removeListener('fs:changed', listener)
+  },
   // Clipboard
   copyText: (text) => ipcRenderer.invoke('clipboard:copy', text),
   // Proxy
@@ -505,6 +524,16 @@ const api: {
     const listener = (): void => cb()
     ipcRenderer.on('shell:focusAddressBar', listener)
     return () => ipcRenderer.removeListener('shell:focusAddressBar', listener)
+  },
+  onOpenCommandPalette: (cb) => {
+    const listener = (): void => cb()
+    ipcRenderer.on('shell:openCommandPalette', listener)
+    return () => ipcRenderer.removeListener('shell:openCommandPalette', listener)
+  },
+  onOpenSettings: (cb) => {
+    const listener = (): void => cb()
+    ipcRenderer.on('shell:openSettings', listener)
+    return () => ipcRenderer.removeListener('shell:openSettings', listener)
   },
   // Log
   log: (entry) => ipcRenderer.send('log:frontend', entry),
@@ -548,6 +577,10 @@ const api: {
     ),
   onNativeMenuClosed: (cb) =>
     ipcRenderer.on('native-menu:closed', (_e, menuId) => cb(menuId as string)),
+  // Command Palette
+  commandPaletteGetData: () => ipcRenderer.invoke('commandPalette:getData'),
+  commandPaletteExecute: (opts) => ipcRenderer.invoke('commandPalette:execute', opts),
+  commandPaletteSaveRecent: (actionId) => ipcRenderer.invoke('commandPalette:saveRecent', actionId),
   // Default browser
   setDefaultBrowser: () => ipcRenderer.invoke('default-browser:set'),
   isDefaultBrowser: () => ipcRenderer.invoke('default-browser:isDefault'),

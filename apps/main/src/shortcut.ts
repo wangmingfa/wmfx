@@ -27,7 +27,8 @@ export function registerAppShortcut(
 
   const register = () => {
     console.debug('[Shortcut] focus: registering accelerator', accelerator)
-    globalShortcut.register(accelerator, callback)
+    const ok = globalShortcut.register(accelerator, callback)
+    console.debug('[Shortcut] focus: register result', accelerator, ok)
   }
   const unregister = () => {
     console.debug('[Shortcut] blur/closed: unregistering accelerator', accelerator)

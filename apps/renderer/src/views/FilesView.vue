@@ -167,9 +167,10 @@
       <!-- 文件列表 -->
       <div
         class="files-list"
-        :class="[viewMode, { 'drag-over': dragOverFilesList }]"
+        :class="[viewMode, { 'drag-over': dragOverFilesList, 'marquee-active': marqueeActive }]"
         @click="clearSelection($event)"
         @contextmenu="handleContextMenu"
+        @mousedown="onMarqueeStart"
         @dragover="handleDragOverList($event)"
         @dragleave="handleDragLeaveList"
         @drop="handleDropOnList"
@@ -221,8 +222,9 @@
             v-for="file in sortedFiles"
             :key="file.path"
             class="file-item"
-            :class="[{ selected: isSelected(file.path), folder: file.isDir, dragging: dragFiles.includes(file.path) }]"
-            draggable="true"
+            :data-path="file.path"
+            :class="[{ 'selected': isSelected(file.path), 'folder': file.isDir, 'dragging': dragFiles.includes(file.path), 'marquee-hit': marqueeHitPaths.includes(file.path) }]"
+            :draggable="isSelected(file.path)"
             @click="handleItemClick(file, $event)"
             @dblclick="handleItemDblClick(file)"
             @contextmenu.prevent="handleFileContextMenu($event, file)"
@@ -235,6 +237,7 @@
             <div
               v-if="viewMode === 'icon'"
               class="file-icon-cell"
+              :draggable="!isSelected(file.path)"
             >
               <Icon
                 :icon="getFileIcon(file)"
@@ -262,6 +265,8 @@
                 v-model="renamingName"
                 class="file-rename-input"
                 :title="renamingName"
+                @click.stop
+                @dblclick.stop
                 @keydown.enter="confirmRename"
                 @keydown.escape="cancelRename"
                 @blur="cancelRename"
@@ -272,6 +277,7 @@
               v-else
               class="file-row-cell"
               :style="{ gridTemplateColumns: listGridTemplate }"
+              :draggable="isSelected(file.path)"
             >
               <Icon
                 :icon="getFileIcon(file)"
@@ -290,6 +296,8 @@
                   v-model="renamingName"
                   class="file-rename-input"
                   :title="renamingName"
+                  @click.stop
+                  @dblclick.stop
                   @keydown.enter="confirmRename"
                   @keydown.escape="cancelRename"
                   @blur="cancelRename"
@@ -298,6 +306,9 @@
                   v-else-if="col.key === 'name' && searchQuery"
                   class="file-cell cell-name"
                   :title="file.name"
+                ><span
+                  class="file-cell-content"
+                  draggable="true"
                 ><template
                   v-for="(seg, si) in getHighlightParts(file.name)"
                   :key="si"
@@ -306,7 +317,15 @@
                   class="name-hit"
                 >{{ seg.text }}</mark><template
                   v-else
-                >{{ seg.text }}</template></template></span>
+                >{{ seg.text }}</template></template></span></span>
+                <span
+                  v-else-if="col.key === 'name'"
+                  class="file-cell cell-name"
+                  :title="file.name"
+                ><span
+                  class="file-cell-content"
+                  draggable="true"
+                >{{ file.name }}</span></span>
                 <span
                   v-else
                   class="file-cell"
@@ -317,6 +336,16 @@
             </div>
           </div>
         </template>
+        <div
+          v-if="marqueeRect"
+          class="marquee-box"
+          :style="{
+            left: `${marqueeRect.left}px`,
+            top: `${marqueeRect.top}px`,
+            width: `${marqueeRect.right - marqueeRect.left}px`,
+            height: `${marqueeRect.bottom - marqueeRect.top}px`,
+          }"
+        />
       </div>
 
       <!-- 状态栏 -->
@@ -411,6 +440,20 @@ const sortOptions = [
 ]
 const searchQuery = ref('')
 const selectedPaths = ref<string[]>([])
+// 框选（marquee selection）状态
+const marqueeRect = ref<{ left: number, top: number, right: number, bottom: number } | null>(null)
+const marqueeHitPaths = ref<string[]>([])
+const marqueeActive = ref(false)
+// 框选提交后抑制紧随 mouseup 的 click（click 会触发 .files-list 的 clearSelection 清空选择）
+const marqueeSuppressClick = ref(false)
+// 输入字符定位（type-ahead）：输入缓冲与重置计时器
+const typeAheadBuffer = ref('')
+const typeAheadTimer = ref<number | null>(null)
+// 实时目录监听：当前已建立 watcher 的目录、变更去抖定时器
+const watchedDir = ref<string | null>(null)
+const filesChangedTimer = ref<number | null>(null)
+// 变更事件监听的取消函数（onMounted 注册，onUnmounted 调用）
+let filesChangedUnsub: (() => void) | void
 // 选中数量（无选中时为 0）
 const selectedCount = computed(() => selectedPaths.value.length)
 // 若选中项全部为文件，给出友好总大小；否则为空
@@ -642,6 +685,103 @@ const sortedFiles = computed(() => {
   return entries
 })
 
+// ─── 框选（marquee selection） ───────────────────────────────
+
+// 框选起点：仅在空白/列间隙（未命中 draggable）启动；已选中行兜底走拖拽
+function onMarqueeStart(event: MouseEvent): void {
+  console.debug('[FilesView] onMarqueeStart')
+  if (event.button !== 0)
+    return
+  // 命中 draggable 元素（未选中行的 .file-icon-cell / .file-cell-content，或已选中整行/整块）→ 拖文件
+  if ((event.target as HTMLElement).closest('[draggable="true"]'))
+    return
+  const rowEl = (event.target as HTMLElement).closest('.file-item, .file-row-cell')
+  const isRowSelected = !!rowEl && rowEl.classList.contains('selected')
+  // 已选中行的非内容空白区域：整行可拖（draggable 已为 true，此处兜底）
+  if (isRowSelected)
+    return
+  // 否则进入框选
+  console.debug('[FilesView] onMarqueeStart: 启动框选')
+  marqueeActive.value = true
+  const startX = event.clientX
+  const startY = event.clientY
+  let baseSelection: string[] = []
+  const ctrl = event.ctrlKey || event.metaKey
+  // 若起点所在文件已选中且为 Ctrl，则基于当前选择做切换；否则清空
+  const startFile = sortedFiles.value.find(f => f.path === (rowEl as HTMLElement | null)?.getAttribute('data-path'))
+  if (ctrl && startFile && selectedPaths.value.includes(startFile.path)) {
+    baseSelection = [...selectedPaths.value]
+  }
+  const onMove = (e: MouseEvent) => {
+    const left = Math.min(startX, e.clientX)
+    const top = Math.min(startY, e.clientY)
+    const right = Math.max(startX, e.clientX)
+    const bottom = Math.max(startY, e.clientY)
+    marqueeRect.value = { left, top, right, bottom }
+    marqueeHitPaths.value = computeMarqueeHit({ left, top, right, bottom }, ctrl, baseSelection)
+  }
+  const onUp = (e: MouseEvent) => {
+    window.removeEventListener('mousemove', onMove)
+    window.removeEventListener('mouseup', onUp)
+    onMarqueeEnd(e, startX, startY)
+  }
+  window.addEventListener('mousemove', onMove)
+  window.addEventListener('mouseup', onUp)
+}
+
+// 根据 marquee 矩形计算命中文件集合
+function computeMarqueeHit(
+  rect: { left: number, top: number, right: number, bottom: number },
+  ctrl: boolean,
+  baseSelection: string[],
+): string[] {
+  const hit: string[] = []
+  for (const file of sortedFiles.value) {
+    const el = document.querySelector(`.file-item[data-path="${CSS.escape(file.path)}"]`) as HTMLElement | null
+    if (!el)
+      continue
+    const r = el.getBoundingClientRect()
+    let matched = false
+    if (viewMode.value === 'icon') {
+      matched = !(r.right < rect.left || r.left > rect.right || r.bottom < rect.top || r.top > rect.bottom)
+    }
+    else {
+      matched = !(r.bottom < rect.top || r.top > rect.bottom)
+    }
+    if (matched)
+      hit.push(file.path)
+  }
+  if (ctrl && baseSelection.length > 0) {
+    const set = new Set(baseSelection)
+    for (const p of hit) {
+      if (set.has(p))
+        set.delete(p)
+      else
+        set.add(p)
+    }
+    return [...set]
+  }
+  return hit
+}
+
+function onMarqueeEnd(event: MouseEvent, startX: number, startY: number): void {
+  console.debug('[FilesView] onMarqueeEnd')
+  const dx = Math.abs(event.clientX - startX)
+  const dy = Math.abs(event.clientY - startY)
+  // 位移极小 → 视为单击空白 → 复用 clearSelection
+  if (dx < 4 && dy < 4) {
+    clearSelection(event)
+  }
+  else {
+    // 抑制紧随 mouseup 的 click（会触发 .files-list clearSelection 清空刚提交的框选）
+    marqueeSuppressClick.value = true
+    selectedPaths.value = marqueeHitPaths.value
+  }
+  marqueeRect.value = null
+  marqueeHitPaths.value = []
+  marqueeActive.value = false
+}
+
 // 选中状态
 function isSelected(path: string): boolean {
   return selectedPaths.value.includes(path)
@@ -738,6 +878,31 @@ function isAccessDeniedError(message: string): boolean {
   return /不允许访问|受保护|permission|EACCES|EPERM/i.test(message)
 }
 
+// ─── 实时目录监听（外部变更感知） ────────────────────────────
+
+// 切换当前监听目录：释放旧目录 watcher，建立新目录 watcher（主进程按路径引用计数）
+function setWatchDir(dirPath: string): void {
+  if (watchedDir.value === dirPath)
+    return
+  if (watchedDir.value)
+    window.browserAPI.unwatchDir(watchedDir.value)
+  watchedDir.value = dirPath
+  window.browserAPI.watchDir(dirPath)
+  console.debug('[FilesView] setWatchDir:', dirPath)
+}
+
+// 外部变更后重载当前目录，并尽量保留原有选中项（仅保留仍存在者）
+async function reloadCurrentDir(): Promise<void> {
+  console.debug('[FilesView] reloadCurrentDir:', currentPath.value)
+  const prevSelected = new Set(selectedPaths.value)
+  await loadDirectory(currentPath.value)
+  if (prevSelected.size > 0) {
+    const existing = new Set(fileEntries.value.map(f => f.path))
+    const kept = [...prevSelected].filter(p => existing.has(p))
+    selectedPaths.value = kept
+  }
+}
+
 // 路由跳转：更新 hash（#/files/<path>），主进程据此更新地址栏 displayUrl
 function gotoPath(dirPath: string): void {
   console.debug('[FilesView] gotoPath: dirPath', dirPath)
@@ -792,6 +957,11 @@ function handleItemClick(file: FileEntry, event: MouseEvent): void {
     else selectedPaths.value = selectedPaths.value.filter(p => p !== file.path)
   }
   else {
+    // 已选中的单项再次单击 → 进入重命名（避免重复选中无操作）
+    if (isSelected(file.path) && selectedPaths.value.length === 1) {
+      startRename(file)
+      return
+    }
     selectedPaths.value = [file.path]
   }
   lastClickedIndex.value = idx
@@ -812,6 +982,11 @@ async function handleItemDblClick(file: FileEntry): Promise<void> {
 function clearSelection(event: MouseEvent): void {
   if (event.ctrlKey || event.metaKey || event.shiftKey)
     return
+  // 框选提交后产生的 click：保留刚框选的结果，不清除
+  if (marqueeSuppressClick.value) {
+    marqueeSuppressClick.value = false
+    return
+  }
   selectedPaths.value = []
 }
 
@@ -821,9 +996,13 @@ function handleDragStart(event: DragEvent, file: FileEntry): void {
   console.debug('[FilesView] handleDragStart:', file.name)
   if (!event.dataTransfer)
     return
-  dragFiles.value = [file.path]
-  event.dataTransfer.setData('application/x-wmfx-files', file.path)
-  event.dataTransfer.setData('text/plain', file.name)
+  // 拖已选中批中的某项 → 携带整批；否则仅单项（Windows 式"拖已选中行=拖整批"）
+  const paths = selectedPaths.value.includes(file.path) && selectedPaths.value.length > 1
+    ? [...selectedPaths.value]
+    : [file.path]
+  dragFiles.value = paths
+  event.dataTransfer.setData('application/x-wmfx-files', JSON.stringify(paths))
+  event.dataTransfer.setData('text/plain', paths.join('\n'))
   event.dataTransfer.effectAllowed = 'copy'
   event.dataTransfer.dropEffect = 'copy'
 }
@@ -939,6 +1118,9 @@ async function confirmRename(): Promise<void> {
     await window.browserAPI.rename(renamingPath.value, newPath)
     cancelRename()
     await loadDirectory(currentPath.value)
+    // 重命名后选中新文件（路径已变化）
+    selectedPaths.value = [newPath]
+    lastClickedIndex.value = sortedFiles.value.findIndex(f => f.path === newPath)
   }
   catch (err) {
     console.error('[FilesView] confirmRename error:', err)
@@ -1335,6 +1517,30 @@ async function handleKeyDown(event: KeyboardEvent): Promise<void> {
     return
   }
 
+  // 输入字符定位（type-ahead）：输入文件名前缀定位首个匹配项（Windows/macOS 通用）
+  if (!ctrl && !event.metaKey && !event.altKey && event.key.length === 1 && event.key !== ' ') {
+    event.preventDefault()
+    typeAheadBuffer.value += event.key.toLowerCase()
+    if (typeAheadTimer.value !== null)
+      window.clearTimeout(typeAheadTimer.value)
+    typeAheadTimer.value = window.setTimeout(() => {
+      typeAheadBuffer.value = ''
+      typeAheadTimer.value = null
+    }, 600)
+    const items = sortedFiles.value
+    const idx = items.findIndex(f => f.name.toLowerCase().startsWith(typeAheadBuffer.value))
+    if (idx >= 0) {
+      const file = items[idx]
+      selectedPaths.value = [file.path]
+      lastClickedIndex.value = idx
+      await nextTick()
+      const el = document.querySelector(`.file-item[data-path="${CSS.escape(file.path)}"]`) as HTMLElement | null
+      el?.scrollIntoView({ block: 'nearest' })
+      console.debug('[FilesView] typeAhead: buffer=%s match=%s', typeAheadBuffer.value, file.name)
+    }
+    return
+  }
+
   // Quick Look
   if (!ctrl && event.key === ' ') {
     event.preventDefault()
@@ -1531,6 +1737,8 @@ watch(
     currentPath.value = dirPath
     selectedPaths.value = []
     await loadDirectory(dirPath)
+    // 路由切到新目录：重新监听该目录的外部变更
+    setWatchDir(dirPath)
   },
   { immediate: false },
 )
@@ -1554,6 +1762,19 @@ onMounted(async () => {
   currentPath.value = dirPath
   pushHistory(dirPath)
   await loadDirectory(dirPath)
+  // 监听当前目录的外部变更，实时重载
+  setWatchDir(dirPath)
+  filesChangedUnsub = window.browserAPI.onFilesChanged((dirPath: string) => {
+    // 仅处理当前正在浏览的目录（主进程按目录广播，可能含其他标签目录）
+    if (dirPath !== currentPath.value)
+      return
+    if (filesChangedTimer.value !== null)
+      window.clearTimeout(filesChangedTimer.value)
+    filesChangedTimer.value = window.setTimeout(() => {
+      filesChangedTimer.value = null
+      void reloadCurrentDir()
+    }, 300)
+  })
   // 注册快捷键
   window.addEventListener('keydown', handleKeyDown)
 })
@@ -1561,6 +1782,27 @@ onMounted(async () => {
 onUnmounted(() => {
   console.debug('[FilesView] onUnmounted')
   window.removeEventListener('keydown', handleKeyDown)
+  // 框选进行中卸载：复位状态（window 监听为一次性，mouseup 已移除；兜底清理）
+  if (marqueeActive.value) {
+    marqueeRect.value = null
+    marqueeHitPaths.value = []
+    marqueeActive.value = false
+  }
+  // 输入定位计时器清理
+  if (typeAheadTimer.value !== null) {
+    window.clearTimeout(typeAheadTimer.value)
+    typeAheadTimer.value = null
+  }
+  // 实时变更去抖计时器清理
+  if (filesChangedTimer.value !== null) {
+    window.clearTimeout(filesChangedTimer.value)
+    filesChangedTimer.value = null
+  }
+  // 取消变更监听并释放当前目录 watcher
+  if (typeof filesChangedUnsub === 'function')
+    filesChangedUnsub()
+  if (watchedDir.value)
+    window.browserAPI.unwatchDir(watchedDir.value)
 })
 </script>
 
@@ -1770,6 +2012,39 @@ onUnmounted(() => {
     }
   }
 
+  /* 框选矩形 */
+  .marquee-box {
+    position: absolute;
+    background: var(--accent-color-translucent);
+    border: 1px solid var(--accent-color);
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* 框选命中高亮 */
+  .file-item.marquee-hit {
+    background: var(--bg-selected);
+  }
+
+  /* 框选进行中禁用文本选择 */
+  .files-list.marquee-active {
+    user-select: none;
+
+    /* 框选期间 hover 不显示灰色背景，命中项保持选中样式 */
+    .file-item:hover {
+      background: transparent;
+    }
+
+    .file-item.marquee-hit:hover {
+      background: var(--bg-selected);
+    }
+  }
+
+  /* 列表视图文字内容子元素（仅它是拖拽手柄） */
+  .file-cell-content {
+    max-width: 100%;
+  }
+
   .file-item {
     padding: 2px 8px;
     border-radius: 4px;
@@ -1814,9 +2089,10 @@ onUnmounted(() => {
       color: var(--text-primary);
     }
 
-    // 图标视图的重命名输入框与名称字号保持一致，避免高度跳动
+    // 图标视图的重命名输入框与名称字号/居中保持一致，避免位置跳动
     .file-rename-input {
       font-size: 12px;
+      text-align: center;
     }
   }
 
@@ -1952,7 +2228,9 @@ onUnmounted(() => {
     width: 100%;
     height: 22px;
     font-size: 13px;
+    /* 保留左右内边距（视觉留白），用负 margin-left 抵消左边框+左内边距，使文字起点与未编辑文件名对齐，避免进入重命名时右移 */
     padding: 0 4px;
+    margin-left: -5px;
     border: 1px solid var(--accent-color);
     border-radius: 4px;
     background: var(--bg-input);

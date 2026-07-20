@@ -265,7 +265,7 @@
 
     <!-- 规则编辑弹窗 -->
     <NModal
-      v-model:show="editingRule"
+      :show="showEditModal"
       preset="card"
       :title="isNewRule ? '新增规则' : '编辑规则'"
       style="width: 640px; max-width: 92vw"
@@ -294,7 +294,7 @@
               v-for="m in methodOptions"
               :key="m.value"
               :checked="editForm.methods.includes(m.value)"
-              @update:checked="toggleMethod(m.value)"
+              @update:checked="toggleMethod(m.value as HttpMethod)"
             >
               {{ m.label }}
             </NCheckbox>
@@ -411,6 +411,7 @@ const detailTab = ref<'overview' | 'headers' | 'response'>('overview')
 const rules = ref<InterceptorRule[]>([])
 const showRuleDialog = ref(false)
 const editingRule = ref<InterceptorRule | null>(null)
+const showEditModal = computed(() => editingRule.value !== null)
 const isNewRule = ref(false)
 const editForm = ref<InterceptorRule>(createEmptyRule())
 const mockHeadersText = ref('')

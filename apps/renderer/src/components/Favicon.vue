@@ -1,11 +1,11 @@
 <template>
-  <!-- 内部页：直接按路由展示固定图标，不查缓存 -->
+  <!-- 内部页：直接按路由展示固定图标，不查缓存；显式用主题文本色，避免深色模式下继承黑色看不清 -->
   <Icon
     v-if="isInternal"
     :icon="internalIconName"
     :width="size"
     :height="size"
-    :style="resolvedColor ? { color: resolvedColor } : undefined"
+    :style="internalStyle"
   />
   <!-- 外部页：有 favicon 且未加载失败 → 真实图标；否则（含缓存未返回时）回退默认图标 -->
   <img
@@ -81,6 +81,12 @@ const resolvedColor = computed(() => {
   if (typeof c === 'string')
     return c
   return theme.value === 'dark' ? c.dark : c.light
+})
+
+// 内部页图标颜色：未单独传入 color 时，统一用次级文本色（深色/浅色主题均清晰可见）
+const internalStyle = computed(() => {
+  const color = resolvedColor.value ?? 'var(--text-secondary)'
+  return { color }
 })
 
 /** 解析最终展示的 favicon：优先用传入的 favicon，否则查缓存（仅外部页） */

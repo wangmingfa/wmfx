@@ -38,9 +38,11 @@
             </div>
             <div class="illust-row illust-content" />
           </div>
-          <NRadio value="top">
-            {{ t('settings.tabBarPositionOptions.top') }}
-          </NRadio>
+          <NRadioGroup :value="tabBarPosition">
+            <NRadio value="top">
+              {{ t('settings.tabBarPositionOptions.top') }}
+            </NRadio>
+          </NRadioGroup>
         </label>
 
         <label
@@ -62,9 +64,11 @@
               </div>
             </div>
           </div>
-          <NRadio value="left">
-            {{ t('settings.tabBarPositionOptions.left') }}
-          </NRadio>
+          <NRadioGroup :value="tabBarPosition">
+            <NRadio value="left">
+              {{ t('settings.tabBarPositionOptions.left') }}
+            </NRadio>
+          </NRadioGroup>
         </label>
       </div>
     </SectionItem>

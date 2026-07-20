@@ -9,6 +9,7 @@ export interface ContextMenuOptions {
    * 菜单项点击后的回调。返回 false 表示"保持菜单打开"（如需要继续交互），
    * 其它情况（返回 true / undefined / 不返回）将在回调结束后自动关闭菜单。
    */
+  // biome-ignore lint/suspicious/noConfusingVoidType: void is correct here — callers intentionally return nothing
   onAction: (payload: { menu: MenuItem; context: { close: () => void } }) => boolean | void
   onDismiss?: () => void
   /**

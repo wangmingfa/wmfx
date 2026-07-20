@@ -76,6 +76,57 @@ export interface Message {
   find: {
     placeholder: string
   }
+  commandPalette: {
+    placeholder: string
+    loading: string
+    noResults: string
+    recentCommands: string
+    categories: {
+      tabs: string
+      navigation: string
+      view: string
+      settings: string
+      page: string
+      window: string
+      recent: string
+    }
+    actions: {
+      newTab: string
+      closeTab: string
+      closeOtherTabs: string
+      reopenClosed: string
+      togglePin: string
+      toggleMute: string
+      goBack: string
+      goForward: string
+      reload: string
+      stop: string
+      findInPage: string
+      zoomIn: string
+      zoomOut: string
+      resetZoom: string
+      toggleFullscreen: string
+      print: string
+      saveAsPdf: string
+      toggleReaderMode: string
+      toggleDarkMode: string
+      openSettings: string
+      toggleBookmarkBar: string
+      toggleTabBarPosition: string
+      toggleAdBlock: string
+      setProxyRule: string
+      setProxyGlobal: string
+      setProxyDirect: string
+      openHistory: string
+      openBookmarks: string
+      openPasswords: string
+      openDownloads: string
+      openProxy: string
+      openFiles: string
+      newWindow: string
+      newIncognitoWindow: string
+    }
+  }
   reader: {
     enter: string
     exit: string
@@ -171,6 +222,8 @@ export interface Message {
     aboutVersion: string
     tabBarPosition: string
     tabBarPositionOptions: { top: string; left: string }
+    tabBarExpand: string
+    tabBarCollapse: string
   }
   history: {
     title: string
@@ -479,6 +532,57 @@ export const messages: Record<string, Message> = {
     find: {
       placeholder: '在页面中查找',
     },
+    commandPalette: {
+      placeholder: '搜索命令、标签页、历史、书签...',
+      loading: '加载中...',
+      noResults: '未找到匹配结果',
+      recentCommands: '最近使用',
+      categories: {
+        tabs: '标签页',
+        navigation: '导航',
+        view: '视图',
+        settings: '设置',
+        page: '页面',
+        window: '窗口',
+        recent: '最近使用',
+      },
+      actions: {
+        newTab: '新建标签页',
+        closeTab: '关闭当前标签页',
+        closeOtherTabs: '关闭其他标签页',
+        reopenClosed: '重新打开已关闭的标签页',
+        togglePin: '固定/取消固定标签页',
+        toggleMute: '静音/取消静音标签页',
+        goBack: '后退',
+        goForward: '前进',
+        reload: '刷新',
+        stop: '停止加载',
+        findInPage: '在页面中查找',
+        zoomIn: '放大',
+        zoomOut: '缩小',
+        resetZoom: '重置缩放',
+        toggleFullscreen: '切换全屏',
+        print: '打印',
+        saveAsPdf: '保存为 PDF',
+        toggleReaderMode: '切换阅读模式',
+        toggleDarkMode: '切换暗色模式',
+        openSettings: '打开设置',
+        toggleBookmarkBar: '切换书签栏',
+        toggleTabBarPosition: '切换标签栏位置',
+        toggleAdBlock: '切换广告拦截',
+        setProxyRule: '设置代理模式: 规则',
+        setProxyGlobal: '设置代理模式: 全局',
+        setProxyDirect: '设置代理模式: 直连',
+        openHistory: '打开历史记录',
+        openBookmarks: '打开书签',
+        openPasswords: '打开密码管理',
+        openDownloads: '打开下载',
+        openProxy: '打开代理设置',
+        openFiles: '打开文件管理',
+        newWindow: '新建窗口',
+        newIncognitoWindow: '新建无痕窗口',
+      },
+    },
     reader: {
       enter: '阅读模式',
       exit: '退出阅读模式',
@@ -574,6 +678,8 @@ export const messages: Record<string, Message> = {
       aboutVersion: '版本',
       tabBarPosition: '标签栏位置',
       tabBarPositionOptions: { top: '顶部', left: '左侧' },
+      tabBarExpand: '展开标签栏',
+      tabBarCollapse: '收起标签栏',
       navShortcuts: '快捷键',
     },
     shortcuts: {
@@ -848,6 +954,57 @@ export const messages: Record<string, Message> = {
     find: {
       placeholder: 'Find in page',
     },
+    commandPalette: {
+      placeholder: 'Search commands, tabs, history, bookmarks...',
+      loading: 'Loading...',
+      noResults: 'No matching results',
+      recentCommands: 'Recent',
+      categories: {
+        tabs: 'Tabs',
+        navigation: 'Navigation',
+        view: 'View',
+        settings: 'Settings',
+        page: 'Page',
+        window: 'Window',
+        recent: 'Recent',
+      },
+      actions: {
+        newTab: 'New Tab',
+        closeTab: 'Close Tab',
+        closeOtherTabs: 'Close Other Tabs',
+        reopenClosed: 'Reopen Closed Tab',
+        togglePin: 'Toggle Pin',
+        toggleMute: 'Toggle Mute',
+        goBack: 'Go Back',
+        goForward: 'Go Forward',
+        reload: 'Reload',
+        stop: 'Stop',
+        findInPage: 'Find in Page',
+        zoomIn: 'Zoom In',
+        zoomOut: 'Zoom Out',
+        resetZoom: 'Reset Zoom',
+        toggleFullscreen: 'Toggle Fullscreen',
+        print: 'Print',
+        saveAsPdf: 'Save as PDF',
+        toggleReaderMode: 'Toggle Reader Mode',
+        toggleDarkMode: 'Toggle Dark Mode',
+        openSettings: 'Open Settings',
+        toggleBookmarkBar: 'Toggle Bookmark Bar',
+        toggleTabBarPosition: 'Toggle Tab Bar Position',
+        toggleAdBlock: 'Toggle Ad Block',
+        setProxyRule: 'Set Proxy: Rule',
+        setProxyGlobal: 'Set Proxy: Global',
+        setProxyDirect: 'Set Proxy: Direct',
+        openHistory: 'Open History',
+        openBookmarks: 'Open Bookmarks',
+        openPasswords: 'Open Passwords',
+        openDownloads: 'Open Downloads',
+        openProxy: 'Open Proxy',
+        openFiles: 'Open Files',
+        newWindow: 'New Window',
+        newIncognitoWindow: 'New Incognito Window',
+      },
+    },
     reader: {
       enter: 'Reader mode',
       exit: 'Exit reader mode',
@@ -943,6 +1100,8 @@ export const messages: Record<string, Message> = {
       aboutVersion: 'Version',
       tabBarPosition: 'Tab bar position',
       tabBarPositionOptions: { top: 'Top', left: 'Left' },
+      tabBarExpand: 'Expand tab bar',
+      tabBarCollapse: 'Collapse tab bar',
       navShortcuts: 'Shortcuts',
     },
     shortcuts: {

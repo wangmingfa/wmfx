@@ -137,12 +137,13 @@ import type { PopoverAnchor, TabState } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
 import { onMounted, onUnmounted, ref } from 'vue'
 import IconButton from '@/components/ui/IconButton.vue'
-import { requestAddressBarFocus } from '../composables/useAddressBarFocus'
-import { useI18n } from '../composables/useI18n'
-import { useTabList } from '../composables/useTabList'
-import { DropdownMenu } from '../lib/dropdown-menu'
-import { Popover } from '../lib/popover'
-import { isMacOS } from '../utils/os'
+import { requestAddressBarFocus } from '@/composables/useAddressBarFocus'
+import { useI18n } from '@/composables/useI18n'
+import { useTabList } from '@/composables/useTabList'
+import { DropdownMenu } from '@/lib/dropdown-menu'
+import { Popover } from '@/lib/popover'
+import { TAB_ACTION_ICONS } from '@/lib/tab-action-icons'
+import { isMacOS } from '@/utils/os'
 import Favicon from './Favicon.vue'
 import Spinner from './ui/Spinner.vue'
 
@@ -217,21 +218,21 @@ function openTabContextMenu(event: MouseEvent, tab: TabState): void {
     descriptor: {
       id: `tab-context-${tab.id}`,
       items: [
-        { id: 'new-tab-right', label: t('tab.closeRight'), icon: 'mdi:plus' },
+        { id: 'new-tab-right', label: t('tab.closeRight'), icon: TAB_ACTION_ICONS.newTab },
         { id: 'sep-1', type: 'separator' },
-        { id: 'reload', label: t('tab.reload'), icon: 'mdi:refresh' },
-        { id: 'duplicate', label: t('tab.duplicate'), icon: 'mdi:content-copy' },
-        { id: 'pin', label: tab.isPinned ? t('tab.unpinned') : t('tab.pinned'), icon: 'mdi:pin' },
+        { id: 'reload', label: t('tab.reload'), icon: TAB_ACTION_ICONS.reload },
+        { id: 'duplicate', label: t('tab.duplicate'), icon: TAB_ACTION_ICONS.duplicate },
+        { id: 'pin', label: tab.isPinned ? t('tab.unpinned') : t('tab.pinned'), icon: TAB_ACTION_ICONS.pin },
         {
           id: 'mute',
           label: tab.isMuted ? t('tab.unmute') : t('tab.mute'),
-          icon: tab.isMuted ? 'mdi:volume-off' : 'mdi:volume-high',
+          icon: tab.isMuted ? TAB_ACTION_ICONS.muteOff : TAB_ACTION_ICONS.muteOn,
         },
         { id: 'sep-2', type: 'separator' },
-        { id: 'close', label: t('tab.close'), icon: 'mdi:close', danger: true },
-        { id: 'close-others', label: t('tab.closeOthers'), icon: 'mdi:close-box-multiple' },
-        { id: 'close-left', label: t('tab.closeLeft'), icon: 'mdi:arrow-left-bold-box-outline' },
-        { id: 'close-right', label: t('tab.closeRightTabs'), icon: 'mdi:arrow-right-bold-box-outline' },
+        { id: 'close', label: t('tab.close'), icon: TAB_ACTION_ICONS.close, danger: true },
+        { id: 'close-others', label: t('tab.closeOthers'), icon: TAB_ACTION_ICONS.closeOthers },
+        { id: 'close-left', label: t('tab.closeLeft'), icon: TAB_ACTION_ICONS.closeLeft },
+        { id: 'close-right', label: t('tab.closeRightTabs'), icon: TAB_ACTION_ICONS.closeRight },
       ],
     },
     onAction: ({ menu: action }) => {

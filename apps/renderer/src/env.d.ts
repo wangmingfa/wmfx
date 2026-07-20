@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import type {
+  CommandPaletteData,
   CreateTabOptions,
   FindInPageOptions,
   IpcInvoke,
@@ -61,6 +62,9 @@ declare global {
       removeFileBookmark: IpcInvoke['fs:removeBookmark']
       renameFileBookmark: IpcInvoke['fs:renameBookmark']
       reorderFileBookmarks: IpcInvoke['fs:reorderBookmarks']
+      watchDir: IpcInvoke['fs:watch']
+      unwatchDir: IpcInvoke['fs:unwatch']
+      onFilesChanged: (cb: (dirPath: string) => void) => () => void
       // Clipboard
       copyText: IpcInvoke['clipboard:copy']
       // History
@@ -127,6 +131,8 @@ declare global {
       ) => void
       onOpenFind: (handler: (tabId: string) => void) => void
       onFocusAddressBar: (handler: () => void) => () => void
+      onOpenCommandPalette: (handler: () => void) => () => void
+      onOpenSettings: (handler: () => void) => () => void
       // Tab reorder
       reorderTabs: IpcInvoke['tab:reorder']
       // Tab thumbnail
@@ -267,6 +273,10 @@ declare global {
       faviconGet: IpcInvoke['favicon:get']
       // Shortcuts
       getShortcuts: IpcInvoke['shortcuts:list']
+      // Command Palette
+      commandPaletteGetData: () => Promise<CommandPaletteData>
+      commandPaletteExecute: (opts: { type: string; id: string; data?: unknown }) => Promise<void>
+      commandPaletteSaveRecent: (actionId: string) => Promise<void>
       // Theme change broadcast
       onThemeChange: (handler: (theme: ThemeMode) => void) => void
       // Bookmark bar extras (optional, may be undefined if not implemented)

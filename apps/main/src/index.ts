@@ -182,11 +182,53 @@ function wireWindowShortcuts(instance: BrowserWindowInstance): void {
       console.debug('[App] shortcut: new normal window')
       openNormalWindow()
     },
+    'toggle-bookmark-bar': () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) return
+      const inst = globalThis.browserInstances.get(String(focused.id))
+      if (!inst) return
+      const next = !inst.settingsManager.get('showBookmarkBar')
+      inst.settingsManager.set('showBookmarkBar', next)
+      console.info('[App] shortcut: toggle-bookmark-bar -> %s', next)
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send('bookmarkBar:changed')
+      }
+    },
+    'command-palette': () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) return
+      console.debug('[App] shortcut: command-palette')
+      focused.webContents.send('shell:openCommandPalette')
+    },
+    'toggle-tab-position': () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) return
+      const inst = globalThis.browserInstances.get(String(focused.id))
+      if (!inst) return
+      const next = inst.settingsManager.get('tabBarPosition') === 'top' ? 'left' : 'top'
+      inst.settingsManager.set('tabBarPosition', next)
+      console.info('[App] shortcut: toggle-tab-position -> %s', next)
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send('tabBarPosition:changed')
+      }
+    },
+    'open-settings': () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) return
+      console.info('[App] shortcut: open-settings')
+      focused.webContents.send('shell:openSettings')
+    },
   }
 
   for (const def of SHORTCUT_REGISTRY) {
     if (def.scope !== 'in-app') continue
     const cb = actions[def.id]
+    console.debug(
+      '[App] wireWindowShortcuts: id=%s accelerator=%s hasAction=%s',
+      def.id,
+      def.accelerator,
+      Boolean(cb)
+    )
     if (!cb) {
       console.warn('[App] wireWindowShortcuts: 注册表有定义但缺少 action 回调，id=%s', def.id)
       continue

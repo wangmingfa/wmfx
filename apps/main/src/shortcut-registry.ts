@@ -88,4 +88,33 @@ export const SHORTCUT_REGISTRY: ShortcutDef[] = [
     group:        'window',
     description:  { 'zh-CN': '新建窗口', 'en-US': 'New window' },
   },
+  {
+    id:           'command-palette',
+    accelerator:  'CmdOrCtrl+K',
+    scope:        'in-app',
+    group:        'navigation',
+    description:  { 'zh-CN': '命令面板', 'en-US': 'Command Palette' },
+    hidden:       true,
+  },
+  {
+    id:           'toggle-bookmark-bar',
+    accelerator:  'CmdOrCtrl+Shift+B',
+    scope:        'in-app',
+    group:        'window',
+    description:  { 'zh-CN': '切换书签栏显示', 'en-US': 'Toggle bookmark bar' },
+  },
+  {
+    id:           'toggle-tab-position',
+    accelerator:  'CmdOrCtrl+Shift+L',
+    scope:        'in-app',
+    group:        'window',
+    description:  { 'zh-CN': '切换标签栏位置', 'en-US': 'Toggle tab bar position' },
+  },
+  {
+    id:           'open-settings',
+    accelerator:  'CmdOrCtrl+,',
+    scope:        'in-app',
+    group:        'window',
+    description:  { 'zh-CN': '打开设置', 'en-US': 'Open settings' },
+  },
 ]

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import process from 'node:process'
 import type {
   AutocompleteSuggestion,
+  CommandPaletteData,
   InterceptorRule,
   IpcContract,
   QuickLink,
@@ -185,12 +186,15 @@ export function registerIpcHandlers(): void {
     console.debug('[IPC] nav:loadURLCurrent: url', url)
     const inst = getInstance(event)
     if (!inst) return
-    const tabId = inst.tabManager.getTabIdByWebContents(event.sender)
+    // 优先用 sender 反查（标签页内调用）；外壳渲染进程（命令面板/ChromeUI）调用时
+    // sender 不是某个 tab 的 webContents，回退到当前活动 tab，确保内部页导航始终可用。
+    const tabId =
+      inst.tabManager.getTabIdByWebContents(event.sender) ?? inst.tabManager.getActiveTabId()
     if (tabId) {
       console.debug('[IPC] nav:loadURLCurrent: tabId', tabId)
       inst.navigationManager.loadURL(tabId, url)
     } else {
-      console.debug('[IPC] nav:loadURLCurrent: no tabId for sender')
+      console.debug('[IPC] nav:loadURLCurrent: no tabId (no active tab either)')
     }
   })
 
@@ -384,6 +388,15 @@ export function registerIpcHandlers(): void {
   handle('fs:getSystemDirs', () => {
     console.debug('[IPC] fs:getSystemDirs')
     return fileBrowser.getSystemDirs()
+  })
+  // 实时目录监听：渲染进程按当前目录建立/释放 watcher
+  handle('fs:watch', (_event, dirPath) => {
+    console.info('[IPC] fs:watch: dirPath', dirPath)
+    fileBrowser.watchDir(dirPath)
+  })
+  handle('fs:unwatch', (_event, dirPath) => {
+    console.info('[IPC] fs:unwatch: dirPath', dirPath)
+    fileBrowser.unwatchDir(dirPath)
   })
   handle('fs:getBookmarks', () => {
     console.debug('[IPC] fs:getBookmarks')
@@ -721,7 +734,7 @@ export function registerIpcHandlers(): void {
     console.debug('[IPC] settings:set: key', opts.key)
     SettingsManager.getInstance().set(opts.key as never, opts.value as never)
     if (opts.key === 'forceDark') {
-      const inst = getInstance()
+      const inst = getInstance(_event)
       if (inst) inst.tabManager.setForceDark(!!opts.value)
     }
     if (opts.key === 'showBookmarkBar') {
@@ -1519,6 +1532,70 @@ export function registerIpcHandlers(): void {
         /* webContents 已销毁 */
       }
     }
+  })
+
+  // ---- Command Palette ----
+  handle('commandPalette:getData', async () => {
+    console.info('[IPC] commandPalette:getData: fetching all data')
+    const allTabs: ReturnType<IpcContract['tab:getList']>[number][] = []
+    const allHistory: ReturnType<IpcContract['history:getAll']>[number][] = []
+    const allBookmarks: ReturnType<IpcContract['bookmark:getList']>[number][] = []
+    for (const instance of globalThis.browserInstances.values()) {
+      allTabs.push(...instance.tabManager.getList())
+      for (const item of instance.historyManager.getAll()) {
+        allHistory.push({
+          id: item.id,
+          url: item.url,
+          title: item.title,
+          favicon: item.favicon,
+          visitTime: item.visit_time,
+          visitCount: item.visit_count,
+        })
+      }
+      allBookmarks.push(...instance.bookmarkManager.getList())
+    }
+    allHistory.sort((a, b) => b.visitTime - a.visitTime)
+    const limitedHistory = allHistory.slice(0, 200)
+    const recentActions =
+      (SettingsManager.getInstance().get('commandPaletteRecentActions') as string[]) ?? []
+    const data: CommandPaletteData = {
+      tabs: allTabs,
+      history: limitedHistory,
+      bookmarks: allBookmarks,
+      recentActions,
+    }
+    console.debug(
+      '[IPC] commandPalette:getData: tabs=%d history=%d bookmarks=%d recent=%d',
+      allTabs.length,
+      limitedHistory.length,
+      allBookmarks.length,
+      recentActions.length
+    )
+    return data
+  })
+
+  handle('commandPalette:execute', (_event, opts) => {
+    console.info('[IPC] commandPalette:execute: type=%s id=%s', opts.type, opts.id)
+    if (opts.type === 'tab') {
+      const win = BrowserWindow.fromWebContents(_event.sender)
+      if (win) {
+        const inst = globalThis.browserInstances?.get(String(win.id))
+        if (inst) {
+          inst.tabManager.activate(opts.id)
+        }
+      }
+    }
+  })
+
+  handle('commandPalette:saveRecent', (_event, actionId) => {
+    console.debug('[IPC] commandPalette:saveRecent: actionId=%s', actionId)
+    const settings = SettingsManager.getInstance()
+    const recent = ((settings.get('commandPaletteRecentActions') as string[]) ?? []).filter(
+      (id) => id !== actionId
+    )
+    recent.unshift(actionId)
+    if (recent.length > 10) recent.length = 10
+    settings.set('commandPaletteRecentActions' as never, recent as never)
   })
 
   // Native Menu

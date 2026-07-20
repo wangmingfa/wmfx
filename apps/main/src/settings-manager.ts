@@ -39,6 +39,7 @@ interface SettingsSchema {
   tabBarPosition: 'top' | 'left'
   interceptorEnabled: boolean
   interceptorRules: InterceptorRule[]
+  commandPaletteRecentActions: string[]
 }
 
 export const defaultSettings: SettingsSchema = {
@@ -70,6 +71,7 @@ export const defaultSettings: SettingsSchema = {
   tabBarPosition: 'top',
   interceptorEnabled: false,
   interceptorRules: [],
+  commandPaletteRecentActions: [],
 }
 
 /** 校验 theme 值 */
@@ -287,6 +289,8 @@ export class SettingsManager {
         return Array.isArray(value)
           ? (value as SettingsSchema[K])
           : (defaultSettings.interceptorRules as SettingsSchema[K])
+      case 'commandPaletteRecentActions':
+        return validateStringArray(value) as SettingsSchema[K]
       default:
         return value
     }

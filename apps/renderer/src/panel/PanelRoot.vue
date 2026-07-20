@@ -19,6 +19,7 @@
         'is-addressbar': currentType === 'addressbar',
         'is-find': currentType === 'find',
         'is-tab-thumbnail': currentType === 'tab-thumbnail',
+        'is-command-palette': currentType === 'command-palette',
       }"
       :style="boxStyle"
       @mouseleave="onMouseLeave"
@@ -61,6 +62,10 @@
         :popover-id="currentPopoverId"
         :data="tabThumbnailData"
       />
+      <CommandPalettePanel
+        v-else-if="currentType === 'command-palette'"
+        :popover-id="currentPopoverId"
+      />
     </div>
   </div>
 </template>
@@ -77,6 +82,7 @@ import type {
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import BookmarkFolderPanel from '../components/BookmarkFolderPanel.vue'
 import AddressBarSuggestions from './AddressBarSuggestions.vue'
+import CommandPalettePanel from './CommandPalettePanel.vue'
 import DownloadPanel from './DownloadPanel.vue'
 import FindPanel from './FindPanel.vue'
 import { findItem, getLevelItems, getSelectable, pathToItem, selectableIndexOf } from './navigation'
@@ -285,6 +291,14 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
         height: `${r.height}px`,
       }
     }
+    else if (currentType.value === 'command-palette') {
+      // 命令面板：水平居中，垂直按锚点 y 定位
+      const boxWidth = el.offsetWidth
+      boxStyle.value = {
+        left: `${(window.innerWidth - boxWidth) / 2}px`,
+        top: `${anchor.value.type === 'point' ? anchor.value.y : 80}px`,
+      }
+    }
     else {
       const size = { width: el.offsetWidth, height: el.offsetHeight }
       const resolved: PopoverAnchor
@@ -369,7 +383,8 @@ function onHover(itemId: string): void {
 function onKeydown(e: KeyboardEvent): void {
   // 键盘导航（Esc/方向键/字母助记符）仅用于菜单。addressbar 与 find 面板各自在组件内处理键盘事件
   // （find 面板需在 IME 合成期间忽略 Esc/Enter），此处不得抢占，否则会绕过其 IME 守卫直接关闭面板。
-  if (currentType.value !== 'menu')
+  // command-palette 面板同样在组件内部处理键盘事件（Enter 执行、Esc 关闭等）。
+  if (currentType.value !== 'menu' && currentType.value !== 'command-palette')
     return
   if (e.key === 'Escape') {
     e.preventDefault()
@@ -530,6 +545,10 @@ body,
     padding: 0;
     min-width: 0;
     overflow: hidden;
+  }
+  &.is-command-palette {
+    border: none;
+    padding: 0;
   }
 }
 </style>

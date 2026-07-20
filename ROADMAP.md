@@ -53,7 +53,7 @@
 - [x] 崩溃恢复（render-process-gone 自动 reload）
 - [x] 后台标签挂起（5 分钟不活跃释放 WebContentsView）
 
-## M5 — CI/CD 与分发（进行中）
+## M5 — CI/CD 与分发（已完成）
 
 | 任务 | 状态 | 说明 |
 |------|------|------|
@@ -61,7 +61,7 @@
 | 自动更新（electron-updater + GitHub Releases）| ✅ 已完成 | `apps/main/src/updater.ts`，CI 用 `--publish always` |
 | 测试覆盖扩展（Vitest / Playwright）| ✅ 已完成 | 14+ 单元测试、多份 E2E spec |
 
-## Phase 3.5 — 浏览器可用性补全（未开始）
+## Phase 3.5 — 浏览器可用性补全（已完成）
 
 > 调研补齐"可用浏览器"体验缺口，除浏览器级安全/权限（证书错误、摄像头/麦克风/定位弹窗）外。
 
@@ -79,14 +79,14 @@
 - [x] **字体 / 编码设置** — 默认字体（system-ui/sans-serif/serif/monospace）、字号（12-24px）、编码（UTF-8/GBK/Big5 等），通过 `SettingsManager` 持久化，页面加载时注入 `document.documentElement.style` 与 `document.charset`
 - [x] **阅读模式 / 页面级暗色注入** — 阅读模式（`@mozilla/readability` esbuild 打包 IIFE 提取正文 + 双 WebContentsView 切换，原网页 `setVisible` 隐藏不销毁，`wmfx://reader` 渲染，DOMPurify 消毒正文）；页面级暗色注入（CSS 滤镜反色，仅外部 http(s) 页，跟随全局主题，导航/主题切换重注入，全量导航后重置 key）；地址栏阅读模式按钮（仅外部页）；`PageEnhanceManager` + `TabManager` 编排
 
-## Phase 4 — 增强能力（未开始）
+## Phase 4 — 增强能力（进行中）
 
 - [x] 广告拦截（Ad blocker）— 基于 `session.webRequest.onBeforeRequest` 拦截广告/追踪请求；内置常见广告/追踪域名清单（零依赖、免联网）+ 用户自定义黑名单/白名单（SettingsManager 持久化）；开关 `adBlockEnabled` 默认开；设置-隐私页提供开关与拦截统计；`SessionManager` 在每个新建 session 幂等挂载
-- [ ] 请求拦截（Request interception）
+- [x] 请求拦截（Request interception）— `RequestCapturer` 全应用捕获请求并推送到 `wmfx://interceptor` 页面，规则持久化（`interceptorRules`/`interceptorEnabled`），`index.ts` 共享挂载
 - [x] 密码管理器（Password manager）— `wmfx://passwords` 内部页：列表/搜索/新增/编辑/删除，密码复制与显隐；主进程 `PasswordManager` 以 electron-store 持久化、落盘经 `safeStorage`（OS 密钥链）加密，明文不写磁盘；变更经 `passwords:changed` 广播；应用菜单新增「密码」入口
 - [ ] 工作区（Workspace）
 - [ ] 分屏视图（Split view）
-- [ ] 垂直标签（Vertical tabs）
+- [x] 垂直标签（Vertical tabs）— `VerticalTabBar` 组件（自动折叠/展开），`SettingsManager.tabBarPosition`（`top`/`left`）切换，外观设置页提供选项
 
 ## Phase 5 — AI 与自动化（未开始）
 
@@ -97,7 +97,7 @@
 - [ ] MCP 接入
 - [ ] 智能表单（Smart forms）
 
-## Phase 6 — 文件浏览器（进行中）
+## Phase 6 — 文件浏览器（已完成）
 
 > 在浏览器外壳内提供本地/远程文件管理能力，可像访问网页一样浏览/打开/管理文件。
 > 设计文档：[`docs/superpowers/specs/2026-07-18-file-browser-design.md`](./docs/superpowers/specs/2026-07-18-file-browser-design.md)
@@ -132,12 +132,12 @@
 ### 6.5 快捷访问与书签
 
 - [x] **左侧快捷面板** — 240px 固定宽度，系统目录（桌面/下载/文档/图片/音乐/视频）自动检测
-- [ ] **用户书签** — `SettingsManager.fileBookmarks` 持久化，添加/移除/拖拽排序
+- [x] **用户书签** — `SettingsManager.fileBookmarks` 持久化，添加/移除/拖拽排序，右键菜单（新标签页打开/重命名/删除）
 
 ### 6.6 搜索
 
-- [ ] **目录内搜索** — 工具栏搜索框，200ms 防抖实时过滤，递归子目录，最多 500 条结果
-- [ ] **搜索结果展示** — 替换文件列表，显示相对路径，`Escape` 恢复
+- [x] **目录内搜索** — 工具栏搜索框，200ms 防抖实时过滤，递归子目录，最多 500 条结果（敏感目录跳过、根受限静默返回）
+- [x] **搜索结果展示** — 替换文件列表，显示相对路径，命中文件名高亮，`Escape` 恢复
 
 ### 6.7 拖拽交互（✅ 已完成）
 
@@ -167,9 +167,13 @@
 - [x] **单元测试** — `isLocalPath`/`normalizeLocalPath` 路径检测、文件操作逻辑（readDir/stat/copy/mkdir/searchDir/readFilePreview）、回收站 shell.trashItem 调用
 - [x] **E2E 测试** — 地址栏导航到文件浏览器、文件浏览器 UI（侧边栏/面包屑/工具栏/搜索）、安全校验（路径穿越/敏感目录/ node_modules）、Quick Look 预览、下载页面集成
 
-## Phase 7 — 创意库（未开始）
+### 6.12 框选交互（✅ 已完成）
 
-> 6.7/6.8/6.9/6.10/6.11 已 ✅ 完成，Phase 6 全部完成。下一步：Phase 7 创意库评估，随后代码签名（发布前置）
+- [x] **鼠标拖拽框选（Marquee selection）** — 按选中态分语义：`draggable` 动态下沉（未选中项仅内容子元素可拖）/提升（已选中整行可拖整批）；空白/列间隙 mousedown 启动半透明矩形框选，图标视图矩形包围盒相交、列表视图行区间命中；无修饰键框选清空原选择、Ctrl/⌘ 对称差切换、位移 <4px 视为单击空白清空；拖已选中批携带整批路径
+
+## Phase 7 — 创意库（进行中）
+
+> 6.7/6.8/6.9/6.10/6.11/6.12 已 ✅ 完成，Phase 6 全部完成。下一步：Phase 7 创意库评估，随后代码签名（发布前置）
 
 > 发散创意收集，覆盖效率 / AI / 极客 / 隐私 / 平台 / 体验多方向，待评估可行性后落地。
 
@@ -178,7 +182,7 @@
 - [ ] **网页截图与长截图** — 整页/区域截图，OCR 提取文字，存本地或图床
 - [ ] **稍后读（Read Later）** — 离线缓存文章，无网可读
 - [ ] **标签堆叠 / 分组增强** — 标签堆叠收起，按主题聚合
-- [ ] **命令面板（Cmd+K）** — 类 Raycast/Spotlight，全局搜标签/书签/历史/命令/文件
+- [x] **命令面板（Cmd+K）** — 类 Raycast/Spotlight，全局搜标签/书签/历史/命令/文件；`commandPalette:getData`/`execute`/`saveRecent` IPC + 静态命令注册表 + 模糊匹配 + `CommandPalettePanel` UI，快捷键 `Cmd+K` 注册
 - [ ] **剪贴板管理器** — 历史剪贴板，多格式（文字/图片/代码）回贴
 - [ ] **定时任务** — 定时刷新某页、定时清 Cookie、定时打开指定站点
 

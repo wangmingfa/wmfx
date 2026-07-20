@@ -14,6 +14,7 @@ export type PopoverType =
   | 'downloads'
   | 'bookmark-folder'
   | 'tab-thumbnail'
+  | 'command-palette'
 
 /** Popover 显示模式：overlay=铺满窗口阻断交互；bounded=仅覆盖内容区、非阻断、失焦关闭 */
 export type PopoverMode = 'overlay' | 'bounded'
@@ -358,6 +359,14 @@ export interface AutocompleteSuggestion {
   url: string
 }
 
+/** 命令面板打开时一次性获取的数据 */
+export interface CommandPaletteData {
+  tabs: TabState[]
+  history: HistoryItem[]
+  bookmarks: BookmarkItem[]
+  recentActions: string[]
+}
+
 // ─── 文件浏览器类型 ─────────────────────────────────────────
 
 /** 文件/目录条目 */
@@ -578,6 +587,11 @@ export interface IpcContract {
   'fs:removeBookmark': (id: string) => void
   'fs:renameBookmark': (id: string, name: string) => void
   'fs:reorderBookmarks': (ids: string[]) => void
+  // 实时监听：渲染进程请求主进程对指定目录建立/释放 fs.watch
+  /** 开始监听目录变化（按目录路径引用计数，多标签共享同一 watcher） */
+  'fs:watch': (dirPath: string) => void
+  /** 停止监听目录变化（引用计数归零时关闭 watcher） */
+  'fs:unwatch': (dirPath: string) => void
   // 剪贴板
   'clipboard:copy': (text: string) => void
   // Favicon：网站图标缓存（按 origin / 归一化内部地址为 key）
@@ -671,6 +685,9 @@ export interface IpcContract {
   // Bookmark
   'bookmark:isBookmarked': (url: string) => BookmarkCheckResult
   'bookmarks:changed': () => void
+  // 文件浏览器实时变更（主进程 fs.watch 触发，广播到所有渲染窗口）
+  /** 目录内容发生变化：payload 为发生变化的目录路径，渲染进程据此重载对应目录 */
+  'fs:changed': (dirPath: string) => void
   // Find in Page
   'page:startFind': (opts: FindInPageOptions) => void
   'page:endFind': (tabId: string) => void
@@ -701,6 +718,8 @@ export interface IpcContract {
   'window:maximize': () => void
   'window:close': () => void
   // Shell (download closure)
+  /** 打开设置页（主进程快捷键回调经 focused 窗口广播，渲染进程据此导航到 wmfx://settings） */
+  'shell:openSettings': () => void
   /** 在文件管理器中显示指定文件 */
   'shell:showInFolder': (filePath: string) => void
   /** 用系统默认应用打开文件 */
@@ -778,6 +797,10 @@ export interface IpcContract {
   'native-menu:close': (menuId: string) => Promise<void>
   'native-menu:action': (payload: { menuId: string; itemId: string }) => void
   'native-menu:closed': (menuId: string) => void
+  // Command Palette
+  'commandPalette:getData': () => CommandPaletteData
+  'commandPalette:execute': (opts: { type: string; id: string; data?: unknown }) => void
+  'commandPalette:saveRecent': (actionId: string) => void
 }
 
 export type IpcChannel = keyof IpcContract
@@ -826,6 +849,9 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'fs:removeBookmark',
   'fs:renameBookmark',
   'fs:reorderBookmarks',
+  'fs:watch',
+  'fs:unwatch',
+  'fs:changed',
   'clipboard:copy',
   'favicon:get',
   'favicon:set',
@@ -921,6 +947,7 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   // Shell (download closure)
   'shell:showInFolder',
   'shell:openFile',
+  'shell:openSettings',
   'shell:openFileInBrowser',
   // Proxy
   'proxy:start',
@@ -964,6 +991,10 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'native-menu:close',
   'native-menu:action',
   'native-menu:closed',
+  // Command Palette
+  'commandPalette:getData',
+  'commandPalette:execute',
+  'commandPalette:saveRecent',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {

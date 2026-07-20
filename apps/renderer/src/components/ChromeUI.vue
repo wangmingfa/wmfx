@@ -1,7 +1,7 @@
 <template>
   <div
     class="chrome-ui"
-    :class="{ 'chrome-ui--incognito': isIncognito, 'chrome-ui--left': tabBarPosition === 'left' }"
+    :class="{ 'chrome-ui--incognito': isIncognito, 'chrome-ui--left': tabBarPosition === 'left', 'mac-os': isMacOS }"
   >
     <VerticalTabBar v-if="tabBarPosition === 'left' && !isHtmlFullscreen" />
     <TabBar
@@ -47,8 +47,10 @@
 <script setup lang="ts">
 import type { TabState } from '@browser/ipc-contract'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { requestAddressBarFocus } from '../composables/useAddressBarFocus'
-import { useI18n } from '../composables/useI18n'
+import { requestAddressBarFocus } from '@/composables/useAddressBarFocus'
+import { useI18n } from '@/composables/useI18n'
+import { Popover } from '@/lib/popover'
+import { isMacOS } from '@/utils/os'
 import AddressBar from './AddressBar.vue'
 import BookmarkBar from './BookmarkBar.vue'
 import FindBar from './FindBar.vue'
@@ -106,6 +108,18 @@ let cleanupBookmarksChanged: (() => void) | null = null
 let cleanupBookmarkBarChanged: (() => void) | null = null
 let cleanupFocusAddressBar: (() => void) | null = null
 let cleanupTabBarPositionChanged: (() => void) | null = null
+let cleanupOpenCommandPalette: (() => void) | null = null
+let cleanupOpenSettings: (() => void) | null = null
+let commandPalettePopover: Popover | null = null
+
+function openSettings(): void {
+  console.debug('[ChromeUI] openSettings: url=%s', activeTab.value?.navigation.committedUrl)
+  if (activeTab.value?.navigation.committedUrl === 'wmfx://settings') {
+    console.debug('[ChromeUI] openSettings: already on settings, skip')
+    return
+  }
+  void window.browserAPI.loadURLCurrent('wmfx://settings')
+}
 
 onMounted(() => {
   console.debug('[ChromeUI] onMounted: initializing')
@@ -129,6 +143,22 @@ onMounted(() => {
 
   // Cmd/Ctrl+L：主进程窗口级快捷键转发到此，聚焦地址栏（复用新开标签的聚焦请求机制）
   cleanupFocusAddressBar = window.browserAPI.onFocusAddressBar(() => requestAddressBarFocus())
+
+  cleanupOpenCommandPalette = window.browserAPI.onOpenCommandPalette(() => {
+    console.info('[ChromeUI] onOpenCommandPalette: opening command palette')
+    commandPalettePopover?.close()
+    commandPalettePopover = new Popover({
+      type: 'command-palette',
+      anchor: { type: 'point', x: window.innerWidth / 2, y: 80 },
+      mode: 'overlay',
+    })
+  })
+
+  // Cmd/Ctrl+,：打开设置页（导航当前活动标签到 wmfx://settings）
+  cleanupOpenSettings = window.browserAPI.onOpenSettings(() => {
+    console.info('[ChromeUI] onOpenSettings: navigating to wmfx://settings')
+    openSettings()
+  })
 })
 
 onUnmounted(() => {
@@ -140,6 +170,12 @@ onUnmounted(() => {
   cleanupBookmarkBarChanged = null
   cleanupFocusAddressBar?.()
   cleanupFocusAddressBar = null
+  cleanupOpenCommandPalette?.()
+  cleanupOpenCommandPalette = null
+  cleanupOpenSettings?.()
+  cleanupOpenSettings = null
+  commandPalettePopover?.close()
+  commandPalettePopover = null
   cleanupTabBarPositionChanged?.()
   cleanupTabBarPositionChanged = null
 })
@@ -157,6 +193,11 @@ onUnmounted(() => {
   flex-direction: row;
 }
 
+/* macOS 左置垂直标签栏折叠时，仅地址栏左侧预留系统交通灯避让留白 */
+.chrome-ui--left.mac-os .address-bar {
+  padding-left: var(--mac-trafficlight-gap);
+}
+
 .chrome-ui--incognito {
   background: var(--bg-primary);
 }
@@ -164,6 +205,8 @@ onUnmounted(() => {
 .chrome-main {
   position: relative;
   flex: 1;
+  /* 允许在横向 flex（左置垂直标签栏）下随标签栏展开而收缩，避免内容溢出 */
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;

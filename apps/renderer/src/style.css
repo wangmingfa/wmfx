@@ -210,6 +210,8 @@
   --vtab-width-expanded: 220px;
   /* 垂直标签栏折叠宽度 */
   --vtab-width-collapsed: 48px;
+  /* macOS 左置垂直标签栏折叠时，地址栏左侧为系统交通灯预留的避让留白 */
+  --mac-trafficlight-gap: 20px;
   /* 垂直标签栏背景色（复用水平标签栏） */
   --vtab-bg: var(--tabbar-bg);
   /* 垂直标签栏 active 标签背景 */
