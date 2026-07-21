@@ -216,6 +216,9 @@ function openFile(filePath: string): void {
   max-height: 380px;
   overflow-y: auto;
   padding: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 6px;
   color: var(--text-primary);
   font-size: 13px;
 }

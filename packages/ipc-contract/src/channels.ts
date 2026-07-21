@@ -35,6 +35,13 @@ export interface PopoverOpenOptions {
   size?: { width?: number; height?: number }
   /** 常驻：bounded popover 失焦不自动关闭（如页内查找栏），只能主动 close/Esc/关闭按钮关闭 */
   persistent?: boolean
+  /**
+   * overlay 模式下的遮罩配置。未配置时遮罩完全透明（仅拦截点击）；
+   * 配置后按 color（CSS 颜色，可含 alpha）渲染半透明遮罩并可选 blur（px）背景模糊。
+   */
+  backdrop?: { color?: string; blur?: number }
+  /** 点击遮罩是否关闭面板（默认 true）；设为 false 时点击遮罩不触发关闭 */
+  closeOnBackdrop?: boolean
 }
 
 export type PopoverPlacement =
@@ -773,7 +780,9 @@ export interface IpcContract {
     type: PopoverType,
     anchor: PopoverAnchor,
     data?: unknown,
-    mode?: PopoverMode
+    mode?: PopoverMode,
+    backdrop?: { color?: string; blur?: number },
+    closeOnBackdrop?: boolean
   ) => void
   'popover:measure': (
     popoverId: string,

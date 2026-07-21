@@ -293,7 +293,9 @@ const api: {
       type: PopoverType,
       anchor: PopoverAnchor,
       data?: unknown,
-      mode?: PopoverMode
+      mode?: PopoverMode,
+      backdrop?: { color?: string; blur?: number },
+      closeOnBackdrop?: boolean
     ) => void
   ) => void
   popoverMeasure: (
@@ -551,8 +553,18 @@ const api: {
   popoverSendData: (popoverId, data) => ipcRenderer.invoke('popover:data', popoverId, data),
   popoverEvent: (payload) => ipcRenderer.send('popover:panel-event', payload),
   onPopoverRender: (cb) =>
-    ipcRenderer.on('popover:render', (_e, id, type, anchor, data, mode) =>
-      cb(id, type as PopoverType, anchor as PopoverAnchor, data, mode as PopoverMode | undefined)
+    ipcRenderer.on(
+      'popover:render',
+      (_e, id, type, anchor, data, mode, backdrop, closeOnBackdrop) =>
+        cb(
+          id,
+          type as PopoverType,
+          anchor as PopoverAnchor,
+          data,
+          mode as PopoverMode | undefined,
+          backdrop,
+          closeOnBackdrop
+        )
     ),
   popoverMeasure: (popoverId, size) => ipcRenderer.send('popover:measure', popoverId, size),
   onPopoverData: (cb) =>

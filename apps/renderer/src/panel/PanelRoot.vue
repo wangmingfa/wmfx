@@ -2,24 +2,26 @@
   <div
     v-if="isOpen"
     class="popover-root"
-    :class="{ 'is-bounded': currentMode === 'bounded' }"
+    :class="{ 'is-bounded': currentMode === 'bounded', 'has-backdrop': hasBackdrop }"
   >
     <div
       v-if="currentMode === 'overlay'"
       class="popover-backdrop"
-      @click="dismiss"
-      @contextmenu.prevent="dismiss"
+      :class="{ 'is-closing': closing }"
+      :style="backdropStyle"
+      @click="closeOnBackdrop && dismiss('backdrop-click')"
+      @contextmenu.prevent="closeOnBackdrop && dismiss('backdrop-click')"
     />
     <div
       ref="boxRef"
       class="popover-box"
       :class="{
         'ready': boxVisible,
+        'is-closing': closing,
         'is-overlay': currentMode === 'overlay',
         'is-addressbar': currentType === 'addressbar',
         'is-find': currentType === 'find',
         'is-tab-thumbnail': currentType === 'tab-thumbnail',
-        'is-command-palette': currentType === 'command-palette',
       }"
       :style="boxStyle"
       @mouseleave="onMouseLeave"
@@ -64,7 +66,8 @@
       />
       <CommandPalettePanel
         v-else-if="currentType === 'command-palette'"
-        :popover-id="currentPopoverId"
+        :data="currentData"
+        @dismiss="dismiss('panel')"
       />
     </div>
   </div>
@@ -99,10 +102,28 @@ const anchor = ref<PopoverAnchor | null>(null)
 const currentPopoverId = ref('')
 const currentMode = ref<PopoverMode>('overlay')
 const isOpen = ref(false)
+// overlay 遮罩配置：由调用方经 Popover 的 backdrop 选项传入；未配置则遮罩透明（仅拦截点击）
+const backdrop = ref<{ color?: string, blur?: number } | null>(null)
+/** 点击遮罩是否关闭面板（默认 true） */
+const closeOnBackdrop = ref(true)
+const hasBackdrop = computed(() => backdrop.value != null)
+const backdropStyle = computed<Record<string, string>>(() => {
+  const b = backdrop.value
+  if (!b)
+    return {}
+  const style: Record<string, string> = {}
+  if (b.color)
+    style.background = b.color
+  if (b.blur)
+    style.backdropFilter = `blur(${b.blur}px)`
+  return style
+})
 const boxRef = ref<HTMLElement>()
 const boxVisible = ref(false)
 const boxStyle = ref<Record<string, string>>({})
 const showMnemonics = ref(false)
+/** 关闭动画进行中：延迟 reset 直到动画结束 */
+const closing = ref(false)
 const lastPointer = ref({ x: 0, y: 0 })
 let resizeObserver: ResizeObserver | null = null
 let mutationObserver: MutationObserver | null = null
@@ -160,8 +181,20 @@ let dataHandler: ((...args: unknown[]) => void) | null = null
 let keyHandler: ((e: KeyboardEvent) => void) | null = null
 let mouseHandler: ((e: MouseEvent) => void) | null = null
 
-function dismiss(): void {
-  console.debug('[PanelRoot] dismiss: popoverId', currentPopoverId.value)
+function dismiss(source?: string): void {
+  console.debug('[PanelRoot] dismiss: popoverId %s source=%s', currentPopoverId.value, source ?? 'unknown')
+  if (closing.value)
+    return
+  // 命令面板有关闭动画：延迟 popoverClose 和 reset，等动画播完再清理
+  if (currentType.value === 'command-palette') {
+    closing.value = true
+    setTimeout(() => {
+      if (currentPopoverId.value)
+        window.browserAPI.popoverClose(currentPopoverId.value)
+      reset()
+    }, 150)
+    return
+  }
   if (currentPopoverId.value)
     window.browserAPI.popoverClose(currentPopoverId.value)
   reset()
@@ -172,8 +205,11 @@ function reset(): void {
   currentData.value = null
   anchor.value = null
   currentMode.value = 'overlay'
+  backdrop.value = null
+  closeOnBackdrop.value = true
   isOpen.value = false
   boxVisible.value = false
+  closing.value = false
   resizeObserver?.disconnect()
   resizeObserver = null
   mutationObserver?.disconnect()
@@ -182,12 +218,14 @@ function reset(): void {
   activeIndex.value = -1
 }
 
-function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data?: unknown, mode?: PopoverMode): void {
-  console.debug('[PanelRoot] onRender: popoverId type mode', popoverId, type, mode)
+function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data?: unknown, mode?: PopoverMode, bd?: { color?: string, blur?: number }, cob?: boolean): void {
+  console.debug('[PanelRoot] onRender: popoverId type mode backdrop closeOnBackdrop', popoverId, type, mode, bd, cob)
   currentPopoverId.value = popoverId
   currentType.value = type
   currentData.value = data ?? null
   currentMode.value = mode ?? 'overlay'
+  backdrop.value = bd ?? null
+  closeOnBackdrop.value = cob !== false
   anchor.value = anc
   activePath.value = []
   activeIndex.value = -1
@@ -321,7 +359,7 @@ function onMenuSelect(itemId: string): void {
     eventData: itemId,
   })
   // 选中菜单项后关闭面板（网页右键菜单由主进程直接打开、无 renderer DropdownMenu 包裹，需面板自行关闭）
-  dismiss()
+  dismiss('menuSelect')
 }
 
 function onAddressBarEvent(eventName: string, eventData?: unknown): void {
@@ -388,7 +426,7 @@ function onKeydown(e: KeyboardEvent): void {
     return
   if (e.key === 'Escape') {
     e.preventDefault()
-    dismiss()
+    dismiss('keydown-escape')
     return
   }
   if (e.key === 'Alt') {
@@ -439,8 +477,8 @@ function onKeydown(e: KeyboardEvent): void {
 
 onMounted(() => {
   console.debug('[PanelRoot] onMounted: 注册 popover 与全局事件监听')
-  renderHandler = ((popoverId: string, type: PopoverType, anc: PopoverAnchor, data?: unknown, mode?: PopoverMode) =>
-    onRender(popoverId, type, anc, data, mode)) as (...args: unknown[]) => void
+  renderHandler = ((popoverId: string, type: PopoverType, anc: PopoverAnchor, data?: unknown, mode?: PopoverMode, bd?: { color?: string, blur?: number }, cob?: boolean) =>
+    onRender(popoverId, type, anc, data, mode, bd, cob)) as (...args: unknown[]) => void
   dismissHandler = (() => reset()) as (...args: unknown[]) => void
   // 主 renderer 通过 sendData 增量更新面板数据（如查找匹配计数、地址栏建议）
   dataHandler = ((popoverId: string, data: unknown) => {
@@ -499,15 +537,23 @@ body,
   inset: 0;
   pointer-events: auto;
   background: transparent;
+  animation: backdrop-fade-in 150ms ease-out;
+  &.is-closing {
+    animation: backdrop-fade-out 150ms ease-in forwards;
+  }
+}
+@keyframes backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes backdrop-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 .popover-box {
   position: fixed;
   visibility: hidden;
   min-width: 180px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--bg-tertiary);
-  border-radius: 6px;
-  padding: 4px 0;
   pointer-events: auto;
   &.ready {
     visibility: visible;
@@ -523,32 +569,16 @@ body,
     overflow: visible;
   }
   &.is-addressbar {
-    background: var(--url-input-bg);
-    border: none;
-    border-radius: 14px;
-    padding: 0;
     min-width: 0;
     overflow: hidden;
   }
   &.is-find {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 0;
     min-width: 0;
     overflow: hidden;
   }
   &.is-tab-thumbnail {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 0;
     min-width: 0;
     overflow: hidden;
-  }
-  &.is-command-palette {
-    border: none;
-    padding: 0;
   }
 }
 </style>

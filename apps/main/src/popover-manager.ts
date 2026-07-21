@@ -23,6 +23,10 @@ interface OverlayState {
   onSelect?: (eventData: unknown) => void
   /** cursor 锚点的初始窗口局部坐标，避免 re-measure 时用实时光标导致菜单跟手乱跑 */
   initialCursor?: { x: number; y: number }
+  /** overlay 模式遮罩配置（仅主进程存储，转发给面板渲染） */
+  backdrop?: { color?: string; blur?: number }
+  /** 点击遮罩是否关闭面板（默认 true） */
+  closeOnBackdrop?: boolean
 }
 
 /**
@@ -103,6 +107,8 @@ export class PopoverManager {
       mode,
       size: options.size,
       persistent: options.persistent,
+      backdrop: options.backdrop,
+      closeOnBackdrop: options.closeOnBackdrop,
       onSelect: options.onSelect,
     })
     const alreadyRendered = this.stack.includes(popoverId)
@@ -146,7 +152,16 @@ export class PopoverManager {
     const { width, height } = this.win.getContentBounds()
     this.popoverView.setBounds({ x: 0, y: 0, width, height })
     this.popoverView.setVisible(true)
-    this.popoverView.webContents.send('popover:render', id, ov.type, ov.anchor, ov.data, 'overlay')
+    this.popoverView.webContents.send(
+      'popover:render',
+      id,
+      ov.type,
+      ov.anchor,
+      ov.data,
+      'overlay',
+      ov.backdrop,
+      ov.closeOnBackdrop
+    )
     this.popoverView.webContents.focus()
   }
 
@@ -266,5 +281,11 @@ export class PopoverManager {
     } else {
       this.popoverView.setVisible(false)
     }
+  }
+
+  /** 返回 popoverView 的 webContents（仅当 popover 有焦点时） */
+  getFocusedWebContents(): import('electron').WebContents | null {
+    if (!this.popoverView.webContents.isFocused()) return null
+    return this.popoverView.webContents
   }
 }

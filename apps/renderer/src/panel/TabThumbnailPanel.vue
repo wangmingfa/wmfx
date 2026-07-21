@@ -54,6 +54,9 @@ watch(
   width: 280px;
   padding: 8px;
   box-sizing: border-box;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
 }
 
 .tab-thumbnail-img-wrap {

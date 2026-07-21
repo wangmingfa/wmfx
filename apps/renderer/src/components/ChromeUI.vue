@@ -145,12 +145,20 @@ onMounted(() => {
   cleanupFocusAddressBar = window.browserAPI.onFocusAddressBar(() => requestAddressBarFocus())
 
   cleanupOpenCommandPalette = window.browserAPI.onOpenCommandPalette(() => {
+    if (commandPalettePopover) {
+      console.info('[ChromeUI] onOpenCommandPalette: already open, focusing input')
+      commandPalettePopover.sendData({ action: 'focus' })
+      return
+    }
     console.info('[ChromeUI] onOpenCommandPalette: opening command palette')
-    commandPalettePopover?.close()
     commandPalettePopover = new Popover({
       type: 'command-palette',
       anchor: { type: 'point', x: window.innerWidth / 2, y: 80 },
       mode: 'overlay',
+      // 半透明遮罩：压暗背景、突出命令面板（背景点击关闭由面板 backdrop 处理）
+      backdrop: { color: 'rgba(0, 0, 0, 0.35)', blur: 2 },
+      closeOnBackdrop: true,
+      onDismiss: () => { commandPalettePopover = null },
     })
   })
 

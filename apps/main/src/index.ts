@@ -134,6 +134,13 @@ function wireWindowShortcuts(instance: BrowserWindowInstance): void {
         ? globalThis.browserInstances.get(String(focused.id))
         : globalThis.browserInstances.get(String(win.id))
       if (!inst) return
+      // 优先对 popover 面板（命令面板/菜单等）打开 DevTools
+      const popoverWC = inst.popoverManager.getFocusedWebContents()
+      if (popoverWC) {
+        if (popoverWC.isDevToolsOpened()) popoverWC.closeDevTools()
+        else popoverWC.openDevTools()
+        return
+      }
       const activeTabId = inst.tabManager.getActiveTabId()
       if (!activeTabId) return
       const wc = inst.tabManager.getWebContents(activeTabId)

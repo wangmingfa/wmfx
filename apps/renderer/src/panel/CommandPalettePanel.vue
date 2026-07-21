@@ -73,12 +73,16 @@
 
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useI18n } from '../composables/useI18n'
 import { useCommandPalette } from './composables/useCommandPalette'
 
 const props = defineProps<{
-  popoverId: string
+  data?: unknown
+}>()
+
+const emit = defineEmits<{
+  dismiss: []
 }>()
 
 const { t } = useI18n()
@@ -110,7 +114,7 @@ function onItemHover(index: number): void {
 
 async function onItemClick(): Promise<void> {
   await executeSelected()
-  window.browserAPI.popoverClose(props.popoverId)
+  emit('dismiss')
 }
 
 async function onKeydown(e: KeyboardEvent): Promise<void> {
@@ -130,11 +134,7 @@ async function onKeydown(e: KeyboardEvent): Promise<void> {
     case 'Enter':
       e.preventDefault()
       await executeSelected()
-      window.browserAPI.popoverClose(props.popoverId)
-      break
-    case 'Escape':
-      e.preventDefault()
-      window.browserAPI.popoverClose(props.popoverId)
+      emit('dismiss')
       break
   }
 }
@@ -142,6 +142,12 @@ async function onKeydown(e: KeyboardEvent): Promise<void> {
 onMounted(async () => {
   await loadData()
   inputRef.value?.focus()
+})
+
+watch(() => props.data, (newData) => {
+  if (newData && typeof newData === 'object' && (newData as { action?: string }).action === 'focus') {
+    inputRef.value?.focus()
+  }
 })
 </script>
 
@@ -157,6 +163,10 @@ onMounted(async () => {
   overflow: hidden;
   animation: slide-in 150ms ease-out;
 
+  :global(.is-closing) & {
+    animation: slide-out 150ms ease-in forwards;
+  }
+
   @keyframes slide-in {
     from {
       opacity: 0;
@@ -165,6 +175,17 @@ onMounted(async () => {
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-10px);
     }
   }
 }

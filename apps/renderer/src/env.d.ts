@@ -218,7 +218,9 @@ declare global {
           type: PopoverType,
           anchor: PopoverAnchor,
           data?: unknown,
-          mode?: PopoverMode
+          mode?: PopoverMode,
+          backdrop?: { color?: string; blur?: number },
+          closeOnBackdrop?: boolean
         ) => void
       ) => void
       popoverMeasure: (

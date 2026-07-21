@@ -36,6 +36,10 @@ export interface PopoverOptions {
   size?: { width?: number; height?: number }
   /** 常驻：失焦不自动关闭（如页内查找栏） */
   persistent?: boolean
+  /** overlay 模式遮罩配置：未传则遮罩透明（仅拦截点击），传则按 color/blur 渲染半透明遮罩 */
+  backdrop?: { color?: string; blur?: number }
+  /** 点击遮罩是否关闭面板（默认 true）；设为 false 时点击遮罩不触发关闭 */
+  closeOnBackdrop?: boolean
   onEvent?: (eventName: string, eventData?: unknown) => void
   onDismiss?: () => void
   autoOpen?: boolean
@@ -71,6 +75,8 @@ export class Popover {
       mode: this.opts.mode,
       size: this.opts.size,
       persistent: this.opts.persistent,
+      backdrop: this.opts.backdrop,
+      closeOnBackdrop: this.opts.closeOnBackdrop,
     }
     void window.browserAPI.popoverOpen(this.popoverId, options)
     this.opened = true
@@ -91,6 +97,8 @@ export class Popover {
       mode: this.opts.mode,
       size: this.opts.size,
       persistent: this.opts.persistent,
+      backdrop: this.opts.backdrop,
+      closeOnBackdrop: this.opts.closeOnBackdrop,
     })
     this.opened = true
   }

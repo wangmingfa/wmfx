@@ -212,6 +212,10 @@
   --vtab-width-collapsed: 48px;
   /* macOS 左置垂直标签栏折叠时，地址栏左侧为系统交通灯预留的避让留白 */
   --mac-trafficlight-gap: 20px;
+  /* overlay 浮层（如命令面板）半透明遮罩颜色：压暗背景、突出浮层 */
+  --overlay-mask: rgba(0, 0, 0, 0.35);
+  /* overlay 浮层遮罩背景模糊强度（px），0 表示不模糊 */
+  --overlay-mask-blur: 2;
   /* 垂直标签栏背景色（复用水平标签栏） */
   --vtab-bg: var(--tabbar-bg);
   /* 垂直标签栏 active 标签背景 */

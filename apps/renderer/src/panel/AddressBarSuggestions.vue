@@ -141,6 +141,8 @@ function onSelect(url: string): void {
 .addressbar-panel {
   padding: 0;
   min-width: 300px;
+  background: var(--url-input-bg);
+  border-radius: 14px;
 }
 
 .addressbar-suggestions {

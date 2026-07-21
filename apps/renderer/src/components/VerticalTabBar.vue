@@ -29,6 +29,7 @@
           :class="{
             'vtab-item--active': tab.active,
             'vtab-item--pinned': tab.isPinned,
+            'vtab-item--menu-open': tab.id === activeMenuTabId,
           }"
           draggable="true"
           @click="activateTab(tab.id)"
@@ -167,7 +168,9 @@ function onBarTransitionEnd(event: TransitionEvent): void {
 }
 
 // --- Context menu ---
-function openTabContextMenu(_event: MouseEvent, tab: TabState): void {
+function openTabContextMenu(event: MouseEvent, tab: TabState): void {
+  closeHoverPopover()
+  event.stopPropagation()
   activeMenuTabId.value = tab.id
   const menu = new DropdownMenu({
     mode: 'bounded',
@@ -420,7 +423,8 @@ onUnmounted(() => {
     padding: 0 8px 0 12px;
   }
 
-  &:hover {
+  &:hover,
+  &--menu-open {
     background: var(--vtab-item-active-bg);
   }
 
@@ -428,7 +432,8 @@ onUnmounted(() => {
     background: var(--vtab-item-active-bg);
   }
 
-  &:hover .vtab-close {
+  &:hover .vtab-close,
+  &--menu-open .vtab-close {
     opacity: 1;
   }
 }

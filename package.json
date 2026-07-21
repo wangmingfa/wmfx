@@ -24,7 +24,7 @@
     "generate-icon": "bun run scripts/generate-icon.ts",
     "dev": "bun run scripts/check-deps.ts && bun run download:cores && bun run scripts/dev.ts",
     "download:cores": "bun scripts/download-cores.ts",
-    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "electron-rebuild -f -w better-sqlite3 && bun run build:shared && bun run build:ipc && bun run build:database && bun run build:proxy",
     "prepare": "husky",
     "lint": "bun run lint:ts && bun run lint:vue && bun run lint:typecheck",
     "lint:ts": "bun x biome check .",

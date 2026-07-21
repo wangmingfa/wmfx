@@ -27,3 +27,6 @@ coverage/
 # husky internal
 .husky/_
 mihomo/
+
+# superpowers local state
+.superpowers/

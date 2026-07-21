@@ -117,6 +117,9 @@ function onDragEnd(): void {
   min-width: 200px;
   max-height: 380px;
   overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 6px;
   color: var(--text-primary);
   font-size: 13px;
 }

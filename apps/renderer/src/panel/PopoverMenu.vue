@@ -123,7 +123,10 @@ function onClick(item: MenuItem): void {
 .popover-menu {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 4px 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 6px;
 }
 .popover-menu-item {
   position: relative;
@@ -173,8 +176,12 @@ function onClick(item: MenuItem): void {
   border: 1px solid var(--bg-tertiary);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  padding: 4px 0;
   z-index: 10;
+  :deep(> .popover-menu) {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+  }
   &.right {
     left: 100%;
     margin-left: 2px;
