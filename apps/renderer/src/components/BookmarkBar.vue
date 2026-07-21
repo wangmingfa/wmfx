@@ -70,8 +70,9 @@ let resizeObserver: ResizeObserver | null = null
 /** 测量列表可用宽度与各书签项宽度，把放不下的项归入溢出区 */
 function relayout(): void {
   const list = listRef.value
-  if (!list)
+  if (!list) {
     return
+  }
   console.debug('[BookmarkBar] relayout: topItems', topItems.value.length)
   const avail = list.clientWidth
   const children = Array.from(list.children) as HTMLElement[]
@@ -122,8 +123,9 @@ async function onClick(item: BookmarkItem): Promise<void> {
 }
 
 function onContextMenu(item: BookmarkItem, event: MouseEvent): void {
-  if (!item.url)
+  if (!item.url) {
     return
+  }
   console.debug('[BookmarkBar] onContextMenu: id', item.id)
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const menu = new DropdownMenu({
@@ -172,8 +174,9 @@ function openOverflow(event: MouseEvent): void {
     onAction: ({ menu: action }) => {
       const id = action.id.replace('overflow-', '')
       const item = overflowItems.value.find(it => it.id === id)
-      if (item)
+      if (item) {
         void openBookmark(item)
+      }
     },
   })
   void menu
@@ -199,8 +202,9 @@ function onDragOver(item: BookmarkItem, event: DragEvent): void {
 function onDrop(item: BookmarkItem, event: DragEvent): void {
   event.preventDefault()
   const id = dragId.value
-  if (!id)
+  if (!id) {
     return
+  }
   const siblings = (byParent.value.get(item.parentId) ?? []).filter(s => s.id !== id)
   const position = siblings.findIndex(s => s.id === item.id)
   const finalPosition = position < 0 ? siblings.length : position

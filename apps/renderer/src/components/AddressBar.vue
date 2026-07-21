@@ -124,9 +124,12 @@ const actionsRightPadding = computed(() => {
 async function toggleReader(): Promise<void> {
   console.info(`[AddressBar] toggleReader: tabId=${props.tabId} isReader=${props.isReaderMode}`)
   try {
-    if (props.isReaderMode)
+    if (props.isReaderMode) {
       await window.browserAPI.exitReadingMode(props.tabId)
-    else await window.browserAPI.enterReadingMode(props.tabId)
+    }
+    else {
+      await window.browserAPI.enterReadingMode(props.tabId)
+    }
   }
   catch (err) {
     console.error(`[AddressBar] toggleReader failed: ${String(err)}`)
@@ -215,12 +218,12 @@ function openPopover(): void {
       securityState: props.securityState,
       url: props.url,
     },
-    onEvent: (eventName, eventData) => {
-      if (eventName === 'select' && typeof eventData === 'string') {
-        selectSuggestion(eventData)
+    onEvent: (event) => {
+      if (event.name === 'select' && typeof event.data === 'string') {
+        selectSuggestion(event.data)
       }
-      else if (eventName === 'update-query' && typeof eventData === 'string') {
-        urlInput.value = eventData
+      else if (event.name === 'update-query' && typeof event.data === 'string') {
+        urlInput.value = event.data
         fetchSuggestions()
         currentPopover?.sendData({
           query: urlInput.value,
@@ -230,11 +233,11 @@ function openPopover(): void {
           url: props.url,
         })
       }
-      else if (eventName === 'navigate' && typeof eventData === 'string') {
-        urlInput.value = eventData
+      else if (event.name === 'navigate' && typeof event.data === 'string') {
+        urlInput.value = event.data
         navigate()
       }
-      else if (eventName === 'close') {
+      else if (event.name === 'close') {
         urlInput.value = formatAddressBarUrl(props.url ?? '')
         closePopover()
       }
@@ -260,8 +263,9 @@ function closePopover(): void {
 }
 
 function fetchSuggestions(): void {
-  if (debounceTimer)
+  if (debounceTimer) {
     clearTimeout(debounceTimer)
+  }
   if (!urlInput.value.trim()) {
     suggestions.value = []
     return
@@ -334,8 +338,9 @@ async function goHome(): Promise<void> {
 
 function navigate(): void {
   const raw = urlInput.value.trim()
-  if (!raw)
+  if (!raw) {
     return
+  }
   // 识别是否为链接：是则按原流程加载，否则用默认搜索引擎搜索
   const url = resolveAddressBarTarget(raw, searchEngine.value)
   console.info('[AddressBar] navigate: raw target', raw, url)

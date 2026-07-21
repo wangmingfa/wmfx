@@ -128,8 +128,9 @@ const imageNaturalHeight = ref(0)
 // 文本语法高亮类
 const textClassName = computed(() => {
   const ext = (props.previewData?.fileName ?? '').split('.').pop()?.toLowerCase()
-  if (!ext)
+  if (!ext) {
     return 'quick-look-text-code'
+  }
   const codeExts = [
     'ts',
     'tsx',
@@ -177,8 +178,9 @@ const mediaUrl = computed(() => {
 // 格式化信息
 function formatMeta(): string {
   const data = props.previewData
-  if (!data)
+  if (!data) {
     return ''
+  }
   if (data.dimensions) {
     return `${data.dimensions.width} × ${data.dimensions.height}`
   }
@@ -187,8 +189,9 @@ function formatMeta(): string {
 
 // 格式化大小
 function formatSize(bytes: number): string {
-  if (bytes === 0)
+  if (bytes === 0) {
     return '0 B'
+  }
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
   return `${(bytes / 1024 ** i).toFixed(i > 0 ? 1 : 0)} ${sizes[i]}`
@@ -196,8 +199,9 @@ function formatSize(bytes: number): string {
 
 // 格式化时间
 function formatDate(timestamp: number): string {
-  if (!timestamp)
+  if (!timestamp) {
     return ''
+  }
   const date = new Date(timestamp)
   return date.toLocaleDateString('zh-CN', {
     year: 'numeric',

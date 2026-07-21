@@ -208,8 +208,9 @@ onMounted(() => {
   measure()
   // 仅需在头部高度变化时重算侧边栏顶部（如标题换行）；内容列居中由纯 CSS 处理，无需观察主体。
   resizeObserver = new ResizeObserver(measure)
-  if (headerEl.value)
+  if (headerEl.value) {
     resizeObserver.observe(headerEl.value)
+  }
   window.addEventListener('resize', onWindowResize)
 })
 onBeforeUnmount(() => {

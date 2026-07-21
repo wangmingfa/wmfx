@@ -67,18 +67,22 @@ const wrapRef = ref<HTMLDivElement>()
 const { t } = useI18n()
 
 const securityIcon = computed(() => {
-  if (props.securityState === 'secure')
+  if (props.securityState === 'secure') {
     return 'mdi:lock'
-  if (props.securityState === 'insecure')
+  }
+  if (props.securityState === 'insecure') {
     return 'mdi:alert'
+  }
   return 'mdi:application'
 })
 
 const securityTitle = computed(() => {
-  if (props.securityState === 'secure')
+  if (props.securityState === 'secure') {
     return t('addressBar.secure')
-  if (props.securityState === 'insecure')
+  }
+  if (props.securityState === 'insecure') {
     return t('addressBar.insecure')
+  }
   return t('addressBar.internal')
 })
 

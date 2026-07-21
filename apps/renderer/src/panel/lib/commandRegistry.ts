@@ -6,7 +6,14 @@
 
 import { TAB_ACTION_ICONS } from '../../lib/tab-action-icons'
 
-export type CommandCategory = 'tab' | 'navigation' | 'view' | 'settings' | 'page' | 'window'
+export type CommandCategory =
+  | 'tab'
+  | 'navigation'
+  | 'view'
+  | 'settings'
+  | 'page'
+  | 'window'
+  | 'workspace'
 
 export interface Command {
   id: string
@@ -26,6 +33,7 @@ export const COMMAND_CATEGORIES: Record<CommandCategory, { label: string; icon: 
   settings: { label: 'commandPalette.categories.settings', icon: 'carbon:settings' },
   page: { label: 'commandPalette.categories.page', icon: 'carbon:page' },
   window: { label: 'commandPalette.categories.window', icon: 'carbon:window' },
+  workspace: { label: 'commandPalette.categories.workspace', icon: 'carbon:workspace' },
 }
 
 /**

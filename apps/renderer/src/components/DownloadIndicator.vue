@@ -98,32 +98,35 @@ function closePopover(): void {
 
 function toggle(): void {
   console.debug('[DownloadIndicator] toggle: isOpen', isOpen.value)
-  if (isOpen.value)
+  if (isOpen.value) {
     closePopover()
-  else openPopover()
+  }
+  else {
+    openPopover()
+  }
 }
 
 /** 面板事件路由：进度控制与“查看全部” */
-function onPanelEvent(eventName: string, eventData?: unknown): void {
-  console.debug('[DownloadIndicator] onPanelEvent: event', eventName)
-  if (eventName === 'show-all') {
+function onPanelEvent(event: { name: string, data?: unknown }): void {
+  console.debug('[DownloadIndicator] onPanelEvent: event', event.name)
+  if (event.name === 'show-all') {
     closePopover()
     void showAll()
   }
-  else if (eventName === 'pause' && typeof eventData === 'string') {
-    void window.browserAPI.pauseDownload(eventData)
+  else if (event.name === 'pause' && typeof event.data === 'string') {
+    void window.browserAPI.pauseDownload(event.data)
   }
-  else if (eventName === 'resume' && typeof eventData === 'string') {
-    void window.browserAPI.resumeDownload(eventData)
+  else if (event.name === 'resume' && typeof event.data === 'string') {
+    void window.browserAPI.resumeDownload(event.data)
   }
-  else if (eventName === 'cancel' && typeof eventData === 'string') {
-    void window.browserAPI.cancelDownload(eventData)
+  else if (event.name === 'cancel' && typeof event.data === 'string') {
+    void window.browserAPI.cancelDownload(event.data)
   }
-  else if (eventName === 'showInFolder' && typeof eventData === 'string') {
-    void window.browserAPI.showInFolder(eventData)
+  else if (event.name === 'showInFolder' && typeof event.data === 'string') {
+    void window.browserAPI.showInFolder(event.data)
   }
-  else if (eventName === 'openFile' && typeof eventData === 'string') {
-    void window.browserAPI.openFile(eventData)
+  else if (event.name === 'openFile' && typeof event.data === 'string') {
+    void window.browserAPI.openFile(event.data)
   }
 }
 
@@ -140,8 +143,9 @@ function onProgress(data: { id: string, state: string, receivedBytes: number, to
     console.debug('[DownloadIndicator] onProgress: new download id', data.id)
     void loadDownloads().then(() => {
       // 有新下载且下拉未打开时，临时弹出（对齐 Chrome 行为）
-      if (!isOpen.value)
+      if (!isOpen.value) {
         openPopover()
+      }
     })
   }
   // 下拉打开时同步最新列表

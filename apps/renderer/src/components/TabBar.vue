@@ -5,6 +5,15 @@
     :class="{ 'mac-os': isMacOS, 'window-incognito': isIncognito }"
   >
     <div
+      v-if="currentWorkspace"
+      class="tab-bar-workspace-btn"
+      :style="{ background: currentWorkspace.color }"
+      :title="currentWorkspace.name"
+      @click="openWorkspacePanel"
+    >
+      {{ currentWorkspace.name.charAt(0) }}
+    </div>
+    <div
       v-for="(tab, index) in tabs"
       :key="tab.id"
       class="tab-item"
@@ -176,6 +185,10 @@ const {
 const tabBarRef = ref<HTMLElement>()
 const tabBarWidth = ref(0)
 const isMaximized = ref(false)
+
+// --- 工作区按钮 ---
+const currentWorkspace = ref<{ id: string, name: string, color: string } | null>(null)
+let workspacePopover: Popover | null = null
 // 当前因右键菜单而高亮的触发元素（菜单关闭时由 onClose 清空）
 const activeMenuTabId = ref<string | null>(null)
 
@@ -330,6 +343,25 @@ function closeHoverPopover(): void {
   hoverPopoverTabId = null
 }
 
+async function openWorkspacePanel(e: MouseEvent): Promise<void> {
+  const rect = (e.target as HTMLElement).getBoundingClientRect()
+  workspacePopover?.close()
+  const workspaces = await window.browserAPI.listWorkspaces()
+  const active = await window.browserAPI.getActiveWorkspace()
+  workspacePopover = new Popover({
+    type: 'workspace',
+    anchor: { type: 'rect', rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, placement: 'bottom-start' },
+    gap: 6,
+    data: { workspaces, activeId: active?.id ?? '' },
+    onEvent: (event) => {
+      if (event.name === 'switched') {
+        workspacePopover?.close()
+      }
+    },
+    onDismiss: () => { workspacePopover = null },
+  })
+}
+
 function minimizeWindow(): void {
   console.debug('[TabBar] minimizeWindow')
   window.browserAPI.minimizeWindow()
@@ -351,8 +383,9 @@ function onTabContextMenu(event: MouseEvent, tab: TabState): void {
 
 // --- 标签悬停缩略图（popover 实现） ---
 function onTabEnter(event: MouseEvent, tab: TabState): void {
-  if (tab.active || tab.isPinned)
+  if (tab.active || tab.isPinned) {
     return
+  }
   cancelHoverLeave()
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   hoverDelayTimer = setTimeout(() => {
@@ -385,8 +418,9 @@ function onTabEnter(event: MouseEvent, tab: TabState): void {
     if (!thumbnailCache.has(tab.id)) {
       void window.browserAPI.captureThumbnail(tab.id).then((dataUrl: string | null) => {
         if (hoverPopoverTabId === tab.id) {
-          if (dataUrl)
+          if (dataUrl) {
             thumbnailCache.set(tab.id, dataUrl)
+          }
           hoverPopover?.sendData({ ...data, src: dataUrl, loading: false })
         }
       })
@@ -457,7 +491,7 @@ function onDragEnd(): void {
   isDragging = false
 }
 
-onMounted(() => {
+onMounted(async () => {
   setup()
   void loadTabs().then(applyOrder)
   // ResizeObserver stays in TabBar (UI-specific)
@@ -468,17 +502,28 @@ onMounted(() => {
     })
     resizeObserver.observe(tabBarRef.value)
   }
+  // 工作区状态
+  const ws = await window.browserAPI.getActiveWorkspace()
+  if (ws) {
+    currentWorkspace.value = ws
+  }
+  window.browserAPI.onWorkspaceSwitched((ws) => {
+    currentWorkspace.value = ws
+  })
   // Window maximize state — TODO: add isMaximized/onMaximizeChange to preload API
 })
 
 onUnmounted(() => {
   cleanup()
-  if (resizeObserver)
+  if (resizeObserver) {
     resizeObserver.disconnect()
-  if (hoverDelayTimer)
+  }
+  if (hoverDelayTimer) {
     clearTimeout(hoverDelayTimer)
-  if (hoverLeaveTimer)
+  }
+  if (hoverLeaveTimer) {
     clearTimeout(hoverLeaveTimer)
+  }
   hoverPopover?.close()
 })
 </script>
@@ -665,6 +710,27 @@ onUnmounted(() => {
 
   &:hover {
     color: var(--accent-color);
+  }
+}
+
+.tab-bar-workspace-btn {
+  width: 32px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-right: 4px;
+  -webkit-app-region: no-drag;
+  transition: opacity 0.15s;
+
+  &:hover {
+    opacity: 0.85;
   }
 }
 

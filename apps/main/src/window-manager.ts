@@ -16,6 +16,7 @@ import {
   DownloadRepository,
   HistoryRepository,
   SubscriptionRepository,
+  WorkspaceRepository,
 } from '@wmfx/database'
 import { app, BrowserWindow, nativeImage, nativeTheme } from 'electron'
 import type { AdBlocker } from './ad-blocker'
@@ -39,6 +40,7 @@ import { SessionManager } from './session-manager'
 import { type LaunchBehavior, SettingsManager } from './settings-manager'
 import { SubscriptionManager } from './subscription-manager'
 import { TabManager } from './tab-manager'
+import { WorkspaceManager } from './workspace-manager'
 
 export interface BrowserWindowInstance {
   window: BrowserWindow
@@ -54,6 +56,7 @@ export interface BrowserWindowInstance {
   subscriptionManager: SubscriptionManager
   popoverManager: PopoverManager
   certTrustStore: CertTrustStore
+  workspaceManager: WorkspaceManager
   /** 是否为独立无痕窗口（整窗隔离，非窗口内无痕标签） */
   isIncognito: boolean
   /** 当前窗口对应的会话名（'default' | 'incognito'），新建标签默认沿用此会话 */
@@ -238,6 +241,8 @@ export function createWindow(
   )
   const bookmarkManager = new BookmarkManager(bookmarkRepo)
   const subscriptionManager = new SubscriptionManager(subscriptionRepo)
+  const workspaceRepo = new WorkspaceRepository(database.db)
+  const workspaceManager = new WorkspaceManager(workspaceRepo, tabManager, win)
 
   /**
    * 配置 Electron session 代理
@@ -296,6 +301,7 @@ export function createWindow(
     subscriptionManager,
     popoverManager,
     certTrustStore,
+    workspaceManager,
     isIncognito,
     sessionId: defaultSessionName,
   }

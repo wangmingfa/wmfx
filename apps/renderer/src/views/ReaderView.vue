@@ -84,8 +84,9 @@ async function exit(): Promise<void> {
   console.info('[ReaderView] exit: 退出阅读模式')
   const list = await window.browserAPI.getList()
   const active = list.find(tab => tab.active)
-  if (active)
+  if (active) {
     await window.browserAPI.exitReadingMode(active.id)
+  }
 }
 
 // 保存 onReaderArticle 返回的 disposer，供 onUnmounted 精确退订，避免监听器泄漏

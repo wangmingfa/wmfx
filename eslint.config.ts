@@ -22,6 +22,8 @@ export default antfu(
     files: ['**/*.vue'],
     rules: {
       'no-console': 'off',
+      'antfu/if-newline': 'off',
+      curly: ['error', 'all'],
       'vue/block-order': ['error', { order: ['template', 'script', 'style'] }],
       'vue/component-api-style': ['error', ['script-setup']],
       'vue/component-name-in-template-casing': ['error', 'PascalCase'],

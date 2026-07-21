@@ -69,6 +69,12 @@
         :data="currentData"
         @dismiss="dismiss('panel')"
       />
+      <WorkspacePanel
+        v-else-if="currentType === 'workspace'"
+        :popover-id="currentPopoverId"
+        :data="workspaceData"
+        @event="onAddressBarEvent"
+      />
     </div>
   </div>
 </template>
@@ -81,6 +87,7 @@ import type {
   PopoverAnchor,
   PopoverMode,
   PopoverType,
+  Workspace,
 } from '@browser/ipc-contract'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import BookmarkFolderPanel from '../components/BookmarkFolderPanel.vue'
@@ -92,6 +99,7 @@ import { findItem, getLevelItems, getSelectable, pathToItem, selectableIndexOf }
 import PopoverMenu from './PopoverMenu.vue'
 import { computeBoxPosition } from './position'
 import TabThumbnailPanel from './TabThumbnailPanel.vue'
+import WorkspacePanel from './WorkspacePanel.vue'
 
 // bounded popover 已移除阴影，但仍有 1px border，需 gutter 确保边框不贴 WebContentsView 边缘
 const SHADOW_GUTTER = 2
@@ -106,16 +114,21 @@ const isOpen = ref(false)
 const backdrop = ref<{ color?: string, blur?: number } | null>(null)
 /** 点击遮罩是否关闭面板（默认 true） */
 const closeOnBackdrop = ref(true)
+/** 面板与锚点之间的间距（px） */
+const gap = ref(0)
 const hasBackdrop = computed(() => backdrop.value != null)
 const backdropStyle = computed<Record<string, string>>(() => {
   const b = backdrop.value
-  if (!b)
+  if (!b) {
     return {}
+  }
   const style: Record<string, string> = {}
-  if (b.color)
+  if (b.color) {
     style.background = b.color
-  if (b.blur)
+  }
+  if (b.blur) {
     style.backdropFilter = `blur(${b.blur}px)`
+  }
   return style
 })
 const boxRef = ref<HTMLElement>()
@@ -165,6 +178,12 @@ const tabThumbnailData = computed(() => {
   }
   return { src: null, loading: false, title: '', url: '' }
 })
+const workspaceData = computed(() => {
+  if (currentType.value === 'workspace' && currentData.value) {
+    return currentData.value as { workspaces: Workspace[], activeId: string }
+  }
+  return { workspaces: [], activeId: '' }
+})
 
 // 方向键导航状态：activePath = 已展开子菜单 id 链；activeIndex = 当前层可选中项下标（-1 表示未选中）
 const activePath = ref<string[]>([])
@@ -183,20 +202,23 @@ let mouseHandler: ((e: MouseEvent) => void) | null = null
 
 function dismiss(source?: string): void {
   console.debug('[PanelRoot] dismiss: popoverId %s source=%s', currentPopoverId.value, source ?? 'unknown')
-  if (closing.value)
+  if (closing.value) {
     return
+  }
   // 命令面板有关闭动画：延迟 popoverClose 和 reset，等动画播完再清理
   if (currentType.value === 'command-palette') {
     closing.value = true
     setTimeout(() => {
-      if (currentPopoverId.value)
+      if (currentPopoverId.value) {
         window.browserAPI.popoverClose(currentPopoverId.value)
+      }
       reset()
     }, 150)
     return
   }
-  if (currentPopoverId.value)
+  if (currentPopoverId.value) {
     window.browserAPI.popoverClose(currentPopoverId.value)
+  }
   reset()
 }
 function reset(): void {
@@ -207,6 +229,7 @@ function reset(): void {
   currentMode.value = 'overlay'
   backdrop.value = null
   closeOnBackdrop.value = true
+  gap.value = 0
   isOpen.value = false
   boxVisible.value = false
   closing.value = false
@@ -218,14 +241,15 @@ function reset(): void {
   activeIndex.value = -1
 }
 
-function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data?: unknown, mode?: PopoverMode, bd?: { color?: string, blur?: number }, cob?: boolean): void {
-  console.debug('[PanelRoot] onRender: popoverId type mode backdrop closeOnBackdrop', popoverId, type, mode, bd, cob)
+function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data?: unknown, mode?: PopoverMode, bd?: { color?: string, blur?: number }, cob?: boolean, g?: number): void {
+  console.debug('[PanelRoot] onRender: popoverId type mode backdrop closeOnBackdrop gap', popoverId, type, mode, bd, cob, g)
   currentPopoverId.value = popoverId
   currentType.value = type
   currentData.value = data ?? null
   currentMode.value = mode ?? 'overlay'
   backdrop.value = bd ?? null
   closeOnBackdrop.value = cob !== false
+  gap.value = g ?? 0
   anchor.value = anc
   activePath.value = []
   activeIndex.value = -1
@@ -233,8 +257,9 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
   isOpen.value = true
   nextTick(() => {
     const el = boxRef.value
-    if (!el || !anchor.value)
+    if (!el || !anchor.value) {
       return
+    }
     if (currentMode.value === 'bounded') {
       console.debug('[PanelRoot] onRender: bounded 模式，测量并上报盒子尺寸')
       // 内容自然尺寸上报；仅地址栏 popover 用 rect 宽度约束（覆盖原输入框宽度），
@@ -275,8 +300,9 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
         return new DOMRect(left, top, right - left, bottom - top)
       }
       const measureMenuExtent = () => {
-        if (!boxRef.value || !boxVisible.value || currentMode.value !== 'bounded')
+        if (!boxRef.value || !boxVisible.value || currentMode.value !== 'bounded') {
           return
+        }
         const vr = getVisualRect(boxRef.value)
         window.browserAPI.popoverMeasure(currentPopoverId.value, {
           width: vr.width,
@@ -343,8 +369,8 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
         = anchor.value.type === 'cursor'
           ? { type: 'point', x: lastPointer.value.x, y: lastPointer.value.y, placement: anchor.value.placement }
           : anchor.value
-      const pos = computeBoxPosition(resolved, size, { width: window.innerWidth, height: window.innerHeight })
-      console.debug('[PanelRoot] onRender: overlay 定位 x y', pos.x, pos.y)
+      const pos = computeBoxPosition(resolved, size, { width: window.innerWidth, height: window.innerHeight }, gap.value)
+      console.debug('[PanelRoot] onRender: overlay 定位 x y gap', pos.x, pos.y, gap.value)
       boxStyle.value = { left: `${pos.x}px`, top: `${pos.y}px` }
     }
     boxVisible.value = true
@@ -380,24 +406,30 @@ function openCurrentSub(): void {
   }
 }
 function closeCurrentSub(): void {
-  if (activePath.value.length === 0)
-    return // 根层级无上一级，无操作
+  if (activePath.value.length === 0) {
+    return
+  } // 根层级无上一级，无操作
   const popped = activePath.value[activePath.value.length - 1]
   console.debug('[PanelRoot] closeCurrentSub: popped', popped)
   activePath.value = activePath.value.slice(0, -1)
   const parentItems = getLevelItems(menuItems.value, activePath.value)
   const idx = selectableIndexOf(parentItems, popped)
-  if (idx >= 0)
+  if (idx >= 0) {
     activeIndex.value = idx
+  }
 }
 function activateCurrent(): void {
   const item = activeItem.value
-  if (!item || item.disabled)
+  if (!item || item.disabled) {
     return
+  }
   console.debug('[PanelRoot] activateCurrent: itemId type', item.id, item.type)
-  if (item.type === 'submenu')
+  if (item.type === 'submenu') {
     openCurrentSub()
-  else onMenuSelect(item.id)
+  }
+  else {
+    onMenuSelect(item.id)
+  }
 }
 function onMouseLeave(): void {
   // 鼠标移出整个菜单（含子菜单 flyout，因其为 box 后代，不会误触发）时取消选中
@@ -407,11 +439,13 @@ function onMouseLeave(): void {
 function onHover(itemId: string): void {
   const item = findItem(menuItems.value, itemId)
   // 禁用项不响应 hover：保持当前高亮，避免 selectableIndexOf 返回 -1 时高亮跳回首项
-  if (!item || item.disabled)
+  if (!item || item.disabled) {
     return
+  }
   const path = pathToItem(menuItems.value, itemId)
-  if (!path)
+  if (!path) {
     return
+  }
   // pathToItem 只返回祖先链；悬停的子菜单项需把自身 id 追加进去，才能展开其 flyout
   const effectivePath = item.type === 'submenu' ? [...path, item.id] : path
   activePath.value = effectivePath
@@ -422,8 +456,9 @@ function onKeydown(e: KeyboardEvent): void {
   // 键盘导航（Esc/方向键/字母助记符）仅用于菜单。addressbar 与 find 面板各自在组件内处理键盘事件
   // （find 面板需在 IME 合成期间忽略 Esc/Enter），此处不得抢占，否则会绕过其 IME 守卫直接关闭面板。
   // command-palette 面板同样在组件内部处理键盘事件（Enter 执行、Esc 关闭等）。
-  if (currentType.value !== 'menu' && currentType.value !== 'command-palette')
+  if (currentType.value !== 'menu' && currentType.value !== 'command-palette') {
     return
+  }
   if (e.key === 'Escape') {
     e.preventDefault()
     dismiss('keydown-escape')
@@ -433,11 +468,13 @@ function onKeydown(e: KeyboardEvent): void {
     showMnemonics.value = true
     return
   }
-  if (e.altKey)
+  if (e.altKey) {
     return
+  }
   const n = selectable.value.length
-  if (n === 0)
+  if (n === 0) {
     return
+  }
   console.debug('[PanelRoot] onKeydown: key selectable', e.key, n)
   switch (e.key) {
     case 'ArrowDown':
@@ -477,13 +514,14 @@ function onKeydown(e: KeyboardEvent): void {
 
 onMounted(() => {
   console.debug('[PanelRoot] onMounted: 注册 popover 与全局事件监听')
-  renderHandler = ((popoverId: string, type: PopoverType, anc: PopoverAnchor, data?: unknown, mode?: PopoverMode, bd?: { color?: string, blur?: number }, cob?: boolean) =>
-    onRender(popoverId, type, anc, data, mode, bd, cob)) as (...args: unknown[]) => void
+  renderHandler = ((popoverId: string, type: PopoverType, anc: PopoverAnchor, data?: unknown, mode?: PopoverMode, bd?: { color?: string, blur?: number }, cob?: boolean, g?: number) =>
+    onRender(popoverId, type, anc, data, mode, bd, cob, g)) as (...args: unknown[]) => void
   dismissHandler = (() => reset()) as (...args: unknown[]) => void
   // 主 renderer 通过 sendData 增量更新面板数据（如查找匹配计数、地址栏建议）
   dataHandler = ((popoverId: string, data: unknown) => {
-    if (popoverId === currentPopoverId.value)
+    if (popoverId === currentPopoverId.value) {
       currentData.value = data
+    }
   }) as (...args: unknown[]) => void
   window.browserAPI.onPopoverRender(renderHandler)
   window.browserAPI.onPopoverDismiss(dismissHandler)
@@ -497,16 +535,21 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   console.debug('[PanelRoot] onBeforeUnmount: 注销事件监听与 observer')
-  if (renderHandler)
+  if (renderHandler) {
     window.browserAPI.removeListener('popover:render', renderHandler)
-  if (dismissHandler)
+  }
+  if (dismissHandler) {
     window.browserAPI.removeListener('popover:dismiss', dismissHandler)
-  if (dataHandler)
+  }
+  if (dataHandler) {
     window.browserAPI.removeListener('popover:data', dataHandler)
-  if (keyHandler)
+  }
+  if (keyHandler) {
     window.removeEventListener('keydown', keyHandler)
-  if (mouseHandler)
+  }
+  if (mouseHandler) {
     window.removeEventListener('mousemove', mouseHandler)
+  }
   resizeObserver?.disconnect()
   resizeObserver = null
   mutationObserver?.disconnect()

@@ -111,8 +111,9 @@ const { t } = useI18n()
 const expanded = computed(() => props.expandedFolders.has(props.node.id))
 
 function handleToggle() {
-  if (!props.node.isFolder)
+  if (!props.node.isFolder) {
     return
+  }
   console.debug('[BookmarkNode] handleToggle: id', props.node.id)
   emit('toggle', props.node)
 }

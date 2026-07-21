@@ -43,6 +43,7 @@ import type {
   ThemeMode,
   UpdaterStatus,
   ViewBounds,
+  Workspace,
 } from '@browser/ipc-contract'
 import { contextBridge, ipcRenderer } from 'electron'
 
@@ -103,6 +104,7 @@ const api: {
   deleteBookmark: (id: string) => Promise<void>
   renameBookmark: ({ id, title }: { id: string; title: string }) => Promise<void>
   getBookmarks: (parentId?: string | null) => Promise<BookmarkItem[]>
+  getBookmarksByWorkspace: (parentId?: string | null) => Promise<BookmarkItem[]>
   searchBookmarks: ({ query }: { query: string }) => Promise<BookmarkItem[]>
   importBookmarks: (html: string) => Promise<void>
   exportBookmarks: () => Promise<{ html: string }>
@@ -178,6 +180,7 @@ const api: {
   maximizeWindow: () => Promise<void>
   closeWindow: () => Promise<void>
   createNewWindow: (opts?: { url?: string; incognito?: boolean }) => Promise<void>
+  setTrafficLightVisible: (visible: boolean) => Promise<void>
   // Shell (download closure)
   showInFolder: (filePath: string) => Promise<void>
   openFile: (filePath: string) => Promise<void>
@@ -295,7 +298,8 @@ const api: {
       data?: unknown,
       mode?: PopoverMode,
       backdrop?: { color?: string; blur?: number },
-      closeOnBackdrop?: boolean
+      closeOnBackdrop?: boolean,
+      gap?: number
     ) => void
   ) => void
   popoverMeasure: (
@@ -329,6 +333,18 @@ const api: {
   commandPaletteGetData: () => Promise<CommandPaletteData>
   commandPaletteExecute: (opts: { type: string; id: string; data?: unknown }) => Promise<void>
   commandPaletteSaveRecent: (actionId: string) => Promise<void>
+  // Workspace
+  listWorkspaces: () => Promise<Workspace[]>
+  createWorkspace: (name: string, color: string) => Promise<Workspace>
+  updateWorkspace: (
+    id: string,
+    patch: { name?: string; color?: string; position?: number }
+  ) => Promise<Workspace>
+  deleteWorkspace: (id: string) => Promise<void>
+  switchWorkspace: (id: string) => Promise<void>
+  getActiveWorkspace: () => Promise<Workspace | null>
+  reorderWorkspaces: (ids: string[]) => Promise<void>
+  onWorkspaceSwitched: (cb: (workspace: Workspace) => void) => () => void
 } = {
   ping: (message) => ipcRenderer.invoke('app:ping', message),
   createTab: (opts) => ipcRenderer.invoke('tab:create', opts),
@@ -375,6 +391,8 @@ const api: {
   deleteBookmark: (id) => ipcRenderer.invoke('bookmark:delete', id),
   renameBookmark: ({ id, title }) => ipcRenderer.invoke('bookmark:rename', { id, title }),
   getBookmarks: (parentId) => ipcRenderer.invoke('bookmark:getList', parentId),
+  getBookmarksByWorkspace: (parentId) =>
+    ipcRenderer.invoke('bookmark:getListByWorkspace', parentId),
   searchBookmarks: ({ query }) => ipcRenderer.invoke('bookmark:search', { query }),
   importBookmarks: (html) => ipcRenderer.invoke('bookmark:import', html),
   exportBookmarks: () => ipcRenderer.invoke('bookmark:export'),
@@ -459,6 +477,7 @@ const api: {
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
   createNewWindow: (opts) => ipcRenderer.invoke('window:new', opts),
+  setTrafficLightVisible: (visible) => ipcRenderer.invoke('window:setTrafficLightVisible', visible),
   // Shell (download closure)
   showInFolder: (filePath) => ipcRenderer.invoke('shell:showInFolder', filePath),
   openFile: (filePath) => ipcRenderer.invoke('shell:openFile', filePath),
@@ -555,7 +574,7 @@ const api: {
   onPopoverRender: (cb) =>
     ipcRenderer.on(
       'popover:render',
-      (_e, id, type, anchor, data, mode, backdrop, closeOnBackdrop) =>
+      (_e, id, type, anchor, data, mode, backdrop, closeOnBackdrop, gap) =>
         cb(
           id,
           type as PopoverType,
@@ -563,7 +582,8 @@ const api: {
           data,
           mode as PopoverMode | undefined,
           backdrop,
-          closeOnBackdrop
+          closeOnBackdrop,
+          gap as number | undefined
         )
     ),
   popoverMeasure: (popoverId, size) => ipcRenderer.send('popover:measure', popoverId, size),
@@ -615,6 +635,19 @@ const api: {
   interceptorClearLog: () => ipcRenderer.invoke('interceptor:clearLog'),
   // Favicon cache
   faviconGet: (key: string) => ipcRenderer.invoke('favicon:get', key),
+  // Workspace
+  listWorkspaces: () => ipcRenderer.invoke('workspace:list'),
+  createWorkspace: (name, color) => ipcRenderer.invoke('workspace:create', name, color),
+  updateWorkspace: (id, patch) => ipcRenderer.invoke('workspace:update', id, patch),
+  deleteWorkspace: (id) => ipcRenderer.invoke('workspace:delete', id),
+  switchWorkspace: (id) => ipcRenderer.invoke('workspace:switchTo', id),
+  getActiveWorkspace: () => ipcRenderer.invoke('workspace:getActive'),
+  reorderWorkspaces: (ids) => ipcRenderer.invoke('workspace:reorder', ids),
+  onWorkspaceSwitched: (cb) => {
+    const handler = (_event: Electron.IpcRendererEvent, workspace: Workspace) => cb(workspace)
+    ipcRenderer.on('workspace:switched', handler)
+    return () => ipcRenderer.removeListener('workspace:switched', handler)
+  },
 }
 
 contextBridge.exposeInMainWorld('browserAPI', api)

@@ -55,12 +55,16 @@ const shortcuts = ref<ShortcutInfo[]>([])
 
 const grouped = computed<Record<string, ShortcutInfo[]>>(() => {
   const map: Record<string, ShortcutInfo[]> = {}
-  for (const g of ORDER) map[g] = []
+  for (const g of ORDER) {
+    map[g] = []
+  }
   for (const s of shortcuts.value) {
-    if (s.hidden)
+    if (s.hidden) {
       continue
-    if (!map[s.group])
+    }
+    if (!map[s.group]) {
       map[s.group] = []
+    }
     map[s.group].push(s)
   }
   return map

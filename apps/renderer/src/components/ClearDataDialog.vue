@@ -79,8 +79,9 @@ const feedbackType = ref<'success' | 'error'>('success')
 
 async function onClear(): Promise<void> {
   console.debug(`[ClearDataDialog] onClear`)
-  if (!hasSelection.value)
+  if (!hasSelection.value) {
     return
+  }
   loading.value = true
   feedback.value = ''
   const types = (Object.keys(selected) as DataType[]).filter(k => selected[k])

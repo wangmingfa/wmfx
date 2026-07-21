@@ -408,10 +408,12 @@ function toLocalPath(encoded: string): string {
 // 协议类型
 const protocol = computed(() => {
   const path = route.path
-  if (path.startsWith('/ftp'))
+  if (path.startsWith('/ftp')) {
     return 'ftp'
-  if (path.startsWith('/sftp'))
+  }
+  if (path.startsWith('/sftp')) {
     return 'sftp'
+  }
   return 'local'
 })
 
@@ -459,8 +461,9 @@ const selectedCount = computed(() => selectedPaths.value.length)
 // 若选中项全部为文件，给出友好总大小；否则为空
 const selectedSizeText = computed(() => {
   const selected = selectedPaths.value
-  if (selected.length === 0)
+  if (selected.length === 0) {
     return ''
+  }
   const entries = fileEntries.value.filter(f => selected.includes(f.path))
   const allFiles = entries.length > 0 && entries.every(f => !f.isDir)
   return allFiles
@@ -507,20 +510,23 @@ function onColumnResizeStart(key: ListViewColumn['key'], event: MouseEvent): voi
   event.preventDefault()
   event.stopPropagation()
   const col = listColumns.value.find(c => c.key === key)
-  if (!col || !col.resizable)
+  if (!col || !col.resizable) {
     return
+  }
   resizing = { key, startX: event.clientX, startW: col.width ?? 120 }
   window.addEventListener('mousemove', onColumnResizing)
   window.addEventListener('mouseup', onColumnResizeEnd)
 }
 function onColumnResizing(event: MouseEvent): void {
-  if (!resizing)
+  if (!resizing) {
     return
+  }
   const dx = event.clientX - resizing.startX
   const next = Math.max(60, resizing.startW + dx)
   const col = listColumns.value.find(c => c.key === resizing!.key)
-  if (col)
+  if (col) {
     col.width = Math.round(next)
+  }
 }
 function onColumnResizeEnd(): void {
   resizing = null
@@ -541,12 +547,14 @@ function onColumnDragStart(key: ListViewColumn['key'], event: DragEvent): void {
 }
 function onColumnDrop(targetKey: ListViewColumn['key']): void {
   console.debug('[FilesView] onColumnDrop: from', dragColumnKey, 'to', targetKey)
-  if (!dragColumnKey || dragColumnKey === targetKey)
+  if (!dragColumnKey || dragColumnKey === targetKey) {
     return
+  }
   const from = listColumns.value.findIndex(c => c.key === dragColumnKey)
   const to = listColumns.value.findIndex(c => c.key === targetKey)
-  if (from < 0 || to < 0)
+  if (from < 0 || to < 0) {
     return
+  }
   const arr = listColumns.value
   const [moved] = arr.splice(from, 1)
   arr.splice(to, 0, moved)
@@ -566,15 +574,17 @@ async function saveListColumns(): Promise<void> {
 async function loadListColumns(): Promise<void> {
   try {
     const saved = (await window.browserAPI.getSetting('files.listColumns')) as string | null
-    if (!saved)
+    if (!saved) {
       return
+    }
     const parsed = JSON.parse(saved) as ListViewColumn[]
     // 仅保留已知列，避免脏数据
     const known: ListViewColumn['key'][] = ['name', 'kind', 'size', 'date']
     const ordered = known.map(k => parsed.find(c => c.key === k)).filter(Boolean) as ListViewColumn[]
     const extra = parsed.filter(c => !known.includes(c.key))
-    if (ordered.length > 0)
+    if (ordered.length > 0) {
       listColumns.value = [...ordered, ...extra]
+    }
   }
   catch (err) {
     console.warn('[FilesView] loadListColumns failed:', err)
@@ -597,23 +607,27 @@ function renderCellContent(file: FileEntry, key: ListViewColumn['key']): string 
 // 文件名高亮分段：搜索时把命中的子串标记为 hit，渲染层用 <mark> 区分颜色
 function getHighlightParts(name: string): Array<{ text: string, hit: boolean }> {
   const query = searchQuery.value.trim().toLowerCase()
-  if (!query)
+  if (!query) {
     return [{ text: name, hit: false }]
+  }
   const lower = name.toLowerCase()
   const parts: Array<{ text: string, hit: boolean }> = []
   let start = 0
   let idx = lower.indexOf(query, start)
-  if (idx === -1)
+  if (idx === -1) {
     return [{ text: name, hit: false }]
+  }
   while (idx !== -1) {
-    if (idx > start)
+    if (idx > start) {
       parts.push({ text: name.slice(start, idx), hit: false })
+    }
     parts.push({ text: name.slice(idx, idx + query.length), hit: true })
     start = idx + query.length
     idx = lower.indexOf(query, start)
   }
-  if (start < name.length)
+  if (start < name.length) {
     parts.push({ text: name.slice(start), hit: false })
+  }
   return parts
 }
 
@@ -627,6 +641,7 @@ const previewVisible = ref(false)
 const previewData = ref<PreviewData | null>(null)
 const previewIndex = ref(-1)
 // 重命名状态
+let renameTimer = 0
 const renamingPath = ref<string | null>(null)
 const renamingName = ref('')
 // 文件重命名输入框（v-for 内同一时刻仅一个渲染）；用函数 ref 确保正确绑定
@@ -665,10 +680,12 @@ const sortedFiles = computed(() => {
   const lower = sortBy.value
   entries.sort((a, b) => {
     // 文件夹始终排在前面
-    if (a.isDir && !b.isDir)
+    if (a.isDir && !b.isDir) {
       return -1
-    if (!a.isDir && b.isDir)
+    }
+    if (!a.isDir && b.isDir) {
       return 1
+    }
     switch (lower) {
       case 'name':
         return a.name.localeCompare(b.name)
@@ -690,16 +707,19 @@ const sortedFiles = computed(() => {
 // 框选起点：仅在空白/列间隙（未命中 draggable）启动；已选中行兜底走拖拽
 function onMarqueeStart(event: MouseEvent): void {
   console.debug('[FilesView] onMarqueeStart')
-  if (event.button !== 0)
+  if (event.button !== 0) {
     return
+  }
   // 命中 draggable 元素（未选中行的 .file-icon-cell / .file-cell-content，或已选中整行/整块）→ 拖文件
-  if ((event.target as HTMLElement).closest('[draggable="true"]'))
+  if ((event.target as HTMLElement).closest('[draggable="true"]')) {
     return
+  }
   const rowEl = (event.target as HTMLElement).closest('.file-item, .file-row-cell')
   const isRowSelected = !!rowEl && rowEl.classList.contains('selected')
   // 已选中行的非内容空白区域：整行可拖（draggable 已为 true，此处兜底）
-  if (isRowSelected)
+  if (isRowSelected) {
     return
+  }
   // 否则进入框选
   console.debug('[FilesView] onMarqueeStart: 启动框选')
   marqueeActive.value = true
@@ -738,8 +758,9 @@ function computeMarqueeHit(
   const hit: string[] = []
   for (const file of sortedFiles.value) {
     const el = document.querySelector(`.file-item[data-path="${CSS.escape(file.path)}"]`) as HTMLElement | null
-    if (!el)
+    if (!el) {
       continue
+    }
     const r = el.getBoundingClientRect()
     let matched = false
     if (viewMode.value === 'icon') {
@@ -748,16 +769,19 @@ function computeMarqueeHit(
     else {
       matched = !(r.bottom < rect.top || r.top > rect.bottom)
     }
-    if (matched)
+    if (matched) {
       hit.push(file.path)
+    }
   }
   if (ctrl && baseSelection.length > 0) {
     const set = new Set(baseSelection)
     for (const p of hit) {
-      if (set.has(p))
+      if (set.has(p)) {
         set.delete(p)
-      else
+      }
+      else {
         set.add(p)
+      }
     }
     return [...set]
   }
@@ -773,7 +797,7 @@ function onMarqueeEnd(event: MouseEvent, startX: number, startY: number): void {
     clearSelection(event)
   }
   else {
-    // 抑制紧随 mouseup 的 click（会触发 .files-list clearSelection 清空刚提交的框选）
+  // 抑制紧随 mouseup 的 click（会触发 .files-list clearSelection 清空刚提交的框选）
     marqueeSuppressClick.value = true
     selectedPaths.value = marqueeHitPaths.value
   }
@@ -823,11 +847,13 @@ async function goForward(): Promise<void> {
 // 开始加载：标记 isLoading 并延迟后再展示骨架屏，避免快速返回时闪烁
 function beginLoading(): void {
   isLoading.value = true
-  if (skeletonTimer)
+  if (skeletonTimer) {
     clearTimeout(skeletonTimer)
+  }
   skeletonTimer = setTimeout(() => {
-    if (isLoading.value)
+    if (isLoading.value) {
       showSkeleton.value = true
+    }
   }, 120)
 }
 
@@ -882,10 +908,12 @@ function isAccessDeniedError(message: string): boolean {
 
 // 切换当前监听目录：释放旧目录 watcher，建立新目录 watcher（主进程按路径引用计数）
 function setWatchDir(dirPath: string): void {
-  if (watchedDir.value === dirPath)
+  if (watchedDir.value === dirPath) {
     return
-  if (watchedDir.value)
+  }
+  if (watchedDir.value) {
     window.browserAPI.unwatchDir(watchedDir.value)
+  }
   watchedDir.value = dirPath
   window.browserAPI.watchDir(dirPath)
   console.debug('[FilesView] setWatchDir:', dirPath)
@@ -913,8 +941,9 @@ function gotoPath(dirPath: string): void {
 // 导航到目录
 async function navigateTo(dirPath: string): Promise<void> {
   console.debug('[FilesView] navigateTo: dirPath', dirPath)
-  if (dirPath === currentPath.value)
+  if (dirPath === currentPath.value) {
     return
+  }
   pushHistory(dirPath)
   currentPath.value = dirPath
   selectedPaths.value = []
@@ -944,6 +973,8 @@ function handleItemClick(file: FileEntry, event: MouseEvent): void {
 
   // shift 范围选择：以最近一次点击为锚点
   if (isShift && lastClickedIndex.value >= 0 && idx >= 0) {
+    clearTimeout(renameTimer)
+    renameTimer = 0
     const [from, to] = lastClickedIndex.value < idx ? [lastClickedIndex.value, idx] : [idx, lastClickedIndex.value]
     const range = items.slice(from, to + 1).map(f => f.path)
     selectedPaths.value = range
@@ -951,17 +982,25 @@ function handleItemClick(file: FileEntry, event: MouseEvent): void {
   }
 
   if (isMulti) {
+    clearTimeout(renameTimer)
+    renameTimer = 0
     const pos = selectedPaths.value.indexOf(file.path)
-    if (pos === -1)
+    if (pos === -1) {
       selectedPaths.value = [...selectedPaths.value, file.path]
-    else selectedPaths.value = selectedPaths.value.filter(p => p !== file.path)
+    }
+    else {
+      selectedPaths.value = selectedPaths.value.filter(p => p !== file.path)
+    }
+  }
+  else if (isSelected(file.path) && selectedPaths.value.length === 1) {
+    // 已选中的单项再次单击：文件夹留给 dblclick 导航，文件延迟重命名
+    if (file.isDir) return
+    clearTimeout(renameTimer)
+    renameTimer = window.setTimeout(() => startRename(file), 250)
   }
   else {
-    // 已选中的单项再次单击 → 进入重命名（避免重复选中无操作）
-    if (isSelected(file.path) && selectedPaths.value.length === 1) {
-      startRename(file)
-      return
-    }
+    clearTimeout(renameTimer)
+    renameTimer = 0
     selectedPaths.value = [file.path]
   }
   lastClickedIndex.value = idx
@@ -969,6 +1008,8 @@ function handleItemClick(file: FileEntry, event: MouseEvent): void {
 
 // 双击文件项
 async function handleItemDblClick(file: FileEntry): Promise<void> {
+  clearTimeout(renameTimer)
+  renameTimer = 0
   console.debug('[FilesView] handleItemDblClick:', file.name)
   if (file.isDir) {
     await navigateTo(file.path)
@@ -980,13 +1021,16 @@ async function handleItemDblClick(file: FileEntry): Promise<void> {
 
 // 清空选中：点击列表空白处时触发。多选模式（按住 Ctrl/Shift/⌘）下误触空白间隙不应清掉已选，故忽略带修饰键的点击
 function clearSelection(event: MouseEvent): void {
-  if (event.ctrlKey || event.metaKey || event.shiftKey)
+  if (event.ctrlKey || event.metaKey || event.shiftKey) {
     return
+  }
   // 框选提交后产生的 click：保留刚框选的结果，不清除
   if (marqueeSuppressClick.value) {
     marqueeSuppressClick.value = false
     return
   }
+  clearTimeout(renameTimer)
+  renameTimer = 0
   selectedPaths.value = []
 }
 
@@ -994,8 +1038,9 @@ function clearSelection(event: MouseEvent): void {
 
 function handleDragStart(event: DragEvent, file: FileEntry): void {
   console.debug('[FilesView] handleDragStart:', file.name)
-  if (!event.dataTransfer)
+  if (!event.dataTransfer) {
     return
+  }
   // 拖已选中批中的某项 → 携带整批；否则仅单项（Windows 式"拖已选中行=拖整批"）
   const paths = selectedPaths.value.includes(file.path) && selectedPaths.value.length > 1
     ? [...selectedPaths.value]
@@ -1029,8 +1074,9 @@ async function handleDropOnList(event: DragEvent): Promise<void> {
   event.preventDefault()
   dragOverFilesList.value = false
   const data = event.dataTransfer?.getData('text/uri-list')
-  if (!data)
+  if (!data) {
     return
+  }
   const urls = data.split('\n').filter(Boolean)
   console.debug('[FilesView] handleDropOnList: urls', urls)
   // TODO: 下载这些 URL 到当前目录
@@ -1101,8 +1147,9 @@ function startRename(file: FileEntry): void {
 }
 
 async function confirmRename(): Promise<void> {
-  if (!renamingPath.value)
+  if (!renamingPath.value) {
     return
+  }
   const newName = renamingName.value.trim()
   if (!newName) {
     cancelRename()
@@ -1185,13 +1232,15 @@ function startBookmarkRename(bm: FileBookmark): void {
 
 async function confirmBookmarkRename(): Promise<void> {
   const id = renamingBookmarkId.value
-  if (!id)
+  if (!id) {
     return
+  }
   const newName = renamingBookmarkName.value.trim()
   cancelBookmarkRename()
   const bm = fileBookmarks.value.find(b => b.id === id)
-  if (!bm || newName === bm.name || !newName)
+  if (!bm || newName === bm.name || !newName) {
     return
+  }
   try {
     await window.browserAPI.renameFileBookmark(id, newName)
     await loadMetadata()
@@ -1225,8 +1274,9 @@ async function handleDelete(paths: string[]): Promise<void> {
   console.debug('[FilesView] handleDelete: paths', paths)
   // 仅保留字符串路径并生成普通数组，避免 Vue 响应式代理 / 非克隆对象传入 IPC 时抛 "could not be cloned"
   const plainPaths = paths.filter(p => typeof p === 'string')
-  if (plainPaths.length !== paths.length)
+  if (plainPaths.length !== paths.length) {
     console.warn('[FilesView] handleDelete: 跳过非字符串路径', paths)
+  }
   try {
     await window.browserAPI.deleteFiles(plainPaths)
     selectedPaths.value = selectedPaths.value.filter(p => !plainPaths.includes(p))
@@ -1271,8 +1321,9 @@ async function handleNewFolder(): Promise<void> {
 
 async function handleCopy(): Promise<void> {
   console.debug('[FilesView] handleCopy: selected', selectedPaths.value)
-  if (selectedPaths.value.length === 0)
+  if (selectedPaths.value.length === 0) {
     return
+  }
   try {
     await window.browserAPI.copyFiles(selectedPaths.value, currentPath.value)
   }
@@ -1284,8 +1335,9 @@ async function handleCopy(): Promise<void> {
 
 async function handleCut(): Promise<void> {
   console.debug('[FilesView] handleCut: selected', selectedPaths.value)
-  if (selectedPaths.value.length === 0)
+  if (selectedPaths.value.length === 0) {
     return
+  }
   try {
     await window.browserAPI.cutFiles(selectedPaths.value, currentPath.value)
   }
@@ -1371,27 +1423,31 @@ function onFileMenuAction(id: string): void {
     case 'open':
       if (selectedPaths.value.length === 1) {
         const file = fileEntries.value.find(f => f.path === selectedPaths.value[0])
-        if (file)
+        if (file) {
           handleItemDblClick(file)
+        }
       }
       break
     case 'openNewTab':
       if (selectedPaths.value.length === 1) {
         const file = fileEntries.value.find(f => f.path === selectedPaths.value[0])
-        if (file)
+        if (file) {
           window.browserAPI.createTab({ url: `wmfx://files${file.path}` })
+        }
       }
       break
     case 'rename':
       if (selectedPaths.value.length === 1) {
         const file = fileEntries.value.find(f => f.path === selectedPaths.value[0])
-        if (file)
+        if (file) {
           startRename(file)
+        }
       }
       break
     case 'delete':
-      if (selectedPaths.value.length > 0)
+      if (selectedPaths.value.length > 0) {
         handleDelete(selectedPaths.value)
+      }
       break
     case 'copy':
       handleCopy()
@@ -1416,14 +1472,17 @@ function onFileMenuAction(id: string): void {
 
 async function handleKeyDown(event: KeyboardEvent): Promise<void> {
   const target = event.target as HTMLElement | null
-  if (!target)
+  if (!target) {
     return
+  }
   // 忽略重命名输入框
-  if (target.tagName === 'INPUT')
+  if (target.tagName === 'INPUT') {
     return
+  }
   // 忽略搜索框
-  if (target.getAttribute('placeholder') === t('files.searchPlaceholder'))
+  if (target.getAttribute('placeholder') === t('files.searchPlaceholder')) {
     return
+  }
 
   const ctrl = event.ctrlKey || event.metaKey
 
@@ -1432,20 +1491,23 @@ async function handleKeyDown(event: KeyboardEvent): Promise<void> {
     event.preventDefault()
     if (selectedPaths.value.length === 1) {
       const file = fileEntries.value.find(f => f.path === selectedPaths.value[0])
-      if (file)
+      if (file) {
         handleItemDblClick(file)
+      }
     }
     return
   }
 
   // 上下方向键选择（Shift 范围多选）；ctrl/alt+方向键留给返回/前进
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-    if (event.ctrlKey || event.altKey)
+    if (event.ctrlKey || event.altKey) {
       return
+    }
     event.preventDefault()
     const items = sortedFiles.value
-    if (items.length === 0)
+    if (items.length === 0) {
       return
+    }
     const dir = event.key === 'ArrowDown' ? 1 : -1
     const next = lastClickedIndex.value < 0 ? 0 : Math.min(items.length - 1, Math.max(0, lastClickedIndex.value + dir))
     if (event.shiftKey && lastClickedIndex.value >= 0) {
@@ -1478,8 +1540,9 @@ async function handleKeyDown(event: KeyboardEvent): Promise<void> {
     event.preventDefault()
     if (selectedPaths.value.length === 1) {
       const file = fileEntries.value.find(f => f.path === selectedPaths.value[0])
-      if (file)
+      if (file) {
         startRename(file)
+      }
     }
     return
   }
@@ -1521,8 +1584,9 @@ async function handleKeyDown(event: KeyboardEvent): Promise<void> {
   if (!ctrl && !event.metaKey && !event.altKey && event.key.length === 1 && event.key !== ' ') {
     event.preventDefault()
     typeAheadBuffer.value += event.key.toLowerCase()
-    if (typeAheadTimer.value !== null)
+    if (typeAheadTimer.value !== null) {
       window.clearTimeout(typeAheadTimer.value)
+    }
     typeAheadTimer.value = window.setTimeout(() => {
       typeAheadBuffer.value = ''
       typeAheadTimer.value = null
@@ -1557,8 +1621,9 @@ async function handleKeyDown(event: KeyboardEvent): Promise<void> {
 
 async function openPreview(file: FileEntry): Promise<void> {
   console.debug('[FilesView] openPreview:', file.name)
-  if (file.isDir)
+  if (file.isDir) {
     return
+  }
   try {
     const data = await window.browserAPI.readFilePreview(file.path)
     previewData.value = data
@@ -1608,8 +1673,9 @@ async function handleAddBookmark(): Promise<void> {
   let bmName = baseName
   if (existing.has(bmName)) {
     let n = 2
-    while (existing.has(`${baseName} (${n})`))
+    while (existing.has(`${baseName} (${n})`)) {
       n++
+    }
     bmName = `${baseName} (${n})`
   }
   try {
@@ -1624,8 +1690,9 @@ async function handleAddBookmark(): Promise<void> {
 
 // 文件图标
 function getFileIcon(file: FileEntry): string {
-  if (file.isDir)
+  if (file.isDir) {
     return 'mdi:folder'
+  }
   const ext = file.extension.toLowerCase()
   const iconMap: Record<string, string> = {
     jpg: 'mdi:file-image',
@@ -1650,52 +1717,69 @@ function getFileIcon(file: FileEntry): string {
 
 /** 按文件类型返回图标颜色（与图标语义一致，便于快速区分文件种类） */
 function getFileIconColor(file: FileEntry): string {
-  if (file.isDir)
-    return '#f5a623' // 文件夹：橙黄
+  if (file.isDir) {
+    return '#f5a623'
+  } // 文件夹：橙黄
   const ext = file.extension.toLowerCase()
-  if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext))
-    return '#27ae60' // 图片：绿
-  if (['mp4', 'webm', 'mkv', 'avi', 'mov', 'wmv', 'flv'].includes(ext))
-    return '#9b59b6' // 视频：紫
-  if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'wma'].includes(ext))
-    return '#e91e63' // 音频：粉
-  if (ext === 'pdf')
-    return '#d32f2f' // PDF：红
-  if (['zip', 'rar', '7z', 'tar', 'gz', 'tgz'].includes(ext))
-    return '#8d6e63' // 压缩包：棕
-  if (['js', 'ts', 'tsx', 'jsx', 'json', 'css', 'html', 'vue', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'sh'].includes(ext))
-    return '#2196f3' // 代码：蓝
-  if (['txt', 'md', 'doc', 'docx', 'rtf', 'log'].includes(ext))
-    return '#607d8b' // 文档：蓝灰
+  if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext)) {
+    return '#27ae60'
+  } // 图片：绿
+  if (['mp4', 'webm', 'mkv', 'avi', 'mov', 'wmv', 'flv'].includes(ext)) {
+    return '#9b59b6'
+  } // 视频：紫
+  if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'wma'].includes(ext)) {
+    return '#e91e63'
+  } // 音频：粉
+  if (ext === 'pdf') {
+    return '#d32f2f'
+  } // PDF：红
+  if (['zip', 'rar', '7z', 'tar', 'gz', 'tgz'].includes(ext)) {
+    return '#8d6e63'
+  } // 压缩包：棕
+  if (['js', 'ts', 'tsx', 'jsx', 'json', 'css', 'html', 'vue', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'sh'].includes(ext)) {
+    return '#2196f3'
+  } // 代码：蓝
+  if (['txt', 'md', 'doc', 'docx', 'rtf', 'log'].includes(ext)) {
+    return '#607d8b'
+  } // 文档：蓝灰
   return 'var(--text-muted)' // 未知类型：随主题弱化
 }
 
 /** 按文件类型返回种类标签（列表视图「种类」列） */
 function getFileKind(file: FileEntry): string {
-  if (file.isDir)
+  if (file.isDir) {
     return t('files.kindFolder')
+  }
   const ext = file.extension.toLowerCase()
-  if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext))
+  if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext)) {
     return t('files.kindImage')
-  if (['mp4', 'webm', 'mkv', 'avi', 'mov', 'wmv', 'flv'].includes(ext))
+  }
+  if (['mp4', 'webm', 'mkv', 'avi', 'mov', 'wmv', 'flv'].includes(ext)) {
     return t('files.kindVideo')
-  if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'wma'].includes(ext))
+  }
+  if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'wma'].includes(ext)) {
     return t('files.kindAudio')
-  if (ext === 'pdf')
+  }
+  if (ext === 'pdf') {
     return t('files.kindPdf')
-  if (['zip', 'rar', '7z', 'tar', 'gz', 'tgz'].includes(ext))
+  }
+  if (['zip', 'rar', '7z', 'tar', 'gz', 'tgz'].includes(ext)) {
     return t('files.kindArchive')
-  if (['js', 'ts', 'tsx', 'jsx', 'json', 'css', 'html', 'vue', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'sh'].includes(ext))
+  }
+  if (['js', 'ts', 'tsx', 'jsx', 'json', 'css', 'html', 'vue', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'sh'].includes(ext)) {
     return t('files.kindCode')
-  if (['txt', 'md', 'doc', 'docx', 'rtf', 'log'].includes(ext))
+  }
+  if (['txt', 'md', 'doc', 'docx', 'rtf', 'log'].includes(ext)) {
     return t('files.kindDoc')
+  }
   return t('files.kindOther')
 }
 
 // 格式化工具
 function formatSize(bytes: number): string {
-  if (bytes === 0)
+  if (bytes === 0) {
     return ''
+  }
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
   return `${(bytes / 1024 ** i).toFixed(i > 0 ? 1 : 0)} ${sizes[i]}`
@@ -1756,8 +1840,9 @@ onMounted(async () => {
   await loadListColumns()
   // 恢复视图模式（本地持久化）
   const savedView = (await window.browserAPI.getSetting('files.viewMode')) as string | null
-  if (savedView === 'list' || savedView === 'icon')
+  if (savedView === 'list' || savedView === 'icon') {
     viewMode.value = savedView
+  }
   const dirPath = parseInitialPath()
   currentPath.value = dirPath
   pushHistory(dirPath)
@@ -1766,10 +1851,12 @@ onMounted(async () => {
   setWatchDir(dirPath)
   filesChangedUnsub = window.browserAPI.onFilesChanged((dirPath: string) => {
     // 仅处理当前正在浏览的目录（主进程按目录广播，可能含其他标签目录）
-    if (dirPath !== currentPath.value)
+    if (dirPath !== currentPath.value) {
       return
-    if (filesChangedTimer.value !== null)
+    }
+    if (filesChangedTimer.value !== null) {
       window.clearTimeout(filesChangedTimer.value)
+    }
     filesChangedTimer.value = window.setTimeout(() => {
       filesChangedTimer.value = null
       void reloadCurrentDir()
@@ -1799,10 +1886,12 @@ onUnmounted(() => {
     filesChangedTimer.value = null
   }
   // 取消变更监听并释放当前目录 watcher
-  if (typeof filesChangedUnsub === 'function')
+  if (typeof filesChangedUnsub === 'function') {
     filesChangedUnsub()
-  if (watchedDir.value)
+  }
+  if (watchedDir.value) {
     window.browserAPI.unwatchDir(watchedDir.value)
+  }
 })
 </script>
 

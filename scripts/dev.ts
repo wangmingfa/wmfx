@@ -460,6 +460,7 @@ async function main(): Promise<void> {
   const vite = execaCommand('bun run --filter @browser/renderer dev', {
     cwd: ROOT,
     stdio: ['inherit', 'pipe', 'inherit'],
+    env: { ...process.env, VITE_DEV_PORT: String(devPort) },
   })
   childProcesses.push(vite)
 

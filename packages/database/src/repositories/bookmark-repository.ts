@@ -89,6 +89,33 @@ export class BookmarkRepository {
     return rows
   }
 
+  /** 按工作区过滤书签：返回指定工作区专属 + 全工作区共享（workspace_id IS NULL）的书签 */
+  getListByWorkspace(parentId?: string | null, workspaceId?: string | null): BookmarkItem[] {
+    if (!workspaceId) {
+      return this.getList(parentId)
+    }
+    const parentClause = parentId === null ? 'parent_id IS NULL' : 'parent_id = ?'
+    const params: unknown[] = []
+    if (parentId !== null) params.push(parentId)
+    params.push(workspaceId)
+    const sql = `
+      SELECT id, parent_id, title, url, favicon, position, created_at
+      FROM bookmarks
+      WHERE ${parentClause}
+        AND (workspace_id = ? OR workspace_id IS NULL)
+      ORDER BY position
+    `
+    const stmt = this.db.prepare(sql)
+    const rows = stmt.all(...params) as BookmarkItem[]
+    console.debug(
+      '[BookmarkRepository] getListByWorkspace: parentId workspaceId count',
+      parentId,
+      workspaceId,
+      rows.length
+    )
+    return rows
+  }
+
   search(query: string): BookmarkItem[] {
     const stmt = this.db.prepare(`
       SELECT id, parent_id, title, url, favicon, position, created_at

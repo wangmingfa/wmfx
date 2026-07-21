@@ -70,7 +70,12 @@ const tabBarPosition = ref<'top' | 'left'>('top')
 
 function syncTabBarPosition(): void {
   void window.browserAPI.getSetting('tabBarPosition').then((v) => {
-    tabBarPosition.value = (v as 'top' | 'left') ?? 'top'
+    const pos = (v as 'top' | 'left') ?? 'top'
+    tabBarPosition.value = pos
+    // macOS 切换到顶部标签栏时恢复交通灯显示
+    if (isMacOS && pos === 'top') {
+      void window.browserAPI.setTrafficLightVisible(true)
+    }
   })
 }
 

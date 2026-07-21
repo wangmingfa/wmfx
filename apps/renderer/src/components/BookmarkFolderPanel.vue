@@ -62,32 +62,39 @@ async function getSetting(key: string): Promise<unknown> {
 }
 
 function onClick(item: BookmarkItem): void {
-  if (!item.url)
+  if (!item.url) {
     return
+  }
   console.debug('[BookmarkFolderPanel] onClick: id url', item.id, item.url)
   void (async () => {
     const openNew = Boolean(await getSetting('openBookmarkInNewTab'))
-    if (openNew)
+    if (openNew) {
       window.browserAPI.createTab({ url: item.url! })
-    else window.browserAPI.loadURLCurrent(item.url!)
+    }
+    else {
+      window.browserAPI.loadURLCurrent(item.url!)
+    }
   })()
 }
 
 function onDragStart(item: BookmarkItem, event: DragEvent): void {
   dragId.value = item.id
   console.debug('[BookmarkFolderPanel] dragstart: id', item.id)
-  if (event.dataTransfer)
+  if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
+  }
   window.browserAPI.dragBookmarkStart?.(item.id)
 }
 
 function onDragOver(item: BookmarkItem, event: DragEvent): void {
-  if (!dragId.value || dragId.value === item.id)
+  if (!dragId.value || dragId.value === item.id) {
     return
+  }
   console.debug('[BookmarkFolderPanel] dragover: targetId', item.id)
   // 文件夹项与书签项均为放置目标：文件夹项放置后成为其子项
-  if (event.dataTransfer)
+  if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move'
+  }
 }
 
 async function onDrop(item: BookmarkItem, _event: DragEvent): Promise<void> {

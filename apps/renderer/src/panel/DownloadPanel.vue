@@ -148,22 +148,28 @@ const { t } = useI18n()
 const items = computed(() => props.data?.items ?? [])
 
 function progressPercent(item: DownloadItem): number {
-  if (!item.totalBytes)
+  if (!item.totalBytes) {
     return 0
+  }
   return Math.min(100, Math.round((item.receivedBytes / item.totalBytes) * 100))
 }
 
 function downloadIcon(state: DownloadState): string {
-  if (state === 'downloading')
+  if (state === 'downloading') {
     return 'ic:round-download'
-  if (state === 'paused')
+  }
+  if (state === 'paused') {
     return 'ic:round-pause'
-  if (state === 'completed')
+  }
+  if (state === 'completed') {
     return 'ic:round-check-circle'
-  if (state === 'cancelled')
+  }
+  if (state === 'cancelled') {
     return 'ic:round-cancel'
-  if (state === 'error')
+  }
+  if (state === 'error') {
     return 'ic:round-error'
+  }
   return 'ic:round-download'
 }
 

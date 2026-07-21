@@ -69,8 +69,9 @@ const keyword = ref('')
 
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
-  if (!kw)
+  if (!kw) {
     return rules.value
+  }
   return rules.value.filter(r => r.host.toLowerCase().includes(kw))
 })
 
@@ -101,8 +102,9 @@ async function load(): Promise<void> {
 
 // 每次打开时拉取最新规则
 watch(toRef(props, 'show'), (open) => {
-  if (open)
+  if (open) {
     void load()
+  }
 })
 </script>
 

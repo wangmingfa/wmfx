@@ -104,8 +104,9 @@ function focusInput(): void {
 onMounted(focusInput)
 
 onUnmounted(() => {
-  if (debounceTimer)
+  if (debounceTimer) {
     clearTimeout(debounceTimer)
+  }
 })
 
 // 再次 Ctrl+F：组件不会重挂载，靠 focusNonce 变化触发聚焦并全选
@@ -116,8 +117,9 @@ watch(
 
 function onInput(value: string): void {
   localQuery.value = value
-  if (debounceTimer)
+  if (debounceTimer) {
     clearTimeout(debounceTimer)
+  }
   debounceTimer = setTimeout(() => {
     console.debug('[FindPanel] onInput: debounce 提交搜索 query', value)
     emit('event', 'update-query', value)
@@ -127,8 +129,9 @@ function onInput(value: string): void {
 function onKeydown(e: KeyboardEvent): void {
   // IME 合成期间（如中文选词），Enter/Esc 属于输入法操作（确认/取消候选），
   // 不应触发翻页或关闭面板。isComposing 为 true 或 keyCode 229 均表示合成中。
-  if (e.isComposing || e.keyCode === 229 || composing.value)
+  if (e.isComposing || e.keyCode === 229 || composing.value) {
     return
+  }
   if (e.key === 'Enter') {
     e.preventDefault()
     // 回车立即翻页：若还有未提交的关键字，先立刻提交搜索再翻页

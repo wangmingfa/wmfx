@@ -93,8 +93,9 @@ async function loadHistory() {
 }
 
 function debouncedSearch() {
-  if (searchTimer)
+  if (searchTimer) {
     clearTimeout(searchTimer)
+  }
   searchTimer = setTimeout(async () => {
     console.debug('[History] debouncedSearch: query', searchQuery.value)
     if (searchQuery.value.trim()) {
@@ -114,8 +115,9 @@ async function handleClear() {
     positiveText: t('history.clearPositive'),
     negativeText: t('history.clearNegative'),
   })
-  if (!ok)
+  if (!ok) {
     return
+  }
   console.debug('[History] handleClear: 清空历史')
   await window.browserAPI.clearHistory()
   await loadHistory()
@@ -135,31 +137,38 @@ function formatVisitTime(visitTime: number): string {
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
-  if (diffMins < 1)
+  if (diffMins < 1) {
     return 'just now'
-  if (diffMins < 60)
+  }
+  if (diffMins < 60) {
     return `${diffMins}m ago`
+  }
   const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24)
+  if (diffHours < 24) {
     return `${diffHours}h ago`
+  }
   const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7)
+  if (diffDays < 7) {
     return `${diffDays}d ago`
+  }
   return date.toLocaleDateString()
 }
 
 function getDateGroup(visitTime: number): 'today' | 'yesterday' | 'thisWeek' | 'earlier' {
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  if (visitTime >= startOfToday.getTime())
+  if (visitTime >= startOfToday.getTime()) {
     return 'today'
+  }
   const startOfYesterday = new Date(startOfToday.getTime() - 86400000)
-  if (visitTime >= startOfYesterday.getTime())
+  if (visitTime >= startOfYesterday.getTime()) {
     return 'yesterday'
+  }
   const dayOfWeek = now.getDay() || 7
   const startOfWeek = new Date(startOfToday.getTime() - (dayOfWeek - 1) * 86400000)
-  if (visitTime >= startOfWeek.getTime())
+  if (visitTime >= startOfWeek.getTime()) {
     return 'thisWeek'
+  }
   return 'earlier'
 }
 
@@ -182,15 +191,18 @@ const groupedItems = computed<HistoryGroup[]>(() => {
     earlier: t('history.earlier'),
   }
   const buckets = new Map<string, HistoryItem[]>()
-  for (const key of groupOrder) buckets.set(key, [])
+  for (const key of groupOrder) {
+    buckets.set(key, [])
+  }
   for (const item of historyItems.value) {
     buckets.get(getDateGroup(item.visitTime))!.push(item)
   }
   const result: HistoryGroup[] = []
   for (const key of groupOrder) {
     const items = buckets.get(key)!
-    if (items.length > 0)
+    if (items.length > 0) {
       result.push({ label: groupLabels[key], items })
+    }
   }
   return result
 })
@@ -210,8 +222,9 @@ onMounted(async () => {
   await loadHistory()
 })
 onUnmounted(() => {
-  if (searchTimer)
+  if (searchTimer) {
     clearTimeout(searchTimer)
+  }
 })
 </script>
 

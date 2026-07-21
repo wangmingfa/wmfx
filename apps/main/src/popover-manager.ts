@@ -27,6 +27,8 @@ interface OverlayState {
   backdrop?: { color?: string; blur?: number }
   /** 点击遮罩是否关闭面板（默认 true） */
   closeOnBackdrop?: boolean
+  /** 面板与锚点之间的间距（px），默认 0 */
+  gap?: number
 }
 
 /**
@@ -83,11 +85,12 @@ export class PopoverManager {
     options: PopoverOpenOptions & { onSelect?: (eventData: unknown) => void }
   ): void {
     console.debug(
-      '[PopoverManager] open: popoverId mode type persistent',
+      '[PopoverManager] open: popoverId=%s mode=%s type=%s persistent=%s gap=%d',
       popoverId,
       options.mode ?? 'overlay',
       options.type,
-      options.persistent ?? false
+      options.persistent ?? false,
+      options.gap ?? 0
     )
     this.lastOpenAt = Date.now()
     const mode = options.mode ?? 'overlay'
@@ -110,6 +113,7 @@ export class PopoverManager {
       backdrop: options.backdrop,
       closeOnBackdrop: options.closeOnBackdrop,
       onSelect: options.onSelect,
+      gap: options.gap,
     })
     const alreadyRendered = this.stack.includes(popoverId)
     if (!alreadyRendered) this.stack.push(popoverId)
@@ -143,7 +147,10 @@ export class PopoverManager {
         ov.type,
         ov.anchor,
         ov.data,
-        'bounded'
+        'bounded',
+        undefined,
+        undefined,
+        ov.gap
       )
       return
     }
@@ -160,7 +167,8 @@ export class PopoverManager {
       ov.data,
       'overlay',
       ov.backdrop,
-      ov.closeOnBackdrop
+      ov.closeOnBackdrop,
+      ov.gap
     )
     this.popoverView.webContents.focus()
   }

@@ -1,4 +1,10 @@
-import type { BookmarkItem, CommandPaletteData, HistoryItem, TabState } from '@browser/ipc-contract'
+import type {
+  BookmarkItem,
+  CommandPaletteData,
+  HistoryItem,
+  TabState,
+  Workspace,
+} from '@browser/ipc-contract'
 import { computed, ref } from 'vue'
 import {
   COMMAND_CATEGORIES,
@@ -26,7 +32,7 @@ export interface CommandPaletteItem {
  * 命令面板核心逻辑：数据获取、模糊匹配、动作执行。
  * 在面板 Vue 上下文内使用，所有搜索本地完成。
  */
-export function useCommandPalette(t: (key: string) => string) {
+export function useCommandPalette(t: (key: string, params?: Record<string, unknown>) => string) {
   const query = ref('')
   const items = ref<CommandPaletteItem[]>([])
   const selectedIndex = ref(0)
@@ -39,6 +45,8 @@ export function useCommandPalette(t: (key: string) => string) {
   let bookmarks: BookmarkItem[] = []
   let recentActions: string[] = []
   let commands: Command[] = []
+  let workspaceList: Workspace[] = []
+  let activeWorkspaceId: string | null = null
 
   // 加载数据
   async function loadData(): Promise<void> {
@@ -51,13 +59,18 @@ export function useCommandPalette(t: (key: string) => string) {
       bookmarks = data.bookmarks
       recentActions = data.recentActions
       commands = getCommands()
+      // 加载工作区列表
+      workspaceList = await window.browserAPI.listWorkspaces()
+      const activeWs = await window.browserAPI.getActiveWorkspace()
+      activeWorkspaceId = activeWs?.id ?? null
       console.debug(
-        '[CommandPalette] loadData: tabs=%d history=%d bookmarks=%d recent=%d commands=%d',
+        '[CommandPalette] loadData: tabs=%d history=%d bookmarks=%d recent=%d commands=%d workspaces=%d',
         tabs.length,
         history.length,
         bookmarks.length,
         recentActions.length,
-        commands.length
+        commands.length,
+        workspaceList.length
       )
       // 初始显示最近使用的命令
       updateResults()
@@ -110,6 +123,39 @@ export function useCommandPalette(t: (key: string) => string) {
             score: 50,
           })
         }
+      }
+      // 补充工作区命令
+      if (results.length < 8) {
+        for (const ws of workspaceList.slice(0, 2)) {
+          if (results.length >= 8) break
+          if (results.find((r) => r.id === `workspace-switch-${ws.id}`)) continue
+          const isActive = ws.id === activeWorkspaceId
+          results.push({
+            id: `workspace-switch-${ws.id}`,
+            type: 'command',
+            icon: 'carbon:workspace',
+            title: `${isActive ? '● ' : ''}${t('commandPalette.actions.switchWorkspace', { name: ws.name })}`,
+            category: 'workspace',
+            action: () => window.browserAPI.switchWorkspace(ws.id),
+            score: 50,
+          })
+        }
+      }
+      if (results.length < 8 && !results.find((r) => r.id === 'workspace-create')) {
+        results.push({
+          id: 'workspace-create',
+          type: 'command',
+          icon: 'carbon:add-alt',
+          title: t('commandPalette.actions.createWorkspace'),
+          category: 'workspace',
+          action: async () => {
+            const name = window.prompt(t('commandPalette.actions.createWorkspace'))
+            if (name) {
+              await window.browserAPI.createWorkspace(name, '')
+            }
+          },
+          score: 50,
+        })
       }
       items.value = results
       selectedIndex.value = 0
@@ -183,6 +229,36 @@ export function useCommandPalette(t: (key: string) => string) {
         score: result.score + recentBonus,
       })
     }
+
+    // 模糊匹配工作区
+    const wsResults = fuzzyMatchAll(workspaceList, q, (ws) => ws.name)
+    for (const { item: ws, result } of wsResults.slice(0, 3)) {
+      const isActive = ws.id === activeWorkspaceId
+      results.push({
+        id: `workspace-switch-${ws.id}`,
+        type: 'command',
+        icon: 'carbon:workspace',
+        title: `${isActive ? '● ' : ''}${t('commandPalette.actions.switchWorkspace', { name: ws.name })}`,
+        category: 'workspace',
+        action: () => window.browserAPI.switchWorkspace(ws.id),
+        score: result.score,
+      })
+    }
+    // 新建工作区命令
+    results.push({
+      id: 'workspace-create',
+      type: 'command',
+      icon: 'carbon:add-alt',
+      title: t('commandPalette.actions.createWorkspace'),
+      category: 'workspace',
+      action: async () => {
+        const name = window.prompt(t('commandPalette.actions.createWorkspace'))
+        if (name) {
+          await window.browserAPI.createWorkspace(name, '')
+        }
+      },
+      score: 0,
+    })
 
     // 按分数排序，去重
     const seen = new Set<string>()

@@ -8,7 +8,11 @@
     <template #trigger>
       <button
         class="icon-btn"
-        :class="[{ 'is-active': active, 'has-affix': hasAffix, 'is-danger': danger }, `hover-${hoverVariant}`]"
+        :class="[
+          { 'is-active': active, 'has-affix': hasAffix, 'is-danger': danger, 'is-square': !rounded },
+          `hover-${hoverVariant}`,
+          `variant-${variant}`,
+        ]"
         :disabled="disabled"
         :style="btnStyle"
         @click="onClick"
@@ -37,7 +41,11 @@
   <button
     v-else
     class="icon-btn"
-    :class="[{ 'is-active': active, 'has-affix': hasAffix, 'is-danger': danger }, `hover-${hoverVariant}`]"
+    :class="[
+      { 'is-active': active, 'has-affix': hasAffix, 'is-danger': danger, 'is-square': !rounded },
+      `hover-${hoverVariant}`,
+      `variant-${variant}`,
+    ]"
     :disabled="disabled"
     :style="btnStyle"
     @click="onClick"
@@ -96,8 +104,9 @@ const props = withDefaults(
      * - default：常规底色上（默认，用 --bg-hover）
      * - muted：灰色/已变色背景上（如 hover 中的标签），再突出一档
      * - dark：深色背景上，用半透明白叠加
+     * - prominent：更明显的 hover 背景（用半透明白 0.25），适合背景色较浅的区域
      */
-    hoverVariant?: 'default' | 'muted' | 'dark'
+    hoverVariant?: 'default' | 'muted' | 'dark' | 'prominent'
     /** 危险操作按钮（如删除）：hover 时图标变告警红 + 淡红背景。与 hoverVariant 正交，可组合 */
     danger?: boolean
     /**
@@ -115,14 +124,20 @@ const props = withDefaults(
     tooltipInteractive?: boolean
     active?: boolean
     disabled?: boolean
+    /** 是否显示为圆形按钮，默认 true；设为 false 则为圆角矩形（border-radius: 8px） */
+    rounded?: boolean
+    /** 默认状态背景档位：'transparent'（无背景，默认）| 'subtle'（--bg-hover 背景） */
+    variant?: 'transparent' | 'subtle' | 'accent'
   }>(),
   {
     gap: 6,
     hoverVariant: 'default',
+    variant: 'transparent',
     danger: false,
     tooltipInteractive: false,
     active: false,
     disabled: false,
+    rounded: true,
   },
 )
 
@@ -133,8 +148,9 @@ const DEFAULT_SIZE = 18
 /** 归一化 tooltip 配置：string → { content, props:{} }；object → { content, props: 其余字段 }；空 → null */
 const tooltipConfig = computed<{ content: string, props: Partial<TooltipProps> } | null>(() => {
   const tip = props.tooltip
-  if (!tip)
+  if (!tip) {
     return null
+  }
   if (typeof tip === 'string') {
     return tip.length > 0 ? { content: tip, props: {} } : null
   }
@@ -143,8 +159,9 @@ const tooltipConfig = computed<{ content: string, props: Partial<TooltipProps> }
 })
 
 function parseIcon(arg: IconArg): { name: string, sz: number } {
-  if (typeof arg === 'string')
+  if (typeof arg === 'string') {
     return { name: arg, sz: DEFAULT_SIZE }
+  }
   return { name: arg.name, sz: arg.size }
 }
 
@@ -194,8 +211,9 @@ const btnStyle = computed(() => {
 })
 
 function onClick(ev: MouseEvent): void {
-  if (props.disabled)
+  if (props.disabled) {
     return
+  }
   emit('click', ev)
 }
 </script>
@@ -217,6 +235,10 @@ function onClick(ev: MouseEvent): void {
     border-radius: 8px;
   }
 
+  &.is-square {
+    border-radius: 8px;
+  }
+
   &:disabled {
     color: var(--text-muted);
     cursor: not-allowed;
@@ -224,27 +246,49 @@ function onClick(ev: MouseEvent): void {
 }
 
 /* hover / active 背景按档位内置，外部只通过 hoverVariant 选择所在背景，无需传色值 */
+.icon-btn {
+  /* 默认状态背景 */
+  &.variant-transparent {
+    background: none;
+  }
+  &.variant-subtle {
+    background: var(--bg-hover);
+  }
+  &.variant-accent {
+    background: var(--accent-color);
+    color: #fff;
+  }
 
-/* default：常规底色上，跟随主题的 --bg-hover */
-.icon-btn.hover-default:hover:not(:disabled),
-.icon-btn.hover-default.is-active {
-  background: var(--bg-hover);
-}
+  /* hover / active 状态 */
+  &.hover-default:hover:not(:disabled),
+  &.hover-default.is-active {
+    background: var(--bg-hover);
+  }
+  &.hover-muted:hover:not(:disabled),
+  &.hover-muted.is-active {
+    background: var(--bg-hover);
+  }
+  &.hover-dark:hover:not(:disabled),
+  &.hover-dark.is-active {
+    background: rgba(255, 255, 255, 0.12);
+  }
+  &.hover-prominent:hover:not(:disabled),
+  &.hover-prominent.is-active {
+    background: var(--accent-color-translucent);
+  }
 
-/* muted：灰色/已变色背景上（如 hover 中的标签），比 default 再突出一档 */
-.icon-btn.hover-muted:hover:not(:disabled),
-.icon-btn.hover-muted.is-active {
-  background: var(--bg-hover);
-}
-:root[data-theme='light'] .icon-btn.hover-muted:hover:not(:disabled),
-:root[data-theme='light'] .icon-btn.hover-muted.is-active {
-  background: #dbdbdc;
-}
-
-/* dark：深色背景上，用半透明白叠加，不依赖主题变量 */
-.icon-btn.hover-dark:hover:not(:disabled),
-.icon-btn.hover-dark.is-active {
-  background: rgba(255, 255, 255, 0.12);
+  /* variant-accent 的 hover：叠半透明白提亮 */
+  &.variant-accent.hover-default:hover:not(:disabled),
+  &.variant-accent.hover-default.is-active,
+  &.variant-accent.hover-muted:hover:not(:disabled),
+  &.variant-accent.hover-muted.is-active,
+  &.variant-accent.hover-dark:hover:not(:disabled),
+  &.variant-accent.hover-dark.is-active,
+  &.variant-accent.hover-prominent:hover:not(:disabled),
+  &.variant-accent.hover-prominent.is-active {
+    background: var(--accent-color);
+    box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.12);
+  }
 }
 
 /* danger：危险操作按钮 hover 时图标变告警红 + 淡红背景。

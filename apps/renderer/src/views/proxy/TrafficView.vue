@@ -36,8 +36,9 @@ const statusText = ref(t('proxy.trafficIdle'))
 const ZOOM_LEVELS = ['B/s', 'KB/s', 'MB/s', 'GB/s']
 
 function formatSpeed(bytesPerSec: number): string {
-  if (bytesPerSec === 0)
+  if (bytesPerSec === 0) {
     return '0 B/s'
+  }
   const k = 1024
   const i = Math.floor(Math.log(bytesPerSec) / Math.log(k))
   const idx = i < ZOOM_LEVELS.length ? i : ZOOM_LEVELS.length - 1
@@ -72,8 +73,9 @@ onMounted(() => {
 onUnmounted(() => {
   console.debug('[TrafficView] onUnmounted: 注销监听与轮询')
   unsubscribeTraffic?.()
-  if (statusInterval)
+  if (statusInterval) {
     clearInterval(statusInterval)
+  }
 })
 </script>
 

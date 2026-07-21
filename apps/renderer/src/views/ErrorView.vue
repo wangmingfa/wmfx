@@ -86,10 +86,12 @@ function getFriendlyDescription(code: number): string {
 function getSuggestions(code: number): string {
   const dns = [-105, -109]
   const conn = [-102, -101, -118, -106]
-  if (dns.includes(code))
+  if (dns.includes(code)) {
     return t('error.suggestions.dns')
-  if (conn.includes(code))
+  }
+  if (conn.includes(code)) {
     return t('error.suggestions.connection')
+  }
   return t('error.suggestions.default')
 }
 

@@ -15,6 +15,7 @@ export type PopoverType =
   | 'bookmark-folder'
   | 'tab-thumbnail'
   | 'command-palette'
+  | 'workspace'
 
 /** Popover 显示模式：overlay=铺满窗口阻断交互；bounded=仅覆盖内容区、非阻断、失焦关闭 */
 export type PopoverMode = 'overlay' | 'bounded'
@@ -42,6 +43,8 @@ export interface PopoverOpenOptions {
   backdrop?: { color?: string; blur?: number }
   /** 点击遮罩是否关闭面板（默认 true）；设为 false 时点击遮罩不触发关闭 */
   closeOnBackdrop?: boolean
+  /** 面板与锚点之间的间距（px），默认 0 */
+  gap?: number
 }
 
 export type PopoverPlacement =
@@ -273,6 +276,18 @@ export interface ShortcutInfo {
   description: Record<string, string>
   /** true = 设置页不展示，快捷键仍生效 */
   hidden?: boolean
+}
+
+/** 工作区（Arc-style Space） */
+export interface Workspace {
+  id: string
+  name: string
+  color: string
+  position: number
+  /** 实时计算的标签数量，非持久化 */
+  tabCount: number
+  createdAt: number
+  updatedAt: number
 }
 
 /** 主题设置值：用户在设置页选择的值（含 system） */
@@ -538,6 +553,8 @@ export interface SettingsSnapshot {
   openBookmarkInNewTab: boolean
   forceDark: boolean
   tabBarPosition: 'top' | 'left'
+  /** 垂直标签栏是否折叠 */
+  tabBarCollapsed: boolean
 }
 
 /** 设置为默认浏览器结果（setAsDefaultProtocolClient 跨平台生效，返回是否成功） */
@@ -621,6 +638,7 @@ export interface IpcContract {
   'bookmark:delete': (id: string) => void
   'bookmark:rename': ({ id, title }: { id: string; title: string }) => void
   'bookmark:getList': (parentId?: string | null) => BookmarkItem[]
+  'bookmark:getListByWorkspace': (parentId?: string | null) => BookmarkItem[]
   'bookmark:search': ({ query }: { query: string }) => BookmarkItem[]
   'bookmark:import': (html: string) => void
   'bookmark:export': () => { html: string }
@@ -724,6 +742,8 @@ export interface IpcContract {
   'window:minimize': () => void
   'window:maximize': () => void
   'window:close': () => void
+  /** macOS 交通灯显示/隐藏（null 隐藏，坐标显示） */
+  'window:setTrafficLightVisible': (visible: boolean) => void
   // Shell (download closure)
   /** 打开设置页（主进程快捷键回调经 focused 窗口广播，渲染进程据此导航到 wmfx://settings） */
   'shell:openSettings': () => void
@@ -810,6 +830,17 @@ export interface IpcContract {
   'commandPalette:getData': () => CommandPaletteData
   'commandPalette:execute': (opts: { type: string; id: string; data?: unknown }) => void
   'commandPalette:saveRecent': (actionId: string) => void
+  // Workspace
+  'workspace:list': () => Workspace[]
+  'workspace:create': (name: string, color: string) => Workspace
+  'workspace:update': (
+    id: string,
+    patch: { name?: string; color?: string; position?: number }
+  ) => Workspace
+  'workspace:delete': (id: string) => void
+  'workspace:switchTo': (id: string) => void
+  'workspace:getActive': () => Workspace | null
+  'workspace:reorder': (ids: string[]) => void
 }
 
 export type IpcChannel = keyof IpcContract
@@ -877,6 +908,7 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'bookmark:delete',
   'bookmark:rename',
   'bookmark:getList',
+  'bookmark:getListByWorkspace',
   'bookmark:search',
   'bookmark:import',
   'bookmark:export',
@@ -953,6 +985,7 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'window:minimize',
   'window:maximize',
   'window:close',
+  'window:setTrafficLightVisible',
   // Shell (download closure)
   'shell:showInFolder',
   'shell:openFile',
@@ -1004,6 +1037,14 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'commandPalette:getData',
   'commandPalette:execute',
   'commandPalette:saveRecent',
+  // Workspace
+  'workspace:list',
+  'workspace:create',
+  'workspace:update',
+  'workspace:delete',
+  'workspace:switchTo',
+  'workspace:getActive',
+  'workspace:reorder',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {

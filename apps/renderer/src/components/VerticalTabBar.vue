@@ -8,11 +8,22 @@
       <IconButton
         class="vtab-toggle"
         :icon="{ name: isExpanded ? 'ic:baseline-chevron-left' : 'ic:baseline-menu', size: 18 }"
-        :btn-size="28"
+        :btn-size="32"
+        :rounded="false"
         :title="isExpanded ? t('settings.tabBarCollapse') : t('settings.tabBarExpand')"
-        hover-variant="muted"
+        hover-variant="prominent"
+        variant="accent"
         @click="toggleExpand"
       />
+    </div>
+    <div
+      v-if="currentWorkspace"
+      class="vtab-workspace-btn"
+      :style="{ background: currentWorkspace.color }"
+      :title="currentWorkspace.name"
+      @click="openWorkspacePanel"
+    >
+      {{ currentWorkspace.name.charAt(0) }}
     </div>
     <div class="vtab-list">
       <template
@@ -51,7 +62,7 @@
               v-if="!showTabLoading(tab)"
               :url="tab.navigation.displayUrl"
               :favicon="tab.favicon"
-              :size="16"
+              :size="isExpanded ? 16 : 20"
             />
             <Spinner
               v-else
@@ -67,7 +78,7 @@
               class="vtab-close"
               :icon="{ name: 'ic:sharp-close', size: 14 }"
               :btn-size="18"
-              hover-variant="muted"
+              hover-variant="prominent"
               @click.stop="closeTab(tab.id)"
             />
           </template>
@@ -126,6 +137,10 @@ const dragOverTabId = ref<string | null>(null)
 // 是否存在固定（pinned）标签：分隔线仅在固定区与非固定区之间显示
 const hasPinned = computed(() => tabs.value.some(t => t.isPinned))
 
+// --- 工作区按钮 ---
+const currentWorkspace = ref<{ id: string, name: string, color: string } | null>(null)
+let workspacePopover: Popover | null = null
+
 // Hover popover state
 let hoverDelayTimer: ReturnType<typeof setTimeout> | null = null
 let hoverLeaveTimer: ReturnType<typeof setTimeout> | null = null
@@ -133,8 +148,9 @@ let hoverPopover: Popover | null = null
 let hoverPopoverTabId: string | null = null
 
 function isFirstUnpinned(tab: TabState): boolean {
-  if (tab.isPinned)
+  if (tab.isPinned) {
     return false
+  }
   const idx = tabs.value.findIndex(t => t.id === tab.id)
   return tabs.value.findIndex(t => !t.isPinned) === idx
 }
@@ -156,14 +172,21 @@ function createNewTab(): void {
 function toggleExpand(): void {
   isExpanded.value = !isExpanded.value
   console.debug('[VerticalTabBar] toggleExpand: expanded', isExpanded.value)
+  // 持久化折叠状态
+  void window.browserAPI.setSetting({ key: 'tabBarCollapsed', value: !isExpanded.value })
+  // macOS 展开时显示交通灯，折叠时隐藏
+  if (isMacOS) {
+    void window.browserAPI.setTrafficLightVisible(isExpanded.value)
+  }
   // 通知 Viewport 在展开/收起动画期间逐帧同步 WebContentsView 边界，避免遮挡
   window.dispatchEvent(new Event('vtab:resizing'))
 }
 
 // 宽度过渡结束：通知 Viewport 停止逐帧同步并做最终对齐
 function onBarTransitionEnd(event: TransitionEvent): void {
-  if (event.propertyName !== 'width')
+  if (event.propertyName !== 'width') {
     return
+  }
   window.dispatchEvent(new Event('vtab:resize-end'))
 }
 
@@ -234,8 +257,9 @@ function runTabAction(id: string, tab: TabState): void {
 
 // --- Hover thumbnail popover ---
 function onTabEnter(event: MouseEvent, tab: TabState): void {
-  if (tab.active || tab.isPinned)
+  if (tab.active || tab.isPinned) {
     return
+  }
   cancelHoverLeave()
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   hoverDelayTimer = setTimeout(() => {
@@ -266,8 +290,9 @@ function onTabEnter(event: MouseEvent, tab: TabState): void {
     if (!thumbnailCache.has(tab.id)) {
       void window.browserAPI.captureThumbnail(tab.id).then((dataUrl: string | null) => {
         if (hoverPopoverTabId === tab.id) {
-          if (dataUrl)
+          if (dataUrl) {
             thumbnailCache.set(tab.id, dataUrl)
+          }
           hoverPopover?.sendData({ ...data, src: dataUrl, loading: false })
         }
       })
@@ -306,15 +331,17 @@ function closeHoverPopover(): void {
 
 // --- Drag & drop ---
 function onDragStart(event: DragEvent, tab: TabState): void {
-  if (!event.dataTransfer)
+  if (!event.dataTransfer) {
     return
+  }
   event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('text/plain', tab.id)
 }
 
 function onDragOver(event: DragEvent, tab: TabState): void {
-  if (!event.dataTransfer)
+  if (!event.dataTransfer) {
     return
+  }
   dragOverTabId.value = tab.id
 }
 
@@ -323,15 +350,18 @@ function onDragLeave(): void {
 }
 
 function onDrop(event: DragEvent, targetTab: TabState): void {
-  if (!event.dataTransfer)
+  if (!event.dataTransfer) {
     return
+  }
   const srcId = event.dataTransfer.getData('text/plain')
-  if (!srcId || srcId === targetTab.id)
+  if (!srcId || srcId === targetTab.id) {
     return
+  }
   const srcIdx = tabs.value.findIndex(t => t.id === srcId)
   const targetIdx = tabs.value.findIndex(t => t.id === targetTab.id)
-  if (srcIdx < 0 || targetIdx < 0)
+  if (srcIdx < 0 || targetIdx < 0) {
     return
+  }
   const [moved] = tabs.value.splice(srcIdx, 1)
   tabs.value.splice(targetIdx, 0, moved)
   applyOrder()
@@ -342,18 +372,56 @@ function onDragEnd(): void {
   dragOverTabId.value = null
 }
 
+async function openWorkspacePanel(e: MouseEvent): Promise<void> {
+  const rect = (e.target as HTMLElement).getBoundingClientRect()
+  workspacePopover?.close()
+  const workspaces = await window.browserAPI.listWorkspaces()
+  const active = await window.browserAPI.getActiveWorkspace()
+  workspacePopover = new Popover({
+    type: 'workspace',
+    anchor: { type: 'rect', rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, placement: 'right-start' },
+    data: { workspaces, activeId: active?.id ?? '' },
+    gap: 8,
+    onEvent: (event) => {
+      if (event.name === 'switched') {
+        workspacePopover?.close()
+      }
+    },
+    onDismiss: () => { workspacePopover = null },
+  })
+}
+
 // --- Lifecycle ---
-onMounted(() => {
+onMounted(async () => {
   setup()
   void loadTabs().then(applyOrder)
+  // 读取持久化的折叠状态
+  const collapsed = await window.browserAPI.getSetting('tabBarCollapsed')
+  if (typeof collapsed === 'boolean') {
+    isExpanded.value = !collapsed
+  }
+  // macOS 初始时按折叠状态同步交通灯
+  if (isMacOS) {
+    void window.browserAPI.setTrafficLightVisible(isExpanded.value)
+  }
+  // 工作区状态
+  const ws = await window.browserAPI.getActiveWorkspace()
+  if (ws) {
+    currentWorkspace.value = ws
+  }
+  window.browserAPI.onWorkspaceSwitched((ws) => {
+    currentWorkspace.value = ws
+  })
 })
 
 onUnmounted(() => {
   cleanup()
-  if (hoverDelayTimer)
+  if (hoverDelayTimer) {
     clearTimeout(hoverDelayTimer)
-  if (hoverLeaveTimer)
+  }
+  if (hoverLeaveTimer) {
     clearTimeout(hoverLeaveTimer)
+  }
   hoverPopover?.close()
 })
 </script>
@@ -371,9 +439,12 @@ onUnmounted(() => {
   user-select: none;
 
   &.mac-os {
-    padding-top: 28px;
-    /* macOS 无系统标题栏：整条垂直标签栏作为窗口拖拽区（交互元素用 no-drag 排除） */
+    /* macOS 无系统标题栏：展开时顶部留交通灯空间 */
     -webkit-app-region: drag;
+
+    &.vertical-tab-bar--expanded {
+      padding-top: 28px;
+    }
   }
 
   &--expanded {
@@ -395,14 +466,38 @@ onUnmounted(() => {
 .vtab-header {
   display: flex;
   align-items: center;
-  height: 32px;
-  padding: 0 4px;
+  padding: 4px 4px 0;
   flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
 
 .vtab-toggle {
+  margin: 0 auto 8px;
+}
+
+.vtab-workspace-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+  border-radius: 8px;
+  background: var(--accent-color);
   margin: 0 auto;
+
+  &:hover {
+    opacity: 0.85;
+  }
+}
+
+.vtab-toggle {
+  margin: 0 auto 8px;
 }
 
 .vtab-item {
@@ -455,6 +550,11 @@ onUnmounted(() => {
   justify-content: center;
   width: 16px;
   height: 16px;
+
+  .vertical-tab-bar:not(.vertical-tab-bar--expanded) & {
+    width: 20px;
+    height: 20px;
+  }
 }
 
 .vtab-title {

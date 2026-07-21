@@ -114,8 +114,9 @@ function buildTree(items: BookmarkItem[]): TreeNode[] {
 }
 
 function handleToggle(node: TreeNode) {
-  if (!node.isFolder)
+  if (!node.isFolder) {
     return
+  }
   const id = node.id
   console.debug('[BookmarkView] handleToggle: id', id)
   if (expandedFolders.value.has(id)) {
@@ -136,8 +137,9 @@ async function handleAddBookmark() {
       { key: 'url', label: t('bookmark.labelUrl'), placeholder: t('bookmark.promptUrl') },
     ],
   })
-  if (!result)
+  if (!result) {
     return
+  }
   const url = result.url || null
   console.debug('[BookmarkView] handleAddBookmark: title url', result.title, url)
   await window.browserAPI.addBookmark({ title: result.title, url })
@@ -154,8 +156,9 @@ async function handleAddChild(parentNode: TreeNode | BookmarkItem) {
       { key: 'url', label: t('bookmark.labelUrl'), placeholder: t('bookmark.promptUrl') },
     ],
   })
-  if (!result)
+  if (!result) {
     return
+  }
   const options: BookmarkCreateOptions = {
     title: result.title,
     url: result.url || null,
@@ -179,8 +182,9 @@ async function handleRename(item: BookmarkItem) {
     placeholder: t('bookmark.promptNewTitle'),
     defaultValue: item.title,
   })
-  if (!newTitle)
+  if (!newTitle) {
     return
+  }
   console.debug('[BookmarkView] handleRename: id newTitle', item.id, newTitle)
   await window.browserAPI.renameBookmark({ id: item.id, title: newTitle })
   await load()
@@ -193,8 +197,9 @@ async function handleDelete(item: BookmarkItem) {
     positiveText: t('bookmark.delete'),
     negativeText: t('bookmark.cancel'),
   })
-  if (!ok)
+  if (!ok) {
     return
+  }
   console.debug('[BookmarkView] handleDelete: id', item.id)
   await window.browserAPI.deleteBookmark(item.id)
   await load()

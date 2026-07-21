@@ -89,6 +89,7 @@ export interface Message {
       page: string
       window: string
       recent: string
+      workspace: string
     }
     actions: {
       newTab: string
@@ -125,6 +126,8 @@ export interface Message {
       openFiles: string
       newWindow: string
       newIncognitoWindow: string
+      switchWorkspace: string
+      createWorkspace: string
     }
   }
   reader: {
@@ -384,6 +387,16 @@ export interface Message {
     scopeGlobal: string
     emptyGlobal: string
   }
+  workspace: {
+    new: string
+    rename: string
+    delete: string
+    deleteConfirm: string
+    switch: string
+    tabs: string
+    namePlaceholder: string
+    changeColor: string
+  }
   files: {
     systemDirs: string
     bookmarks: string
@@ -458,6 +471,10 @@ export interface I18nParams {
   'files.itemCount': { count: number | string }
   'files.totalCount': { count: number | string }
   'files.selectedCount': { count: number | string }
+  'commandPalette.actions.switchWorkspace': { name: string }
+  'workspace.deleteConfirm': { name: string }
+  'workspace.switch': { name: string }
+  'workspace.tabs': { count: number | string }
 }
 
 export const messages: Record<string, Message> = {
@@ -545,6 +562,7 @@ export const messages: Record<string, Message> = {
         page: '页面',
         window: '窗口',
         recent: '最近使用',
+        workspace: '工作区',
       },
       actions: {
         newTab: '新建标签页',
@@ -581,6 +599,8 @@ export const messages: Record<string, Message> = {
         openFiles: '打开文件管理',
         newWindow: '新建窗口',
         newIncognitoWindow: '新建无痕窗口',
+        switchWorkspace: '切换到 {name}',
+        createWorkspace: '新建工作区',
       },
     },
     reader: {
@@ -841,6 +861,16 @@ export const messages: Record<string, Message> = {
       host: '主机',
       error: '错误',
     },
+    workspace: {
+      new: '新建 Space',
+      rename: '重命名',
+      delete: '删除工作区',
+      deleteConfirm: '确定删除工作区「{name}」？该工作区的标签页将被关闭。',
+      switch: '切换到 {name}',
+      tabs: '{count} 个标签',
+      namePlaceholder: '工作区名称',
+      changeColor: '更改颜色',
+    },
     files: {
       systemDirs: '系统目录',
       bookmarks: '文件书签',
@@ -967,6 +997,7 @@ export const messages: Record<string, Message> = {
         page: 'Page',
         window: 'Window',
         recent: 'Recent',
+        workspace: 'Workspace',
       },
       actions: {
         newTab: 'New Tab',
@@ -1003,6 +1034,8 @@ export const messages: Record<string, Message> = {
         openFiles: 'Open Files',
         newWindow: 'New Window',
         newIncognitoWindow: 'New Incognito Window',
+        switchWorkspace: 'Switch to {name}',
+        createWorkspace: 'New Workspace',
       },
     },
     reader: {
@@ -1264,6 +1297,16 @@ export const messages: Record<string, Message> = {
       trustAlways: 'Always trust this site',
       host: 'Host',
       error: 'Error',
+    },
+    workspace: {
+      new: 'New Space',
+      rename: 'Rename',
+      delete: 'Delete workspace',
+      deleteConfirm: 'Delete workspace "{name}"? Tabs in this workspace will be closed.',
+      switch: 'Switch to {name}',
+      tabs: '{count} tabs',
+      namePlaceholder: 'Workspace name',
+      changeColor: 'Change color',
     },
     files: {
       systemDirs: 'System Directories',

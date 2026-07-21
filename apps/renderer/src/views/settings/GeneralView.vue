@@ -196,15 +196,17 @@ const setting = ref(false)
 const failedTip = ref(false)
 
 async function makeDefault(): Promise<void> {
-  if (isDefaultBrowser.value || setting.value)
+  if (isDefaultBrowser.value || setting.value) {
     return
+  }
   setting.value = true
   failedTip.value = false
   try {
     const res = await window.browserAPI.setDefaultBrowser()
     isDefaultBrowser.value = res.success
-    if (!res.success)
+    if (!res.success) {
       failedTip.value = true
+    }
   }
   catch (err) {
     console.error('[Settings/General] Failed to set default browser:', err)

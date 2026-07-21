@@ -15,6 +15,7 @@ import type {
   TabState,
   ThemeMode,
   UpdaterStatus,
+  Workspace,
 } from '@browser/ipc-contract'
 
 declare global {
@@ -83,6 +84,7 @@ declare global {
       searchBookmarks: IpcInvoke['bookmark:search']
       importBookmarks: IpcInvoke['bookmark:import']
       exportBookmarks: IpcInvoke['bookmark:export']
+      getBookmarksByWorkspace: IpcInvoke['bookmark:getListByWorkspace']
       // Password manager
       getPasswords: IpcInvoke['password:list']
       searchPasswords: IpcInvoke['password:search']
@@ -179,6 +181,7 @@ declare global {
       maximizeWindow: IpcInvoke['window:maximize']
       closeWindow: IpcInvoke['window:close']
       createNewWindow: IpcInvoke['window:new']
+      setTrafficLightVisible: IpcInvoke['window:setTrafficLightVisible']
       getWindowInfo: IpcInvoke['window:getInfo']
       // Subscription
       getSubscriptions: () => Promise<
@@ -286,6 +289,18 @@ declare global {
       dragBookmarkStart?: (bookmarkId: string) => void
       dragBookmarkDrop?: (opts: { targetParentId?: string | null; targetPosition: number }) => void
       getDragBookmarkId?: () => Promise<string | null>
+      // Workspace
+      listWorkspaces: () => Promise<Workspace[]>
+      createWorkspace: (name: string, color: string) => Promise<Workspace>
+      updateWorkspace: (
+        id: string,
+        patch: { name?: string; color?: string; position?: number }
+      ) => Promise<Workspace>
+      deleteWorkspace: (id: string) => Promise<void>
+      switchWorkspace: (id: string) => Promise<void>
+      getActiveWorkspace: () => Promise<Workspace | null>
+      reorderWorkspaces: (ids: string[]) => Promise<void>
+      onWorkspaceSwitched: (handler: (workspace: Workspace) => void) => () => void
     }
   }
 }

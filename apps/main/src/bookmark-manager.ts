@@ -96,6 +96,13 @@ export class BookmarkManager {
     return items
   }
 
+  listByWorkspace(parentId?: string | null, workspaceId?: string | null): BookmarkItemDto[] {
+    console.debug('[BookmarkManager] listByWorkspace: parentId workspaceId', parentId, workspaceId)
+    const items = this.repo.getListByWorkspace(parentId, workspaceId).map(toDto)
+    console.debug('[BookmarkManager] listByWorkspace: result count', items.length)
+    return items
+  }
+
   search(query: string): BookmarkItemDto[] {
     console.debug('[BookmarkManager] search: query', query)
     const items = this.repo.search(query).map(toDto)

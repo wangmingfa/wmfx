@@ -89,10 +89,12 @@ const versionText = computed(() =>
 // 状态图标：最新/无更新显示勾；检查中/下载中显示转圈；有新版本未下载显示下载
 const icon = computed<'check' | 'download' | 'loading'>(() => {
   const s = status.value.state
-  if (s === 'checking' || s === 'downloading')
+  if (s === 'checking' || s === 'downloading') {
     return 'loading'
-  if (s === 'available')
+  }
+  if (s === 'available') {
     return 'download'
+  }
   return 'check'
 })
 

@@ -37,6 +37,7 @@ interface SettingsSchema {
   adBlockAllowlist: string[]
   forceDark: boolean
   tabBarPosition: 'top' | 'left'
+  tabBarCollapsed: boolean
   interceptorEnabled: boolean
   interceptorRules: InterceptorRule[]
   commandPaletteRecentActions: string[]
@@ -69,6 +70,7 @@ export const defaultSettings: SettingsSchema = {
   adBlockAllowlist: [],
   forceDark: true,
   tabBarPosition: 'top',
+  tabBarCollapsed: false,
   interceptorEnabled: false,
   interceptorRules: [],
   commandPaletteRecentActions: [],
@@ -281,6 +283,10 @@ export class SettingsManager {
         if (['top', 'left'].includes(value as string)) return value as SettingsSchema[K]
         return defaultSettings.tabBarPosition as SettingsSchema[K]
       }
+      case 'tabBarCollapsed':
+        return typeof value === 'boolean'
+          ? (value as SettingsSchema[K])
+          : (defaultSettings.tabBarCollapsed as SettingsSchema[K])
       case 'interceptorEnabled':
         return typeof value === 'boolean'
           ? (value as SettingsSchema[K])

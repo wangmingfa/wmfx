@@ -97,8 +97,9 @@ const rootRef = ref<HTMLUListElement | null>(null)
  * 箭头图标始终指向右边（mdi:chevron-right）。
  */
 const submenuSide = computed<'left' | 'right'>(() => {
-  if (!rootRef.value)
+  if (!rootRef.value) {
     return 'right'
+  }
   const rect = rootRef.value.getBoundingClientRect()
   const rightSpace = window.innerWidth - rect.right
   const leftSpace = rect.left

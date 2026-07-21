@@ -128,8 +128,9 @@ async function loadSubscriptions(): Promise<void> {
 }
 
 async function addSubscription(): Promise<void> {
-  if (!newSubUrl.value || !newSubName.value)
+  if (!newSubUrl.value || !newSubName.value) {
     return
+  }
   console.debug('[SubscriptionView] addSubscription: name', newSubName.value)
   adding.value = true
   addError.value = ''
@@ -173,8 +174,9 @@ async function deactivateSubscription(id: string): Promise<void> {
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes === 0)
+  if (bytes === 0) {
     return '0 B'
+  }
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
@@ -182,8 +184,9 @@ function formatBytes(bytes: number): string {
 }
 
 function formatDate(ts: number): string {
-  if (ts === 0)
+  if (ts === 0) {
     return t('proxy.notAvailable')
+  }
   return new Date(ts * 1000).toLocaleDateString()
 }
 

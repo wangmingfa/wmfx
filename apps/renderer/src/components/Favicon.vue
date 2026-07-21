@@ -76,10 +76,12 @@ const internalIconName = computed(() => {
 
 const resolvedColor = computed(() => {
   const c = props.color
-  if (!c)
+  if (!c) {
     return undefined
-  if (typeof c === 'string')
+  }
+  if (typeof c === 'string') {
     return c
+  }
   return theme.value === 'dark' ? c.dark : c.light
 })
 

@@ -18,15 +18,17 @@ const MARGIN = 4
 export function computeBoxPosition(
   anchor: PopoverAnchor,
   size: BoxSize,
-  win: { width: number; height: number }
+  win: { width: number; height: number },
+  gap = 0
 ): Point {
   console.debug(
-    '[Position] computeBoxPosition: anchorType sizex%d winx%d',
+    '[Position] computeBoxPosition: anchorType=%s sizex%d winx%d gap=%d',
     anchor.type,
     size.width,
     size.height,
     win.width,
-    win.height
+    win.height,
+    gap
   )
   let refLeft = 0
   let refTop = 0
@@ -51,16 +53,16 @@ export function computeBoxPosition(
   let left = 0
   let top = 0
   if (v === 'bottom') {
-    top = refBottom
+    top = refBottom + gap
     left = h === 'end' ? refRight - size.width : refLeft
   } else if (v === 'top') {
-    top = refTop - size.height
+    top = refTop - size.height - gap
     left = h === 'end' ? refRight - size.width : refLeft
   } else if (v === 'right') {
-    left = refRight
+    left = refRight + gap
     top = h === 'end' ? refBottom - size.height : refTop
   } else {
-    left = refLeft - size.width
+    left = refLeft - size.width - gap
     top = h === 'end' ? refBottom - size.height : refTop
   }
 

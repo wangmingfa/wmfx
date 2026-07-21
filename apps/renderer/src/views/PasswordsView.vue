@@ -164,8 +164,9 @@ async function loadAll(): Promise<void> {
 }
 
 async function debouncedSearch(): Promise<void> {
-  if (searchTimer)
+  if (searchTimer) {
     clearTimeout(searchTimer)
+  }
   searchTimer = setTimeout(async () => {
     console.debug('[Passwords] search: query', searchQuery.value)
     passwords.value = await window.browserAPI.searchPasswords({ query: searchQuery.value })
@@ -212,8 +213,9 @@ async function save(): Promise<void> {
 async function remove(item: PasswordEntry): Promise<void> {
   console.debug('[Passwords] remove: id', item.id)
   // eslint-disable-next-line no-alert
-  if (!confirm(t('passwords.deleteConfirm', { domain: item.domain })))
+  if (!confirm(t('passwords.deleteConfirm', { domain: item.domain }))) {
     return
+  }
   await window.browserAPI.deletePassword(item.id)
   revealed.value.delete(item.id)
   await loadAll()
@@ -222,9 +224,12 @@ async function remove(item: PasswordEntry): Promise<void> {
 function toggleReveal(item: PasswordEntry): void {
   console.debug('[Passwords] toggleReveal: id', item.id)
   const next = new Set(revealed.value)
-  if (next.has(item.id))
+  if (next.has(item.id)) {
     next.delete(item.id)
-  else next.add(item.id)
+  }
+  else {
+    next.add(item.id)
+  }
   revealed.value = next
 }
 
@@ -245,8 +250,9 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (searchTimer)
+  if (searchTimer) {
     clearTimeout(searchTimer)
+  }
   // onPasswordsChanged 通过 ipcRenderer.on 注册，卸载时无需手动移除（renderer 进程单例 contextBridge 会随视图销毁回收）
 })
 </script>

@@ -52,6 +52,9 @@ export class TabManager {
   private closedTabs: ClosedTabInfo[] = []
   private static readonly MAX_CLOSED_TABS = 20
 
+  /** 当前关联的 workspaceId（默认 'default'，切换工作区时更新） */
+  private workspaceId: string = 'default'
+
   constructor(
     private window: BrowserWindow,
     private getSession: (name: string) => Session,
@@ -65,6 +68,15 @@ export class TabManager {
     this.windowId = window.id.toString()
     window.on('close', () => this.destroy())
     this.suspendTimer = setInterval(() => this.checkSuspendTabs(), 60_000)
+  }
+
+  /** 切换 workspace 时更新关联的 workspaceId */
+  setWorkspaceId(id: string): void {
+    this.workspaceId = id
+  }
+
+  getWorkspaceId(): string {
+    return this.workspaceId
   }
 
   create(opts?: CreateTabOptions): TabState {

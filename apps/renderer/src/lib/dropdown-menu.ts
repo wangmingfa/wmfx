@@ -43,16 +43,16 @@ export class DropdownMenu {
       anchor: opts.anchor,
       mode: opts.mode,
       data: opts.descriptor,
-      onEvent: (eventName, eventData) => {
-        if (eventName === 'select' && typeof eventData === 'string') {
-          const menu = this.findMenuItem(this.descriptor.items, eventData)
+      onEvent: (event) => {
+        if (event.name === 'select' && typeof event.data === 'string') {
+          const menu = this.findMenuItem(this.descriptor.items, event.data)
           if (menu) {
             console.debug('[DropdownMenu] select: id', menu.id)
             const result = this.onAction({ menu, context: { close: () => this.close() } })
             // 返回 false 表示保持打开；其它情况自动关闭
             if (result !== false) this.close()
           } else {
-            console.warn('[DropdownMenu] select: unknown menu id', eventData)
+            console.warn('[DropdownMenu] select: unknown menu id', event.data)
           }
         }
       },

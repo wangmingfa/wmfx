@@ -581,6 +581,17 @@ export function registerIpcHandlers(): void {
     return inst.bookmarkManager.getList(parentId)
   })
 
+  handle('bookmark:getListByWorkspace', (event, parentId) => {
+    console.debug('[IPC] bookmark:getListByWorkspace: parentId', parentId)
+    const inst = getInstance(event)
+    if (!inst) {
+      console.debug('[IPC] bookmark:getListByWorkspace: no instance')
+      return []
+    }
+    const wsId = inst.workspaceManager.getActiveId()
+    return inst.bookmarkManager.listByWorkspace(parentId, wsId)
+  })
+
   handle('bookmark:search', (event, opts) => {
     console.debug('[IPC] bookmark:search: query', opts?.query)
     const inst = getInstance(event)
@@ -792,6 +803,56 @@ export function registerIpcHandlers(): void {
     console.debug('[IPC] password:delete: id', id)
     passwordManager.delete(id)
     notifyPasswordsChanged()
+  })
+
+  // --- Workspace ---
+  handle('workspace:list', (event) => {
+    console.debug('[IPC] workspace:list')
+    const inst = getInstance(event)
+    if (!inst) return [] as ReturnType<IpcContract['workspace:list']>
+    return inst.workspaceManager.list()
+  })
+
+  handle('workspace:create', (event, name, color) => {
+    console.debug('[IPC] workspace:create: name=%s color=%s', name, color)
+    const inst = getInstance(event)
+    if (!inst) return {} as ReturnType<IpcContract['workspace:create']>
+    return inst.workspaceManager.create(name, color)
+  })
+
+  handle('workspace:update', (event, id, patch) => {
+    console.debug('[IPC] workspace:update: id=%s', id)
+    const inst = getInstance(event)
+    if (!inst) return {} as ReturnType<IpcContract['workspace:update']>
+    return inst.workspaceManager.update(id, patch)
+  })
+
+  handle('workspace:delete', (event, id) => {
+    console.debug('[IPC] workspace:delete: id=%s', id)
+    const inst = getInstance(event)
+    if (!inst) return
+    inst.workspaceManager.delete(id)
+  })
+
+  handle('workspace:switchTo', (event, id) => {
+    console.info('[IPC] workspace:switchTo: id=%s', id)
+    const inst = getInstance(event)
+    if (!inst) return
+    inst.workspaceManager.switchTo(id)
+  })
+
+  handle('workspace:getActive', (event) => {
+    console.debug('[IPC] workspace:getActive')
+    const inst = getInstance(event)
+    if (!inst) return null
+    return inst.workspaceManager.getActive()
+  })
+
+  handle('workspace:reorder', (event, ids) => {
+    console.debug('[IPC] workspace:reorder: ids=%d', ids.length)
+    const inst = getInstance(event)
+    if (!inst) return
+    inst.workspaceManager.reorder(ids)
   })
 
   handle('theme:get', () => {
@@ -1301,6 +1362,17 @@ export function registerIpcHandlers(): void {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win) win.close()
     else console.debug('[IPC] window:close: no window')
+  })
+
+  handle('window:setTrafficLightVisible', (event, visible) => {
+    console.debug('[IPC] window:setTrafficLightVisible: visible', visible)
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    if (visible) {
+      win.setWindowButtonPosition({ x: 12, y: 11 })
+    } else {
+      win.setWindowButtonPosition({ x: -100, y: -100 })
+    }
   })
 
   // Shell — 下载闭环

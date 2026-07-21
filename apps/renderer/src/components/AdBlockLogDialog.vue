@@ -61,8 +61,9 @@ const keyword = ref('')
 
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
-  if (!kw)
+  if (!kw) {
     return logs.value
+  }
   return logs.value.filter(r => r.url.toLowerCase().includes(kw) || r.host.toLowerCase().includes(kw))
 })
 
@@ -85,8 +86,9 @@ async function load(): Promise<void> {
 
 // 每次打开时拉取最新拦截历史
 watch(toRef(props, 'show'), (open) => {
-  if (open)
+  if (open) {
     void load()
+  }
 })
 </script>
 

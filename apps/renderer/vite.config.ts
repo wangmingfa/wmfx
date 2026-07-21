@@ -2,7 +2,7 @@ import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { codeInspectorPlugin } from 'code-inspector-plugin'
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import {
   isInstrumentEnabled,
   REPO_ROOT,
@@ -15,14 +15,7 @@ const sourcePlugins = devInstr
   ? [sourceLocationEsbuildPlugin(REPO_ROOT), sourceLocationVuePlugin(REPO_ROOT)]
   : []
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
-  if (!env.VITE_DEV_PORT) {
-    console.error('[vite] VITE_DEV_PORT 未在 .env 文件中配置，请在 .env.local 中设置')
-    process.exit(1)
-  }
-  const devPort = parseInt(env.VITE_DEV_PORT, 10)
-
+export default defineConfig(() => {
   return {
     plugins: [
       vue(),
@@ -43,9 +36,6 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       emptyOutDir: true,
     },
-    server: {
-      port: devPort,
-      strictPort: true,
-    },
+    server: { port: Number(process.env.VITE_DEV_PORT), strictPort: true },
   }
 })

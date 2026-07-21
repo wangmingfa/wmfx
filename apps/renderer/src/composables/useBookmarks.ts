@@ -18,8 +18,10 @@ let registered = false
 
 export function useBookmarks() {
   async function load(): Promise<void> {
-    bookmarks.value = await window.browserAPI.getBookmarks(null)
-    console.debug('[useBookmarks] load: count', bookmarks.value.length)
+    const ws = await window.browserAPI.getActiveWorkspace()
+    const wsId = ws?.id ?? null
+    bookmarks.value = await window.browserAPI.getBookmarksByWorkspace(null)
+    console.debug('[useBookmarks] load: workspaceId=%s count', wsId, bookmarks.value.length)
   }
 
   function reload(): void {
@@ -38,8 +40,11 @@ export function useBookmarks() {
 
   if (!registered) {
     registered = true
-    console.debug('[useBookmarks] register: onBookmarksChanged listener attached')
+    console.debug(
+      '[useBookmarks] register: onBookmarksChanged + onWorkspaceSwitched listeners attached'
+    )
     window.browserAPI.onBookmarksChanged(() => reload())
+    window.browserAPI.onWorkspaceSwitched(() => reload())
   }
 
   return { bookmarks, byParent, load, reload, moveBookmark }

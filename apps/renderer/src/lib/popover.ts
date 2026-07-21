@@ -5,14 +5,29 @@ import type {
   PopoverType,
 } from '@browser/ipc-contract'
 
+/** Popover 面板事件，合并 eventName + eventData 为单个对象 */
+export interface PopoverEvent {
+  name: string
+  data?: unknown
+}
+
 /** popoverId → onEvent callback，用于路由面板事件到对应的 Popover 实例 */
-const eventMap = new Map<string, (eventName: string, eventData?: unknown) => void>()
+const eventMap = new Map<string, (event: PopoverEvent, context?: { close: () => void }) => void>()
 /** popoverId → onDismiss callback，面板被外部关闭时通知 Popover 实例 */
 const dismissCallbacks = new Map<string, () => void>()
+/** popoverId → close 函数，供 onEvent context.close 使用 */
+const closeRegistry = new Map<string, () => void>()
 
 window.browserAPI.onPopoverEvent((payload) => {
   console.debug('[Popover] onPopoverEvent: popoverId event', payload.popoverId, payload.eventName)
-  eventMap.get(payload.popoverId)?.(payload.eventName, payload.eventData)
+  const handler = eventMap.get(payload.popoverId)
+  if (handler) {
+    const closeFn = closeRegistry.get(payload.popoverId)
+    handler(
+      { name: payload.eventName, data: payload.eventData },
+      closeFn ? { close: closeFn } : undefined
+    )
+  }
 })
 
 window.browserAPI.onPopoverDismiss((popoverId) => {
@@ -40,7 +55,9 @@ export interface PopoverOptions {
   backdrop?: { color?: string; blur?: number }
   /** 点击遮罩是否关闭面板（默认 true）；设为 false 时点击遮罩不触发关闭 */
   closeOnBackdrop?: boolean
-  onEvent?: (eventName: string, eventData?: unknown) => void
+  /** 面板与触发按钮之间的间距（px） */
+  gap?: number
+  onEvent?: (event: PopoverEvent, context?: { close: () => void }) => void
   onDismiss?: () => void
   autoOpen?: boolean
 }
@@ -68,6 +85,7 @@ export class Popover {
     if (this.opts.onEvent) {
       eventMap.set(this.popoverId, this.opts.onEvent)
     }
+    closeRegistry.set(this.popoverId, () => this.close())
     const options: PopoverOpenOptions = {
       type: this.opts.type,
       anchor: this.opts.anchor,
@@ -77,6 +95,7 @@ export class Popover {
       persistent: this.opts.persistent,
       backdrop: this.opts.backdrop,
       closeOnBackdrop: this.opts.closeOnBackdrop,
+      gap: this.opts.gap,
     }
     void window.browserAPI.popoverOpen(this.popoverId, options)
     this.opened = true
@@ -99,6 +118,7 @@ export class Popover {
       persistent: this.opts.persistent,
       backdrop: this.opts.backdrop,
       closeOnBackdrop: this.opts.closeOnBackdrop,
+      gap: this.opts.gap,
     })
     this.opened = true
   }
@@ -108,6 +128,7 @@ export class Popover {
     console.debug('[Popover] close: id', this.popoverId)
     eventMap.delete(this.popoverId)
     dismissCallbacks.delete(this.popoverId)
+    closeRegistry.delete(this.popoverId)
     void window.browserAPI.popoverClose(this.popoverId)
     this.opened = false
   }

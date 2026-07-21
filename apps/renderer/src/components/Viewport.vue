@@ -20,8 +20,9 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let rafSyncId: number | null = null
 
 function sendBounds(): void {
-  if (!viewportRef.value)
+  if (!viewportRef.value) {
     return
+  }
   const rect = viewportRef.value.getBoundingClientRect()
   console.debug('[Viewport] sendBounds: tabId x y w h', props.tabId, rect.left, rect.top, rect.width, rect.height)
   window.browserAPI.setViewportBounds(props.tabId, {
@@ -34,8 +35,9 @@ function sendBounds(): void {
 
 // 动画期间逐帧把边界推给主进程，与标签栏宽度动画保持同步（消除遮挡）
 function startRafSync(): void {
-  if (rafSyncId !== null)
+  if (rafSyncId !== null) {
     return
+  }
   const tick = (): void => {
     sendBounds()
     rafSyncId = requestAnimationFrame(tick)
@@ -73,8 +75,9 @@ watch(
 onMounted(() => {
   console.debug('[Viewport] onMounted: tabId', props.tabId)
   resizeObserver = new ResizeObserver(() => {
-    if (debounceTimer)
+    if (debounceTimer) {
       clearTimeout(debounceTimer)
+    }
     debounceTimer = setTimeout(sendBounds, 30)
   })
   resizeObserver.observe(viewportRef.value!)

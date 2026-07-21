@@ -106,8 +106,9 @@ const groupedDownloads = computed<GroupedDownloads>(() => {
   const groups: GroupedDownloads = {}
   for (const item of downloads.value) {
     const dayKey = new Date(item.createdAt).toISOString().slice(0, 10)
-    if (!groups[dayKey])
+    if (!groups[dayKey]) {
       groups[dayKey] = []
+    }
     groups[dayKey].push(item)
   }
   return groups
@@ -166,10 +167,12 @@ function dayLabel(dateStr: string | number): string {
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
   const dayMs = date.getTime()
-  if (dayMs >= today.getTime())
+  if (dayMs >= today.getTime()) {
     return t('downloads.today')
-  if (dayMs >= yesterday.getTime())
+  }
+  if (dayMs >= yesterday.getTime()) {
     return t('downloads.yesterday')
+  }
   return t('downloads.earlier')
 }
 

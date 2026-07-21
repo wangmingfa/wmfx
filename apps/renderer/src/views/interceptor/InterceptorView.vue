@@ -457,8 +457,9 @@ const statusText = computed(() => `已捕获 ${requests.value.length} 条请求`
 const selectedRequest = computed(() => requests.value.find(r => r.id === selectedId.value) ?? null)
 
 const isJsonValid = computed(() => {
-  if (!editForm.value.mockBody)
+  if (!editForm.value.mockBody) {
     return true
+  }
   try {
     JSON.parse(editForm.value.mockBody)
     return true
@@ -522,8 +523,9 @@ function methodClass(m: string): string {
 }
 
 function statusClass(code: number): string {
-  if (code === 0)
+  if (code === 0) {
     return 'status-error'
+  }
   return `status-${String(code)[0]}xx`
 }
 
@@ -545,9 +547,12 @@ function selectRequest(id: string): void {
 async function toggleCapture(): Promise<void> {
   capturing.value = !capturing.value
   await window.browserAPI.interceptorSetEnabled?.(capturing.value)
-  if (capturing.value)
+  if (capturing.value) {
     startPolling()
-  else stopPolling()
+  }
+  else {
+    stopPolling()
+  }
 }
 
 async function clearLog(): Promise<void> {
@@ -557,14 +562,16 @@ async function clearLog(): Promise<void> {
 
 async function fetchCaptured(): Promise<void> {
   const list = await window.browserAPI.interceptorGetCaptured?.({ limit: 500 })
-  if (list)
+  if (list) {
     requests.value = list
+  }
 }
 
 async function fetchRules(): Promise<void> {
   const list = await window.browserAPI.interceptorGetRules?.()
-  if (list)
+  if (list) {
     rules.value = list
+  }
 }
 
 function toggleRule(ruleId: string): void {
@@ -604,16 +611,22 @@ function cancelEdit(): void {
 
 function toggleMethod(m: HttpMethod): void {
   const idx = editForm.value.methods.indexOf(m)
-  if (idx >= 0)
+  if (idx >= 0) {
     editForm.value.methods.splice(idx, 1)
-  else editForm.value.methods.push(m)
+  }
+  else {
+    editForm.value.methods.push(m)
+  }
 }
 
 function toggleResourceType(t: ResourceType): void {
   const idx = editForm.value.resourceTypes.indexOf(t)
-  if (idx >= 0)
+  if (idx >= 0) {
     editForm.value.resourceTypes.splice(idx, 1)
-  else editForm.value.resourceTypes.push(t)
+  }
+  else {
+    editForm.value.resourceTypes.push(t)
+  }
 }
 
 async function saveRule(): Promise<void> {
@@ -622,8 +635,9 @@ async function saveRule(): Promise<void> {
     const headers: Record<string, string> = {}
     for (const line of mockHeadersText.value.split('\n')) {
       const idx = line.indexOf(':')
-      if (idx > 0)
+      if (idx > 0) {
         headers[line.slice(0, idx).trim()] = line.slice(idx + 1).trim()
+      }
     }
     editForm.value.mockHeaders = headers
   }
@@ -646,8 +660,9 @@ async function saveRule(): Promise<void> {
 }
 
 function startPolling(): void {
-  if (pollTimer)
+  if (pollTimer) {
     return
+  }
   pollTimer = setInterval(fetchCaptured, 1000)
 }
 
@@ -660,10 +675,12 @@ function stopPolling(): void {
 
 onMounted(async () => {
   const status = await window.browserAPI.interceptorGetStatus?.()
-  if (status)
+  if (status) {
     capturing.value = status.enabled
-  if (capturing.value)
+  }
+  if (capturing.value) {
     startPolling()
+  }
   await fetchCaptured()
   await fetchRules()
 })

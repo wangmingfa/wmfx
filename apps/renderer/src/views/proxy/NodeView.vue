@@ -136,8 +136,9 @@ async function loadProxies(): Promise<void> {
   }
   if (selectedGroup.value) {
     const g = proxies.value[selectedGroup.value]
-    if (g?.now)
+    if (g?.now) {
       selectedNode.value = g.now
+    }
   }
   console.debug('[NodeView] loadProxies: selectedGroup', selectedGroup.value)
 }
@@ -172,14 +173,17 @@ async function checkDelay(): Promise<void> {
   loading.value = true
   const results = await window.browserAPI.checkProxyDelay(selectedGroup.value)
   const map: Record<string, number> = {}
-  for (const r of results) map[r.nodeName] = r.delay
+  for (const r of results) {
+    map[r.nodeName] = r.delay
+  }
   delays.value = map
   loading.value = false
 }
 
 function formatDelay(d: number): string {
-  if (d < 0)
+  if (d < 0) {
     return t('proxy.timeout')
+  }
   return `${d}ms`
 }
 

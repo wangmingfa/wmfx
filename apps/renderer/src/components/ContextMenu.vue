@@ -83,10 +83,12 @@ onMounted(() => {
     const rect = el.getBoundingClientRect()
     let left = props.x
     let top = props.y
-    if (rect.right > window.innerWidth)
+    if (rect.right > window.innerWidth) {
       left = Math.max(8, window.innerWidth - rect.width - 8)
-    if (rect.bottom > window.innerHeight)
+    }
+    if (rect.bottom > window.innerHeight) {
       top = Math.max(8, window.innerHeight - rect.height - 8)
+    }
     rootStyle.value = {
       position: 'fixed',
       left: `${left}px`,
@@ -120,9 +122,7 @@ onBeforeUnmount(() => {
 }
 .context-menu-root {
   background: var(--bg-secondary);
-  border: 1px solid var(--bg-tertiary);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  padding: 4px 0;
 }
 </style>
