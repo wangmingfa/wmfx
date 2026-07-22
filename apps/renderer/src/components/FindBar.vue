@@ -92,21 +92,17 @@ function onPanelEvent(event: { name: string, data?: unknown }): void {
     s.query = event.data
     if (s.query) {
       window.browserAPI.startFind({ tabId, searchText: s.query })
-    }
-    else {
+    } else {
       window.browserAPI.endFind(tabId)
       s.matches = 0
       s.activeMatch = -1
       popover?.sendData(panelData(s))
     }
-  }
-  else if (event.name === 'find-next') {
+  } else if (event.name === 'find-next') {
     window.browserAPI.findNext({ tabId, forward: true })
-  }
-  else if (event.name === 'find-prev') {
+  } else if (event.name === 'find-prev') {
     window.browserAPI.findNext({ tabId, forward: false })
-  }
-  else if (event.name === 'close') {
+  } else if (event.name === 'close') {
     close(tabId)
   }
 }
@@ -123,8 +119,7 @@ function open(): void {
   focusNonce++
   if (!popover) {
     createPopover(s)
-  }
-  else {
+  } else {
     popover.reopen(computeAnchor(), panelData(s))
   }
   // 有历史关键字则重新触发查找以恢复高亮
@@ -185,15 +180,13 @@ watch(
       console.debug('[FindBar] watch activeTabId: restore visible tabId', tabId)
       if (!popover) {
         createPopover(s)
-      }
-      else {
+      } else {
         popover.reopen(computeAnchor(), panelData(s))
       }
       if (s.query) {
         window.browserAPI.startFind({ tabId, searchText: s.query })
       }
-    }
-    else {
+    } else {
       console.debug('[FindBar] watch activeTabId: hide tabId', tabId)
       popover?.close()
       popover = null

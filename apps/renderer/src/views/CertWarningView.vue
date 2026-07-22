@@ -90,8 +90,7 @@ onMounted(async () => {
   try {
     info.value = await window.browserAPI.getCertWarningInfo()
     console.debug('[CertWarning] onMounted: 获取到证书警告信息 host', info.value?.host)
-  }
-  catch {
+  } catch {
     console.error('[CertWarning] onMounted: 获取证书警告信息失败')
   }
 })

@@ -126,12 +126,10 @@ async function toggleReader(): Promise<void> {
   try {
     if (props.isReaderMode) {
       await window.browserAPI.exitReadingMode(props.tabId)
-    }
-    else {
+    } else {
       await window.browserAPI.enterReadingMode(props.tabId)
     }
-  }
-  catch (err) {
+  } catch (err) {
     console.error(`[AddressBar] toggleReader failed: ${String(err)}`)
   }
 }
@@ -221,8 +219,7 @@ function openPopover(): void {
     onEvent: (event) => {
       if (event.name === 'select' && typeof event.data === 'string') {
         selectSuggestion(event.data)
-      }
-      else if (event.name === 'update-query' && typeof event.data === 'string') {
+      } else if (event.name === 'update-query' && typeof event.data === 'string') {
         urlInput.value = event.data
         fetchSuggestions()
         currentPopover?.sendData({
@@ -232,12 +229,10 @@ function openPopover(): void {
           securityState: props.securityState,
           url: props.url,
         })
-      }
-      else if (event.name === 'navigate' && typeof event.data === 'string') {
+      } else if (event.name === 'navigate' && typeof event.data === 'string') {
         urlInput.value = event.data
         navigate()
-      }
-      else if (event.name === 'close') {
+      } else if (event.name === 'close') {
         urlInput.value = formatAddressBarUrl(props.url ?? '')
         closePopover()
       }
@@ -355,8 +350,7 @@ async function getZoomLevel(): Promise<number> {
     const response = await window.browserAPI.getZoom(props.tabId)
     const index = ZOOM_FACTORS.indexOf(response.factor)
     return index !== -1 ? index : 2
-  }
-  catch (err) {
+  } catch (err) {
     console.warn('[AddressBar] getZoomLevel failed', String(err))
     return 2
   }
@@ -397,8 +391,7 @@ async function syncBookmarkStatus(): Promise<void> {
     const result = await window.browserAPI.isBookmarked(url)
     isBookmarked.value = result.isBookmarked
     console.debug('[AddressBar] syncBookmarkStatus: url isBookmarked', url, result.isBookmarked)
-  }
-  else {
+  } else {
     isBookmarked.value = false
   }
 }
@@ -417,8 +410,7 @@ async function toggleBookmark(): Promise<void> {
       await window.browserAPI.deleteBookmark(result.id)
     }
     isBookmarked.value = false
-  }
-  else {
+  } else {
     console.info('[AddressBar] toggleBookmark: adding bookmark url', url)
     await window.browserAPI.addBookmark({
       title: url,

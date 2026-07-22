@@ -61,8 +61,7 @@ async function toggleProxy(): Promise<void> {
   console.debug('[ProxyPanel] toggleProxy: 当前 running', proxyRunning.value)
   if (proxyRunning.value) {
     await window.browserAPI.stopProxy()
-  }
-  else {
+  } else {
     await window.browserAPI.startProxy()
   }
   await checkStatus()

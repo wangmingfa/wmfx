@@ -74,8 +74,7 @@ async function pullArticle(): Promise<void> {
       console.debug(`[ReaderView] pullArticle: 命中 title=${pulled.title}`)
       article.value = pulled
     }
-  }
-  catch (err) {
+  } catch (err) {
     console.error(`[ReaderView] pullArticle: 拉取失败 ${String(err)}`)
   }
 }

@@ -100,8 +100,7 @@ function toggle(): void {
   console.debug('[DownloadIndicator] toggle: isOpen', isOpen.value)
   if (isOpen.value) {
     closePopover()
-  }
-  else {
+  } else {
     openPopover()
   }
 }
@@ -112,20 +111,15 @@ function onPanelEvent(event: { name: string, data?: unknown }): void {
   if (event.name === 'show-all') {
     closePopover()
     void showAll()
-  }
-  else if (event.name === 'pause' && typeof event.data === 'string') {
+  } else if (event.name === 'pause' && typeof event.data === 'string') {
     void window.browserAPI.pauseDownload(event.data)
-  }
-  else if (event.name === 'resume' && typeof event.data === 'string') {
+  } else if (event.name === 'resume' && typeof event.data === 'string') {
     void window.browserAPI.resumeDownload(event.data)
-  }
-  else if (event.name === 'cancel' && typeof event.data === 'string') {
+  } else if (event.name === 'cancel' && typeof event.data === 'string') {
     void window.browserAPI.cancelDownload(event.data)
-  }
-  else if (event.name === 'showInFolder' && typeof event.data === 'string') {
+  } else if (event.name === 'showInFolder' && typeof event.data === 'string') {
     void window.browserAPI.showInFolder(event.data)
-  }
-  else if (event.name === 'openFile' && typeof event.data === 'string') {
+  } else if (event.name === 'openFile' && typeof event.data === 'string') {
     void window.browserAPI.openFile(event.data)
   }
 }
@@ -138,8 +132,7 @@ function onProgress(data: { id: string, state: string, receivedBytes: number, to
     existing.state = data.state as DownloadState
     existing.receivedBytes = data.receivedBytes
     existing.totalBytes = data.totalBytes
-  }
-  else {
+  } else {
     console.debug('[DownloadIndicator] onProgress: new download id', data.id)
     void loadDownloads().then(() => {
       // 有新下载且下拉未打开时，临时弹出（对齐 Chrome 行为）
@@ -168,8 +161,7 @@ async function showAll(): Promise<void> {
   )
   if (existing) {
     window.browserAPI.activateTab(existing.id)
-  }
-  else {
+  } else {
     window.browserAPI.createTab({ url: 'wmfx://downloads' })
   }
 }

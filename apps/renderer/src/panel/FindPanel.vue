@@ -142,8 +142,7 @@ function onKeydown(e: KeyboardEvent): void {
     }
     console.debug('[FindPanel] onKeydown: Enter 翻页 dir', e.shiftKey ? 'prev' : 'next')
     emit('event', e.shiftKey ? 'find-prev' : 'find-next')
-  }
-  else if (e.key === 'Escape') {
+  } else if (e.key === 'Escape') {
     e.preventDefault()
     emit('event', 'close')
   }

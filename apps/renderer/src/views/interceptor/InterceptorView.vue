@@ -463,8 +463,7 @@ const isJsonValid = computed(() => {
   try {
     JSON.parse(editForm.value.mockBody)
     return true
-  }
-  catch {
+  } catch {
     return false
   }
 })
@@ -481,8 +480,7 @@ const filteredRequests = computed(() => {
   if (filterStatus.value) {
     if (filterStatus.value === 'error') {
       list = list.filter(r => r.error || r.statusCode >= 400)
-    }
-    else {
+    } else {
       const prefix = filterStatus.value[0]
       list = list.filter(r => String(r.statusCode).startsWith(prefix))
     }
@@ -533,8 +531,7 @@ function shortenUrl(url: string): string {
   try {
     const u = new URL(url)
     return u.pathname + u.search || '/'
-  }
-  catch {
+  } catch {
     return url
   }
 }
@@ -549,8 +546,7 @@ async function toggleCapture(): Promise<void> {
   await window.browserAPI.interceptorSetEnabled?.(capturing.value)
   if (capturing.value) {
     startPolling()
-  }
-  else {
+  } else {
     stopPolling()
   }
 }
@@ -613,8 +609,7 @@ function toggleMethod(m: HttpMethod): void {
   const idx = editForm.value.methods.indexOf(m)
   if (idx >= 0) {
     editForm.value.methods.splice(idx, 1)
-  }
-  else {
+  } else {
     editForm.value.methods.push(m)
   }
 }
@@ -623,8 +618,7 @@ function toggleResourceType(t: ResourceType): void {
   const idx = editForm.value.resourceTypes.indexOf(t)
   if (idx >= 0) {
     editForm.value.resourceTypes.splice(idx, 1)
-  }
-  else {
+  } else {
     editForm.value.resourceTypes.push(t)
   }
 }
@@ -647,8 +641,7 @@ async function saveRule(): Promise<void> {
     editForm.value.updatedAt = now
     rules.value.push({ ...editForm.value })
     await window.browserAPI.interceptorAddRule?.(editForm.value)
-  }
-  else {
+  } else {
     editForm.value.updatedAt = now
     const idx = rules.value.findIndex(r => r.id === editForm.value.id)
     if (idx >= 0) {

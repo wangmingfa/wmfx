@@ -107,26 +107,22 @@ function onKeydown(e: KeyboardEvent): void {
   if (e.key === 'ArrowDown') {
     e.preventDefault()
     activeIndex.value = Math.min(activeIndex.value + 1, suggestions.length - 1)
-  }
-  else if (e.key === 'ArrowUp') {
+  } else if (e.key === 'ArrowUp') {
     e.preventDefault()
     activeIndex.value = Math.max(activeIndex.value - 1, -1)
-  }
-  else if (e.key === 'Enter') {
+  } else if (e.key === 'Enter') {
     e.preventDefault()
     if (activeIndex.value >= 0 && suggestions[activeIndex.value]) {
       console.debug('[AddressBarSuggestions] onKeydown: Enter 选中建议 url', suggestions[activeIndex.value].url)
       onSelect(suggestions[activeIndex.value].url)
-    }
-    else {
+    } else {
       // 用输入框本地值，而非 props.data.query：后者经主进程异步回传，
       // 快速回车时仍是旧值（可能为空），导致 navigate('') 无响应。
       const value = inputRef.value?.getValue() ?? props.data.query
       console.debug('[AddressBarSuggestions] onKeydown: Enter 直接导航 value', value)
       emit('event', 'navigate', value)
     }
-  }
-  else if (e.key === 'Escape') {
+  } else if (e.key === 'Escape') {
     emit('event', 'close')
   }
 }

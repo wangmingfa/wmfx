@@ -226,8 +226,7 @@ function toggleReveal(item: PasswordEntry): void {
   const next = new Set(revealed.value)
   if (next.has(item.id)) {
     next.delete(item.id)
-  }
-  else {
+  } else {
     next.add(item.id)
   }
   revealed.value = next

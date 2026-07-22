@@ -92,8 +92,7 @@ async function syncWindowInfo(): Promise<void> {
     const info = await window.browserAPI.getWindowInfo()
     isIncognito.value = Boolean(info?.isIncognito)
     console.debug('[ChromeUI] syncWindowInfo: isIncognito', isIncognito.value)
-  }
-  catch (err) {
+  } catch (err) {
     console.warn('[ChromeUI] syncWindowInfo: failed', err)
   }
 }
@@ -163,7 +162,9 @@ onMounted(() => {
       // 半透明遮罩：压暗背景、突出命令面板（背景点击关闭由面板 backdrop 处理）
       backdrop: { color: 'rgba(0, 0, 0, 0.35)', blur: 2 },
       closeOnBackdrop: true,
-      onDismiss: () => { commandPalettePopover = null },
+      onDismiss: () => {
+        commandPalettePopover = null
+      },
     })
   })
 

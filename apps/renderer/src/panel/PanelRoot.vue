@@ -354,16 +354,14 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
         width: `${r.width}px`,
         height: `${r.height}px`,
       }
-    }
-    else if (currentType.value === 'command-palette') {
+    } else if (currentType.value === 'command-palette') {
       // 命令面板：水平居中，垂直按锚点 y 定位
       const boxWidth = el.offsetWidth
       boxStyle.value = {
         left: `${(window.innerWidth - boxWidth) / 2}px`,
         top: `${anchor.value.type === 'point' ? anchor.value.y : 80}px`,
       }
-    }
-    else {
+    } else {
       const size = { width: el.offsetWidth, height: el.offsetHeight }
       const resolved: PopoverAnchor
         = anchor.value.type === 'cursor'
@@ -426,8 +424,7 @@ function activateCurrent(): void {
   console.debug('[PanelRoot] activateCurrent: itemId type', item.id, item.type)
   if (item.type === 'submenu') {
     openCurrentSub()
-  }
-  else {
+  } else {
     onMenuSelect(item.id)
   }
 }

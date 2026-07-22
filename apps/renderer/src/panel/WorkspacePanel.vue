@@ -175,8 +175,7 @@ function openActionMenu(e: MouseEvent, ws: Workspace): void {
       context.close()
       if (action.id === 'rename') {
         startEdit(ws)
-      }
-      else if (action.id === 'delete') {
+      } else if (action.id === 'delete') {
         console.debug('[WorkspacePanel] openActionMenu: delete id=%s', ws.id)
         void window.browserAPI.deleteWorkspace(ws.id).then(async () => {
           const list = await window.browserAPI.listWorkspaces()
@@ -186,8 +185,7 @@ function openActionMenu(e: MouseEvent, ws: Workspace): void {
             activeId.value = active.id
           }
         })
-      }
-      else if (action.id === 'edit-color') {
+      } else if (action.id === 'edit-color') {
         // TODO: color picker
       }
     },

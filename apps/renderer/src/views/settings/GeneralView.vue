@@ -207,12 +207,10 @@ async function makeDefault(): Promise<void> {
     if (!res.success) {
       failedTip.value = true
     }
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[Settings/General] Failed to set default browser:', err)
     failedTip.value = true
-  }
-  finally {
+  } finally {
     setting.value = false
   }
 }
@@ -221,8 +219,7 @@ async function saveSetting(key: string, value: unknown): Promise<void> {
   console.debug('[Settings/General] saveSetting: key', key)
   try {
     await window.browserAPI.setSetting({ key, value })
-  }
-  catch (err) {
+  } catch (err) {
     console.error(`[Settings/General] Failed to save setting ${key}:`, err)
   }
 }
@@ -232,8 +229,7 @@ async function saveLanguage(): Promise<void> {
   try {
     await window.browserAPI.setSetting({ key: 'currentLang', value: currentLang.value })
     setLang(currentLang.value)
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[Settings/General] Failed to save language setting:', err)
   }
 }

@@ -100,8 +100,7 @@ function debouncedSearch() {
     console.debug('[History] debouncedSearch: query', searchQuery.value)
     if (searchQuery.value.trim()) {
       historyItems.value = await window.browserAPI.searchHistory({ query: searchQuery.value })
-    }
-    else {
+    } else {
       await loadHistory()
     }
   }, 300)
@@ -126,8 +125,7 @@ async function handleClear() {
 function getDomain(url: string): string {
   try {
     return new URL(url).hostname
-  }
-  catch {
+  } catch {
     return url
   }
 }

@@ -182,28 +182,24 @@ const btnStyle = computed(() => {
     let h: number
     if (props.btnSize !== undefined) {
       h = Array.isArray(props.btnSize) ? props.btnSize[1] : props.btnSize
-    }
-    else {
+    } else {
       const allIcons = [mainIcon.value, prefix.value, suffix.value].filter(Boolean) as { sz: number }[]
       const maxIcon = Math.max(...allIcons.map(i => i.sz))
       h = toEven(maxIcon * 1.5)
     }
     style.height = `${h}px`
-  }
-  else if (props.btnSize !== undefined) {
+  } else if (props.btnSize !== undefined) {
     const [w, h] = Array.isArray(props.btnSize) ? props.btnSize : [props.btnSize, props.btnSize]
     style.width = `${w}px`
     style.height = `${h}px`
-  }
-  else {
+  } else {
     const size = toEven(DEFAULT_SIZE * 1.5)
     style.width = `${size}px`
     style.height = `${size}px`
   }
   if (props.padding !== undefined) {
     style.padding = typeof props.padding === 'number' ? `${props.padding}px` : props.padding
-  }
-  else if (hasAffix.value && props.btnSize === undefined) {
+  } else if (hasAffix.value && props.btnSize === undefined) {
     style.padding = '0 6px'
   }
   style.gap = `${props.gap}px`

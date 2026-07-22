@@ -62,8 +62,7 @@ async function loadStatus(): Promise<void> {
   try {
     status.value = (await window.browserAPI.getAdBlockStatus()) ?? status.value
     adBlockEnabled.value = status.value.enabled
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[Settings/Privacy] Failed to load adblock status:', err)
   }
 }
@@ -73,8 +72,7 @@ async function onToggle(value: boolean): Promise<void> {
   try {
     await window.browserAPI.setAdBlockEnabled(value)
     status.value = (await window.browserAPI.getAdBlockStatus()) ?? status.value
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[Settings/Privacy] Failed to toggle adblock:', err)
   }
 }

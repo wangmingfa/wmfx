@@ -91,13 +91,11 @@ async function onClear(): Promise<void> {
     feedback.value = t('settings.clearDataSuccess')
     console.info(`[ClearDataDialog] onClear: success types=${JSON.stringify(types)}`)
     setTimeout(emit, 800, 'update:show', false)
-  }
-  catch (err) {
+  } catch (err) {
     feedbackType.value = 'error'
     feedback.value = t('settings.clearDataError')
     console.error(`[ClearDataDialog] onClear: failed`, err)
-  }
-  finally {
+  } finally {
     loading.value = false
   }
 }

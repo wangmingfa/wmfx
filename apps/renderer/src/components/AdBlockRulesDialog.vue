@@ -93,8 +93,7 @@ async function load(): Promise<void> {
   console.debug('[AdBlockRulesDialog] load')
   try {
     rules.value = (await window.browserAPI.getAdBlockRules()) ?? []
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[AdBlockRulesDialog] Failed to load rules:', err)
     rules.value = []
   }

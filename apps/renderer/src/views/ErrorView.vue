@@ -65,8 +65,7 @@ onMounted(async () => {
       description.value = getFriendlyDescription(result.code)
       suggestions.value = getSuggestions(result.code)
     }
-  }
-  catch {
+  } catch {
     console.error('[Error] onMounted: 获取错误信息失败，回退通用错误页')
   }
 })

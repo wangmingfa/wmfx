@@ -77,8 +77,7 @@ async function load(): Promise<void> {
   console.debug('[AdBlockLogDialog] load')
   try {
     logs.value = (await window.browserAPI.getAdBlockLog()) ?? []
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[AdBlockLogDialog] Failed to load log:', err)
     logs.value = []
   }

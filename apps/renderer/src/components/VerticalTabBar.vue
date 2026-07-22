@@ -387,7 +387,9 @@ async function openWorkspacePanel(e: MouseEvent): Promise<void> {
         workspacePopover?.close()
       }
     },
-    onDismiss: () => { workspacePopover = null },
+    onDismiss: () => {
+      workspacePopover = null
+    },
   })
 }
 

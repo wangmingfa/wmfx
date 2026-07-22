@@ -23,6 +23,7 @@ export default antfu(
     rules: {
       'no-console': 'off',
       'antfu/if-newline': 'off',
+      '@stylistic/brace-style': ['error', '1tbs'],
       curly: ['error', 'all'],
       'vue/block-order': ['error', { order: ['template', 'script', 'style'] }],
       'vue/component-api-style': ['error', ['script-setup']],

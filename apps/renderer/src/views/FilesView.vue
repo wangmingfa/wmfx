@@ -398,8 +398,7 @@ function toLocalPath(encoded: string): string {
   let decoded = encoded
   try {
     decoded = decodeURIComponent(encoded)
-  }
-  catch {
+  } catch {
     /* 非编码字符串，原样使用 */
   }
   return decoded.startsWith('/') ? decoded : `/${decoded}`
@@ -566,8 +565,7 @@ function onColumnDrop(targetKey: ListViewColumn['key']): void {
 async function saveListColumns(): Promise<void> {
   try {
     await window.browserAPI.setSetting({ key: 'files.listColumns', value: JSON.stringify(listColumns.value) })
-  }
-  catch (err) {
+  } catch (err) {
     console.warn('[FilesView] saveListColumns failed:', err)
   }
 }
@@ -585,8 +583,7 @@ async function loadListColumns(): Promise<void> {
     if (ordered.length > 0) {
       listColumns.value = [...ordered, ...extra]
     }
-  }
-  catch (err) {
+  } catch (err) {
     console.warn('[FilesView] loadListColumns failed:', err)
   }
 }
@@ -772,8 +769,7 @@ function computeMarqueeHit(
     let matched = false
     if (viewMode.value === 'icon') {
       matched = !(r.right < rect.left || r.left > rect.right || r.bottom < rect.top || r.top > rect.bottom)
-    }
-    else {
+    } else {
       matched = !(r.bottom < rect.top || r.top > rect.bottom)
     }
     if (matched) {
@@ -785,8 +781,7 @@ function computeMarqueeHit(
     for (const p of hit) {
       if (set.has(p)) {
         set.delete(p)
-      }
-      else {
+      } else {
         set.add(p)
       }
     }
@@ -802,8 +797,7 @@ function onMarqueeEnd(event: MouseEvent, startX: number, startY: number): void {
   // 位移极小 → 视为单击空白 → 复用 clearSelection
   if (dx < 4 && dy < 4) {
     clearSelection(event)
-  }
-  else {
+  } else {
   // 抑制紧随 mouseup 的 click（会触发 .files-list clearSelection 清空刚提交的框选）
     marqueeSuppressClick.value = true
     selectedPaths.value = marqueeHitPaths.value
@@ -886,8 +880,7 @@ async function loadDirectory(dirPath: string): Promise<void> {
     fileEntries.value = await window.browserAPI.readDir(dirPath)
     directoryError.value = null
     lastClickedIndex.value = -1
-  }
-  catch (err) {
+  } catch (err) {
     const message = (err as Error).message || '读取目录失败'
     console.error('[FilesView] loadDirectory error:', err)
     // 敏感目录 / 无权限等受保护目录：页面内提示，不弹 toast
@@ -895,12 +888,10 @@ async function loadDirectory(dirPath: string): Promise<void> {
       console.debug('[FilesView] loadDirectory 受保护目录，页面内提示:', message)
       directoryError.value = t('files.accessDenied')
       fileEntries.value = []
-    }
-    else {
+    } else {
       toast.error(message)
     }
-  }
-  finally {
+  } finally {
     endLoading()
   }
 }
@@ -992,19 +983,16 @@ function handleItemClick(file: FileEntry, event: MouseEvent): void {
     const pos = selectedPaths.value.indexOf(file.path)
     if (pos === -1) {
       selectedPaths.value = [...selectedPaths.value, file.path]
-    }
-    else {
+    } else {
       selectedPaths.value = selectedPaths.value.filter(p => p !== file.path)
     }
-  }
-  else if (isSelected(file.path) && selectedPaths.value.length === 1) {
+  } else if (isSelected(file.path) && selectedPaths.value.length === 1) {
     // 已选中的单项再次单击：延迟进入重命名；若随后触发 dblclick（导航/打开），
     // handleItemDblClick 会 clearTimeout 取消本次重命名，因此文件与文件夹均适用
     console.debug('[FilesView] handleItemClick: 单击已选中项 %s isDir=%s → 设置 renameTimer', file.name, file.isDir)
     clearTimeout(renameTimer)
     renameTimer = window.setTimeout(startRename, 100, file)
-  }
-  else {
+  } else {
     clearTimeout(renameTimer)
     renameTimer = 0
     selectedPaths.value = [file.path]
@@ -1019,8 +1007,7 @@ async function handleItemDblClick(file: FileEntry): Promise<void> {
   renameTimer = 0
   if (file.isDir) {
     await navigateTo(file.path)
-  }
-  else {
+  } else {
     await window.browserAPI.openFile(file.path)
   }
 }
@@ -1094,8 +1081,7 @@ async function handleDropOnList(event: DragEvent): Promise<void> {
         url,
         path: currentPath.value,
       })
-    }
-    catch (err) {
+    } catch (err) {
       console.error('[FilesView] handleDropOnList download error:', err)
       toast.error((err as Error).message || '下载失败')
     }
@@ -1113,12 +1099,10 @@ async function handleSearch(): Promise<void> {
   directoryError.value = null
   try {
     fileEntries.value = await window.browserAPI.searchDir(currentPath.value, searchQuery.value)
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[FilesView] handleSearch error:', err)
     toast.error((err as Error).message || '搜索失败')
-  }
-  finally {
+  } finally {
     endLoading()
   }
 }
@@ -1174,8 +1158,7 @@ async function confirmRename(): Promise<void> {
     // 重命名后选中新文件（路径已变化）
     selectedPaths.value = [newPath]
     lastClickedIndex.value = sortedFiles.value.findIndex(f => f.path === newPath)
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[FilesView] confirmRename error:', err)
     toast.error((err as Error).message || '重命名失败')
     cancelRename()
@@ -1250,8 +1233,7 @@ async function confirmBookmarkRename(): Promise<void> {
   try {
     await window.browserAPI.renameFileBookmark(id, newName)
     await loadMetadata()
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[FilesView] confirmBookmarkRename error:', err)
     toast.error((err as Error).message || '重命名书签失败')
   }
@@ -1267,8 +1249,7 @@ async function handleDeleteBookmark(bm: FileBookmark): Promise<void> {
   try {
     await window.browserAPI.removeFileBookmark(bm.id)
     await loadMetadata()
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[FilesView] handleDeleteBookmark error:', err)
     toast.error((err as Error).message || '删除书签失败')
   }
@@ -1287,8 +1268,7 @@ async function handleDelete(paths: string[]): Promise<void> {
     await window.browserAPI.deleteFiles(plainPaths)
     selectedPaths.value = selectedPaths.value.filter(p => !plainPaths.includes(p))
     await loadDirectory(currentPath.value)
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[FilesView] handleDelete error:', err)
     toast.error((err as Error).message || '删除失败')
   }
@@ -1316,8 +1296,7 @@ async function handleNewFolder(): Promise<void> {
     if (newEntry) {
       startRename(newEntry)
     }
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[FilesView] handleNewFolder error:', err)
     toast.error((err as Error).message || '新建文件夹失败')
   }
@@ -1332,8 +1311,7 @@ async function handleCopy(): Promise<void> {
   }
   try {
     await window.browserAPI.copyFiles(selectedPaths.value, currentPath.value)
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[FilesView] handleCopy error:', err)
     toast.error((err as Error).message || '复制失败')
   }
@@ -1346,8 +1324,7 @@ async function handleCut(): Promise<void> {
   }
   try {
     await window.browserAPI.cutFiles(selectedPaths.value, currentPath.value)
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[FilesView] handleCut error:', err)
     toast.error((err as Error).message || '剪切失败')
   }
@@ -1358,8 +1335,7 @@ async function handlePaste(): Promise<void> {
   try {
     await window.browserAPI.pasteFiles(currentPath.value)
     await loadDirectory(currentPath.value)
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[FilesView] handlePaste error:', err)
     toast.error((err as Error).message || '粘贴失败')
   }
@@ -1402,8 +1378,7 @@ function showFileContextMenu(event: MouseEvent): void {
     items.push({ id: 'sep2', type: 'separator' })
     items.push({ id: 'copy', label: t('files.copy'), icon: 'mdi:content-copy' })
     items.push({ id: 'cut', label: t('files.cut'), icon: 'mdi:content-cut' })
-  }
-  else {
+  } else {
     items.push({ id: 'newFolder', label: t('files.newFolder'), icon: 'mdi:folder-plus' })
     items.push({ id: 'sep1', type: 'separator' })
     items.push({ id: 'paste', label: t('files.paste'), icon: 'mdi:content-paste' })
@@ -1519,8 +1494,7 @@ async function handleKeyDown(event: KeyboardEvent): Promise<void> {
     if (event.shiftKey && lastClickedIndex.value >= 0) {
       const [from, to] = lastClickedIndex.value < next ? [lastClickedIndex.value, next] : [next, lastClickedIndex.value]
       selectedPaths.value = items.slice(from, to + 1).map(f => f.path)
-    }
-    else {
+    } else {
       selectedPaths.value = [items[next].path]
       lastClickedIndex.value = next
     }
@@ -1634,8 +1608,7 @@ async function openPreview(file: FileEntry): Promise<void> {
     previewData.value = await window.browserAPI.readFilePreview(file.path)
     previewIndex.value = sortedFiles.value.findIndex(f => f.path === file.path)
     previewVisible.value = true
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[FilesView] openPreview error:', err)
     toast.error((err as Error).message || '无法预览文件')
   }
@@ -1686,8 +1659,7 @@ async function handleAddBookmark(): Promise<void> {
   try {
     await window.browserAPI.addFileBookmark(currentPath.value, bmName)
     await loadMetadata()
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[FilesView] handleAddBookmark error:', err)
     toast.error((err as Error).message || '添加书签失败')
   }
@@ -1800,8 +1772,7 @@ async function loadMetadata(): Promise<void> {
     ])
     systemDirs.value = dirs
     fileBookmarks.value = bookmarks
-  }
-  catch (err) {
+  } catch (err) {
     console.error('[FilesView] loadMetadata error:', err)
     toast.error((err as Error).message || '加载系统目录失败')
   }

@@ -70,8 +70,7 @@ function onClick(item: BookmarkItem): void {
     const openNew = Boolean(await getSetting('openBookmarkInNewTab'))
     if (openNew) {
       window.browserAPI.createTab({ url: item.url! })
-    }
-    else {
+    } else {
       window.browserAPI.loadURLCurrent(item.url!)
     }
   })()

@@ -127,8 +127,7 @@ async function checkUpdates(): Promise<void> {
   updating.value = true
   try {
     await window.browserAPI.checkForUpdates()
-  }
-  finally {
+  } finally {
     updating.value = false
   }
 }
@@ -138,8 +137,7 @@ async function restart(): Promise<void> {
   restarting.value = true
   try {
     await window.browserAPI.restartAndInstall()
-  }
-  catch {
+  } catch {
     console.error('[About] restart 失败')
     restarting.value = false
   }
@@ -154,8 +152,7 @@ onMounted(async () => {
   console.debug('[About] onMounted: 加载应用信息与更新状态')
   try {
     appInfo.value = await window.browserAPI.getAppInfo()
-  }
-  catch {
+  } catch {
     /* 开发期无此 API 时静默降级 */
   }
   status.value = await window.browserAPI.getUpdaterStatus()

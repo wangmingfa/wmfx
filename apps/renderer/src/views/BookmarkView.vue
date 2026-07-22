@@ -96,8 +96,7 @@ function buildTree(items: BookmarkItem[]): TreeNode[] {
   for (const node of itemMap.values()) {
     if (node.parentId === null) {
       roots.push(node)
-    }
-    else {
+    } else {
       const parent = itemMap.get(node.parentId)
       if (parent) {
         parent.children.push(node)
@@ -121,8 +120,7 @@ function handleToggle(node: TreeNode) {
   console.debug('[BookmarkView] handleToggle: id', id)
   if (expandedFolders.value.has(id)) {
     expandedFolders.value.delete(id)
-  }
-  else {
+  } else {
     expandedFolders.value.add(id)
   }
 }
@@ -252,8 +250,7 @@ function debouncedSearch() {
     console.debug('[BookmarkView] debouncedSearch: query', searchQuery.value)
     if (searchQuery.value.trim()) {
       bookmarks.value = await window.browserAPI.searchBookmarks({ query: searchQuery.value })
-    }
-    else {
+    } else {
       await load()
     }
   }, 300)

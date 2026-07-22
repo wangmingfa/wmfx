@@ -196,8 +196,7 @@ function openLink(url: string): void {
   console.debug('[NewTab] openLink: url newTab', url, openInNewTab.value)
   if (openInNewTab.value) {
     window.browserAPI.createTab({ url })
-  }
-  else {
+  } else {
     window.browserAPI.loadURLCurrent(url)
   }
 }

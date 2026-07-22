@@ -139,12 +139,10 @@ async function addSubscription(): Promise<void> {
     newSubUrl.value = ''
     newSubName.value = ''
     await loadSubscriptions()
-  }
-  catch (e) {
+  } catch (e) {
     addError.value = String(e)
     console.error('[SubscriptionView] addSubscription 失败', String(e))
-  }
-  finally {
+  } finally {
     adding.value = false
   }
 }

@@ -85,8 +85,7 @@ function relayout(): void {
     if (used + w <= avail || fit.length === 0) {
       fit.push(topItems.value[i])
       used += w
-    }
-    else {
+    } else {
       over.push(topItems.value[i])
     }
   }
@@ -111,8 +110,7 @@ async function openBookmark(item: BookmarkItem): Promise<void> {
   const openInNewTab = Boolean(await getSetting('openBookmarkInNewTab'))
   if (openInNewTab) {
     window.browserAPI.createTab({ url: item.url as string })
-  }
-  else {
+  } else {
     window.browserAPI.loadURLCurrent(item.url as string)
   }
 }
@@ -145,8 +143,7 @@ function onContextMenu(item: BookmarkItem, event: MouseEvent): void {
     onAction: ({ menu: action }) => {
       if (action.id === 'open-new') {
         window.browserAPI.createTab({ url: item.url as string })
-      }
-      else if (action.id === 'delete') {
+      } else if (action.id === 'delete') {
         void window.browserAPI.deleteBookmark(item.id)
       }
     },
