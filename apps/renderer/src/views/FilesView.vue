@@ -641,6 +641,11 @@ const previewIndex = ref(-1)
 let renameTimer = 0
 const renamingPath = ref<string | null>(null)
 const renamingName = ref('')
+// 取消待触发的延迟重命名计时器（多选/范围选择/双击导航/清空选中/重新设置前调用）
+function cancelRenameTimer(): void {
+  clearTimeout(renameTimer)
+  renameTimer = 0
+}
 // 文件重命名输入框（v-for 内同一时刻仅一个渲染）；用函数 ref 确保正确绑定
 const fileRenameInput = ref<HTMLInputElement | null>(null)
 function setFileRenameInput(el: unknown): void {
@@ -970,16 +975,14 @@ function handleItemClick(file: FileEntry, event: MouseEvent): void {
 
   // shift 范围选择：以最近一次点击为锚点
   if (isShift && lastClickedIndex.value >= 0 && idx >= 0) {
-    clearTimeout(renameTimer)
-    renameTimer = 0
+    cancelRenameTimer()
     const [from, to] = lastClickedIndex.value < idx ? [lastClickedIndex.value, idx] : [idx, lastClickedIndex.value]
     selectedPaths.value = items.slice(from, to + 1).map(f => f.path)
     return
   }
 
   if (isMulti) {
-    clearTimeout(renameTimer)
-    renameTimer = 0
+    cancelRenameTimer()
     const pos = selectedPaths.value.indexOf(file.path)
     if (pos === -1) {
       selectedPaths.value = [...selectedPaths.value, file.path]
@@ -988,13 +991,12 @@ function handleItemClick(file: FileEntry, event: MouseEvent): void {
     }
   } else if (isSelected(file.path) && selectedPaths.value.length === 1) {
     // 已选中的单项再次单击：延迟进入重命名；若随后触发 dblclick（导航/打开），
-    // handleItemDblClick 会 clearTimeout 取消本次重命名，因此文件与文件夹均适用
+    // handleItemDblClick 会取消本次重命名，因此文件与文件夹均适用
     console.debug('[FilesView] handleItemClick: 单击已选中项 %s isDir=%s → 设置 renameTimer', file.name, file.isDir)
-    clearTimeout(renameTimer)
+    cancelRenameTimer()
     renameTimer = window.setTimeout(startRename, 100, file)
   } else {
-    clearTimeout(renameTimer)
-    renameTimer = 0
+    cancelRenameTimer()
     selectedPaths.value = [file.path]
   }
   lastClickedIndex.value = idx
@@ -1003,8 +1005,7 @@ function handleItemClick(file: FileEntry, event: MouseEvent): void {
 // 双击文件项
 async function handleItemDblClick(file: FileEntry): Promise<void> {
   console.debug('[FilesView] handleItemDblClick: %s, 清除renameTimer=%d', file.name, renameTimer)
-  clearTimeout(renameTimer)
-  renameTimer = 0
+  cancelRenameTimer()
   if (file.isDir) {
     await navigateTo(file.path)
   } else {
@@ -1023,8 +1024,7 @@ function clearSelection(event: MouseEvent): void {
     marqueeSuppressClick.value = false
     return
   }
-  clearTimeout(renameTimer)
-  renameTimer = 0
+  cancelRenameTimer()
   selectedPaths.value = []
 }
 
