@@ -13,5 +13,7 @@ export const TAB_ACTION_ICONS = {
   closeOthers: 'mdi:close-box-multiple',
   closeLeft: 'mdi:arrow-left-bold-box-outline',
   closeRight: 'mdi:arrow-right-bold-box-outline',
+  closeAbove: 'mdi:arrow-up-bold-box-outline',
+  closeBelow: 'mdi:arrow-down-bold-box-outline',
   reopenClosed: 'mdi:history',
 } as const

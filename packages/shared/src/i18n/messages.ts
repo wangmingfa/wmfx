@@ -20,6 +20,8 @@ export interface Message {
     closeLeft: string
     closeRight: string
     closeRightTabs: string
+    closeAbove: string
+    closeBelow: string
     menu: string
   }
   appMenu: {
@@ -493,6 +495,8 @@ export const messages: Record<string, Message> = {
       closeLeft: '关闭左侧标签页',
       closeRight: '在右侧新增标签页',
       closeRightTabs: '关闭右侧标签页',
+      closeAbove: '关闭上方标签页',
+      closeBelow: '关闭下方标签页',
       menu: '菜单',
     },
     appMenu: {
@@ -928,6 +932,8 @@ export const messages: Record<string, Message> = {
       closeLeft: 'Close Tabs to the Left',
       closeRight: 'Open New Tab to the Right',
       closeRightTabs: 'Close Tabs to the Right',
+      closeAbove: 'Close Tabs Above',
+      closeBelow: 'Close Tabs Below',
       menu: 'Menu',
     },
     appMenu: {
