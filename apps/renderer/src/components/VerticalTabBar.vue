@@ -84,15 +84,15 @@
           </template>
         </div>
       </template>
-    </div>
-    <div
-      class="vtab-new"
-      @click="createNewTab()"
-    >
-      <IconButton
-        icon="ic:round-plus"
-        :btn-size="24"
-      />
+      <div
+        class="vtab-new"
+        @click="createNewTab()"
+      >
+        <IconButton
+          icon="ic:round-plus"
+          :btn-size="24"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -212,8 +212,8 @@ function openTabContextMenu(event: MouseEvent, tab: TabState): void {
         { id: 'sep-1', type: 'separator' },
         { id: 'close', label: t('tab.close'), icon: TAB_ACTION_ICONS.close, danger: true },
         { id: 'close-others', label: t('tab.closeOthers'), icon: TAB_ACTION_ICONS.closeOthers },
-        { id: 'close-right', label: t('tab.closeRightTabs'), icon: TAB_ACTION_ICONS.closeRight },
-        { id: 'close-left', label: t('tab.closeLeft'), icon: TAB_ACTION_ICONS.closeLeft },
+        { id: 'close-above', label: t('tab.closeAbove'), icon: TAB_ACTION_ICONS.closeAbove },
+        { id: 'close-below', label: t('tab.closeBelow'), icon: TAB_ACTION_ICONS.closeBelow },
       ],
     },
     onAction: ({ menu: action }) => {
@@ -246,11 +246,11 @@ function runTabAction(id: string, tab: TabState): void {
     case 'close-others':
       closeOthers(tab)
       break
-    case 'close-right':
-      closeRight(tab)
-      break
-    case 'close-left':
+    case 'close-above':
       closeLeft(tab)
+      break
+    case 'close-below':
+      closeRight(tab)
       break
   }
 }
@@ -591,8 +591,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
-  border-top: 1px solid var(--border);
+  padding: 4px;
+  flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
 </style>
