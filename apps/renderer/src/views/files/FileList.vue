@@ -1,15 +1,12 @@
 <template>
   <div
     class="files-list"
-    :class="[viewMode, { 'drag-over': dragOverFilesList, 'marquee-active': marqueeActive }]"
-    @click="emit('listClick', $event)"
-    @contextmenu="emit('listContextMenu', $event)"
-    @mousedown="emit('marqueeStart', $event)"
-    @dragover="emit('listDragOver', $event)"
-    @dragleave="emit('listDragLeave')"
-    @drop="emit('listDrop', $event)"
+    :class="[store!.viewMode.value, { 'drag-over': store!.dragOverFilesList.value, 'marquee-active': store!.marqueeActive.value }]"
+    @click="store!.clearSelection($event)"
+    @contextmenu="store!.showFileContextMenu($event)"
+    @mousedown="store!.onMarqueeStart($event)"
   >
-    <template v-if="showSkeleton">
+    <template v-if="store!.showSkeleton.value">
       <div class="files-loading-skeleton">
         <div
           v-for="i in 6"
@@ -23,10 +20,10 @@
         </div>
       </div>
     </template>
-    <template v-else-if="directoryError || isEmpty">
+    <template v-else-if="store!.directoryError.value || store!.fileEntries.value.length === 0">
       <div class="files-empty-wrap">
         <div
-          v-if="directoryError"
+          v-if="store!.directoryError.value"
           class="files-empty files-empty--warn"
         >
           <svg
@@ -41,7 +38,7 @@
               d="M12 2 1 21h22L12 2Zm0 5 7.5 13h-15L12 7Zm-1 4v4h2v-4h-2Zm0 5v2h2v-2h-2Z"
             />
           </svg>
-          <span>{{ directoryError }}</span>
+          <span>{{ store!.directoryError.value }}</span>
         </div>
         <div
           v-else
@@ -53,25 +50,25 @@
     </template>
     <template v-else>
       <div
-        v-for="file in files"
+        v-for="file in store!.sortedFiles.value"
         :key="file.path"
         class="file-item"
         :data-path="file.path"
-        :class="[{ 'selected': isSelected(file.path), 'folder': file.isDir, 'dragging': dragFiles.includes(file.path), 'marquee-hit': marqueeHitPaths.includes(file.path) }]"
-        :draggable="isSelected(file.path)"
-        @click="emit('itemClick', file, $event)"
-        @dblclick="emit('itemDblClick', file)"
-        @contextmenu.prevent="emit('itemContextMenu', $event, file)"
-        @dragstart="emit('itemDragStart', $event, file)"
-        @dragend="emit('itemDragEnd')"
+        :class="[{ 'selected': store!.isSelected(file.path), 'folder': file.isDir, 'dragging': store!.dragFiles.value.includes(file.path), 'marquee-hit': store!.marqueeHitPaths.value.includes(file.path) }]"
+        :draggable="store!.isSelected(file.path)"
+        @click="store!.handleItemClick(file, $event)"
+        @dblclick="store!.handleItemDblClick(file)"
+        @contextmenu.prevent="store!.showFileContextMenu($event, file)"
+        @dragstart="store!.handleDragStart($event, file)"
+        @dragend="store!.handleDragEnd()"
         @mouseenter="itemHovered = file.path"
         @mouseleave="itemHovered = ''"
       >
         <!-- 图标视图 -->
         <div
-          v-if="viewMode === 'icon'"
+          v-if="store!.viewMode.value === 'icon'"
           class="file-icon-cell"
-          :draggable="!isSelected(file.path)"
+          :draggable="!store!.isSelected(file.path)"
         >
           <Icon
             :icon="getFileIcon(file)"
@@ -81,7 +78,7 @@
             :style="{ color: getFileIconColor(file) }"
           />
           <span
-            v-if="renamingPath !== file.path"
+            v-if="store!.renamingPath.value !== file.path"
             class="file-name-cell"
             :title="file.name"
           ><template
@@ -95,23 +92,23 @@
           >{{ seg.text }}</template></template></span>
           <input
             v-else
-            :ref="(el) => setRenameInput(el)"
-            v-model="renamingName"
+            :ref="(el) => store!.setFileRenameInput(el)"
+            v-model="store!.renamingName.value"
             class="file-rename-input"
-            :title="renamingName"
+            :title="store!.renamingName.value"
             @click.stop
             @dblclick.stop
-            @keydown.enter="emit('renameConfirm')"
-            @keydown.esc="emit('renameKeydown')"
-            @blur="emit('renameBlur')"
+            @keydown.enter="store!.confirmRename()"
+            @keydown.esc="store!.cancelRename()"
+            @blur="store!.cancelRename()"
           />
         </div>
         <!-- 列表视图 -->
         <div
           v-else
           class="file-row-cell"
-          :style="{ gridTemplateColumns: gridTemplate }"
-          :draggable="isSelected(file.path)"
+          :style="{ gridTemplateColumns: store!.listGridTemplate.value }"
+          :draggable="store!.isSelected(file.path)"
         >
           <Icon
             :icon="getFileIcon(file)"
@@ -121,23 +118,23 @@
             :style="{ color: getFileIconColor(file) }"
           />
           <template
-            v-for="col in columns"
+            v-for="col in store!.listColumns.value"
             :key="col.key"
           >
             <input
-              v-if="col.key === 'name' && renamingPath === file.path"
-              :ref="(el) => setRenameInput(el)"
-              v-model="renamingName"
+              v-if="col.key === 'name' && store!.renamingPath.value === file.path"
+              :ref="(el) => store!.setFileRenameInput(el)"
+              v-model="store!.renamingName.value"
               class="file-rename-input"
-              :title="renamingName"
+              :title="store!.renamingName.value"
               @click.stop
               @dblclick.stop
-              @keydown.enter="emit('renameConfirm')"
-              @keydown.esc="emit('renameKeydown')"
-              @blur="emit('renameBlur')"
+              @keydown.enter="store!.confirmRename()"
+              @keydown.esc="store!.cancelRename()"
+              @blur="store!.cancelRename()"
             />
             <span
-              v-else-if="col.key === 'name' && searchQuery"
+              v-else-if="col.key === 'name' && store!.searchQuery.value"
               class="file-cell cell-name"
               :title="file.name"
             ><span
@@ -164,94 +161,48 @@
               v-else
               class="file-cell"
               :class="`cell-${col.key}`"
-              :title="renderCellContent(file, col.key)"
-            >{{ renderCellContent(file, col.key) }}</span>
+              :title="store!.renderCellContent(file, col.key)"
+            >{{ store!.renderCellContent(file, col.key) }}</span>
           </template>
         </div>
       </div>
     </template>
     <div
-      v-if="marqueeRect"
+      v-if="store!.marqueeRect.value"
       class="marquee-box"
       :style="{
-        left: `${marqueeRect.left}px`,
-        top: `${marqueeRect.top}px`,
-        width: `${marqueeRect.right - marqueeRect.left}px`,
-        height: `${marqueeRect.bottom - marqueeRect.top}px`,
+        left: `${store!.marqueeRect.value.left}px`,
+        top: `${store!.marqueeRect.value.top}px`,
+        width: `${store!.marqueeRect.value.right - store!.marqueeRect.value.left}px`,
+        height: `${store!.marqueeRect.value.bottom - store!.marqueeRect.value.top}px`,
       }"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import type { FileEntry } from '@browser/ipc-contract'
-import type { ListViewColumn } from './useListColumns'
+import type { FileStore } from './useFileStore'
+
 import { Icon } from '@iconify/vue'
-
-import { ref } from 'vue'
-
+import { inject, ref } from 'vue'
 import { useI18n } from '@/composables/useI18n'
+import { fileStoreInjectionKey } from './injectionKeys'
 import { useFileDisplay } from './useFileDisplay'
 
 /**
  * 文件列表区：图标/列表两种视图、骨架屏、空态/错误态、框选矩形。
- * 交互（点击/双击/右键/拖拽/框选/重命名）统一 emit 给 FilesView 处理。
+ * 通过 inject 读取共享 FileStore，不再通过 props 接收状态和 emit 事件。
  */
-const props = defineProps<{
-  viewMode: 'icon' | 'list'
-  files: FileEntry[]
-  selectedPaths: string[]
-  renamingPath: string | null
-  dragFiles: string[]
-  marqueeHitPaths: string[]
-  marqueeActive: boolean
-  marqueeRect: { left: number, top: number, right: number, bottom: number } | null
-  dragOverFilesList: boolean
-  showSkeleton: boolean
-  directoryError: string | null
-  isEmpty: boolean
-  searchQuery: string
-  columns: ListViewColumn[]
-  gridTemplate: string
-  /** 重命名输入框绑定（v-for 内同一时刻仅一个渲染，函数 ref 确保正确绑定） */
-  setRenameInput: (el: unknown) => void
-  /** 按列渲染单元格内容（来自 useListColumns） */
-  renderCellContent: (file: FileEntry, key: ListViewColumn['key']) => string
-}>()
-
-const emit = defineEmits<{
-  listClick: [event: MouseEvent]
-  listContextMenu: [event: MouseEvent]
-  marqueeStart: [event: MouseEvent]
-  listDragOver: [event: DragEvent]
-  listDragLeave: []
-  listDrop: [event: DragEvent]
-  itemClick: [file: FileEntry, event: MouseEvent]
-  itemDblClick: [file: FileEntry]
-  itemContextMenu: [event: MouseEvent, file: FileEntry]
-  itemDragStart: [event: DragEvent, file: FileEntry]
-  itemDragEnd: []
-  renameConfirm: []
-  renameKeydown: []
-  renameBlur: []
-}>()
-
-const renamingName = defineModel<string>('renamingName', { default: '' })
-
+const store = inject<FileStore>(fileStoreInjectionKey)
 const { t } = useI18n()
 const { getFileIcon, getFileIconColor } = useFileDisplay()
 
-// 当前悬停项（预留态，供后续悬停操作按钮使用）
+// 当前悬停项（组件内部状态）
 const itemHovered = ref('')
-
-// 选中状态
-function isSelected(path: string): boolean {
-  return props.selectedPaths.includes(path)
-}
 
 // 文件名高亮分段：搜索时把命中的子串标记为 hit，渲染层用 <mark> 区分颜色
 function getHighlightParts(name: string): Array<{ text: string, hit: boolean }> {
-  const query = props.searchQuery.trim().toLowerCase()
+  const query = store!.searchQuery.value.trim().toLowerCase()
   if (!query) {
     return [{ text: name, hit: false }]
   }

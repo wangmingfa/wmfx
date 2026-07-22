@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import process from 'node:process'
 import type {
   AutocompleteSuggestion,
@@ -10,7 +11,16 @@ import type {
   ThemeMode,
 } from '@browser/ipc-contract'
 import { resolveAddressBarTarget } from '@browser/shared'
-import { BrowserWindow, clipboard, dialog, type Event, ipcMain, nativeTheme, shell } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  type Event,
+  ipcMain,
+  nativeTheme,
+  shell,
+} from 'electron'
 import { getAppVersion } from '../app-version'
 import { isDefaultBrowser, setAsDefaultBrowser } from '../default-browser'
 import { clearDragBookmark, getDragBookmark, setDragBookmark } from '../drag-state'
@@ -1396,6 +1406,13 @@ export function registerIpcHandlers(): void {
     // 本地路径经地址解析转为 wmfx://files 内部路由，统一由文件浏览器呈现
     const url = resolveAddressBarTarget(filePath, 'google')
     inst.tabManager.create({ url, sessionId: inst.sessionId })
+  })
+  handle('settings:openLogFolder', () => {
+    const logDir = path.join(app.getPath('userData'), 'logs')
+    console.info('[IPC] settings:openLogFolder:', logDir)
+    shell.openPath(logDir).catch((err) => {
+      console.error('[IPC] settings:openLogFolder: failed', logDir, err)
+    })
   })
 
   // Proxy

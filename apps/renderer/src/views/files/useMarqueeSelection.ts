@@ -1,8 +1,8 @@
 import type { FileEntry } from '@browser/ipc-contract'
-import { type ComputedRef, onUnmounted, type Ref, ref } from 'vue'
+import { type ComputedRef, type Ref, ref } from 'vue'
 
-/** useMarqueeSelection 依赖的外部状态（由 FilesView 注入） */
-interface MarqueeSelectionDeps {
+/** useMarqueeSelection 依赖的外部状态（由 useFileStore 注入） */
+export interface MarqueeSelectionDeps {
   sortedFiles: ComputedRef<FileEntry[]>
   viewMode: Ref<'icon' | 'list'>
   selectedPaths: Ref<string[]>
@@ -10,11 +10,21 @@ interface MarqueeSelectionDeps {
   onCancelRename: () => void
 }
 
+export interface MarqueeSelectionResult {
+  marqueeRect: Ref<{ left: number; top: number; right: number; bottom: number } | null>
+  marqueeHitPaths: Ref<string[]>
+  marqueeActive: Ref<boolean>
+  onMarqueeStart: (event: MouseEvent) => void
+  clearSelection: (event: MouseEvent) => void
+  teardown: () => void
+}
+
 /**
  * 框选（marquee selection）与清空选中。
  * 框选起点仅在空白/列间隙（未命中 draggable）启动；已选中行兜底走拖拽。
+ * teardown 由调用方（useFileStore）在组件卸载时调用。
  */
-export function useMarqueeSelection(deps: MarqueeSelectionDeps) {
+export function useMarqueeSelection(deps: MarqueeSelectionDeps): MarqueeSelectionResult {
   const { sortedFiles, viewMode, selectedPaths, onCancelRename } = deps
 
   // 框选状态
@@ -171,14 +181,14 @@ export function useMarqueeSelection(deps: MarqueeSelectionDeps) {
     selectedPaths.value = []
   }
 
-  onUnmounted(() => {
-    // 框选进行中卸载：复位状态（window 监听为一次性，mouseup 已移除；兜底清理）
+  // 组件卸载时复位框选状态（由调用方在 onUnmounted 中调用）
+  function teardown(): void {
     if (marqueeActive.value) {
       marqueeRect.value = null
       marqueeHitPaths.value = []
       marqueeActive.value = false
     }
-  })
+  }
 
   return {
     marqueeRect,
@@ -186,5 +196,6 @@ export function useMarqueeSelection(deps: MarqueeSelectionDeps) {
     marqueeActive,
     onMarqueeStart,
     clearSelection,
+    teardown,
   }
 }

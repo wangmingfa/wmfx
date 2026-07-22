@@ -3,8 +3,8 @@ import { type ComputedRef, nextTick, type Ref, ref } from 'vue'
 
 import { useToast } from '@/composables/useToast'
 
-/** useFileRename 依赖的外部状态（由 FilesView 注入，避免状态复制） */
-interface FileRenameDeps {
+/** useFileRename 依赖的外部状态（由 useFileStore 注入，避免状态复制） */
+export interface FileRenameDeps {
   fileEntries: Ref<FileEntry[]>
   currentPath: Ref<string>
   sortedFiles: ComputedRef<FileEntry[]>
@@ -13,11 +13,23 @@ interface FileRenameDeps {
   loadDirectory: (path: string) => Promise<void>
 }
 
+export interface FileRenameResult {
+  renamingPath: Ref<string | null>
+  renamingName: Ref<string>
+  setFileRenameInput: (el: unknown) => void
+  cancelRenameTimer: () => void
+  getRenameTimer: () => number
+  scheduleRename: (file: FileEntry) => void
+  startRename: (file: FileEntry) => void
+  confirmRename: () => Promise<void>
+  cancelRename: () => void
+}
+
 /**
  * 文件重命名状态机：延迟重命名计时器（单击已选中项触发）、输入框绑定、确认/取消。
  * dblclick（导航/打开）会先 cancelRenameTimer 取消挂起的重命名，二者不冲突。
  */
-export function useFileRename(deps: FileRenameDeps) {
+export function useFileRename(deps: FileRenameDeps): FileRenameResult {
   const toast = useToast()
   const { fileEntries, currentPath, sortedFiles, selectedPaths, lastClickedIndex, loadDirectory } =
     deps

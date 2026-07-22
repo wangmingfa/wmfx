@@ -1,23 +1,20 @@
 <template>
   <div class="files-statusbar">
-    <span class="status-count">{{ t('files.totalCount', { count: totalCount }) }}</span>
+    <span class="status-count">{{ t('files.totalCount', { count: store!.fileEntries.value.length }) }}</span>
     <span
-      v-if="selectedPhrase"
+      v-if="store!.selectedPhrase.value"
       class="status-count status-selected"
-    >，{{ selectedPhrase }}</span>
+    >，{{ store!.selectedPhrase.value }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
+import type { FileStore } from './useFileStore'
+import { inject } from 'vue'
 import { useI18n } from '@/composables/useI18n'
+import { fileStoreInjectionKey } from './injectionKeys'
 
-/** 文件管理器状态栏：总条目数 + 选中摘要（数量与总大小） */
-defineProps<{
-  totalCount: number
-  /** 选中状态文案（无选中时为空串，不渲染） */
-  selectedPhrase: string
-}>()
-
+const store = inject<FileStore>(fileStoreInjectionKey)
 const { t } = useI18n()
 </script>
 

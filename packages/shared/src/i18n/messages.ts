@@ -214,6 +214,7 @@ export interface Message {
       downloadLocation: string
       theme: string
       privacy: string
+      logs: string
     }
     defaultBrowser: string
     makeDefault: string
@@ -347,6 +348,7 @@ export interface Message {
     downloaded: string
     notAvailable: string
     updateFailed: string
+    openLogFolder: string
   }
   error: {
     title: string
@@ -439,6 +441,14 @@ export interface Message {
     kindDoc: string
     kindOther: string
     accessDenied: string
+    properties: string
+    propertiesName: string
+    propertiesLocation: string
+    propertiesType: string
+    propertiesSize: string
+    propertiesModified: string
+    propertiesCreated: string
+    propertiesPermissions: string
   }
 }
 
@@ -689,6 +699,7 @@ export const messages: Record<string, Message> = {
         downloadLocation: '下载位置',
         theme: '主题',
         privacy: '隐私与安全',
+        logs: '日志',
       },
       defaultBrowser: '默认浏览器',
       makeDefault: '设为默认浏览器',
@@ -832,6 +843,7 @@ export const messages: Record<string, Message> = {
       downloaded: '更新已下载，将在退出时安装',
       notAvailable: '已是最新版本',
       updateFailed: '更新检查失败',
+      openLogFolder: '打开日志文件夹',
     },
     error: {
       title: '无法访问此网站',
@@ -915,6 +927,14 @@ export const messages: Record<string, Message> = {
       kindDoc: '文档',
       kindOther: '其他',
       accessDenied: '该目录受保护或无权访问',
+      properties: '属性',
+      propertiesName: '名称',
+      propertiesLocation: '位置',
+      propertiesType: '类型',
+      propertiesSize: '大小',
+      propertiesModified: '修改时间',
+      propertiesCreated: '创建时间',
+      propertiesPermissions: '权限',
     },
   },
   'en-US': {
@@ -1126,6 +1146,7 @@ export const messages: Record<string, Message> = {
         downloadLocation: 'Download location',
         theme: 'Theme',
         privacy: 'Privacy & Security',
+        logs: 'Logs',
       },
       defaultBrowser: 'Default browser',
       makeDefault: 'Make WMFX the default browser',
@@ -1271,6 +1292,7 @@ export const messages: Record<string, Message> = {
       downloaded: 'Update downloaded, will be installed on quit',
       notAvailable: 'Up to date',
       updateFailed: 'Update check failed',
+      openLogFolder: 'Open Log Folder',
     },
     error: {
       title: "This site can't be reached",
@@ -1354,6 +1376,14 @@ export const messages: Record<string, Message> = {
       kindDoc: 'Document',
       kindOther: 'Other',
       accessDenied: 'This directory is protected or access denied',
+      properties: 'Properties',
+      propertiesName: 'Name',
+      propertiesLocation: 'Location',
+      propertiesType: 'Type',
+      propertiesSize: 'Size',
+      propertiesModified: 'Modified',
+      propertiesCreated: 'Created',
+      propertiesPermissions: 'Permissions',
     },
   },
 }

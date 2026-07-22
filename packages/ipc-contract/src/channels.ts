@@ -753,6 +753,8 @@ export interface IpcContract {
   'shell:openFile': (filePath: string) => void
   /** 在应用内浏览器标签页中打开本地文件（本地路径 → wmfx://files 路由） */
   'shell:openFileInBrowser': (filePath: string) => void
+  /** 打开日志文件夹（主进程获取 userData/logs 路径后调用 shell.openPath） */
+  'settings:openLogFolder': () => void
   // Proxy
   'proxy:start': () => void
   'proxy:stop': () => void
@@ -991,6 +993,7 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'shell:openFile',
   'shell:openSettings',
   'shell:openFileInBrowser',
+  'settings:openLogFolder',
   // Proxy
   'proxy:start',
   'proxy:stop',

@@ -185,6 +185,7 @@ const api: {
   showInFolder: (filePath: string) => Promise<void>
   openFile: (filePath: string) => Promise<void>
   openFileInBrowser: (filePath: string) => Promise<void>
+  openLogFolder: () => Promise<void>
   // File system
   fileExists: (path: string) => Promise<boolean>
   readDir: (dirPath: string) => Promise<FileEntry[]>
@@ -482,6 +483,7 @@ const api: {
   showInFolder: (filePath) => ipcRenderer.invoke('shell:showInFolder', filePath),
   openFile: (filePath) => ipcRenderer.invoke('shell:openFile', filePath),
   openFileInBrowser: (filePath) => ipcRenderer.invoke('shell:openFileInBrowser', filePath),
+  openLogFolder: () => ipcRenderer.invoke('settings:openLogFolder'),
   // File system
   fileExists: (path) => ipcRenderer.invoke('fs:fileExists', path),
   readDir: (dirPath) => ipcRenderer.invoke('fs:readDir', dirPath),

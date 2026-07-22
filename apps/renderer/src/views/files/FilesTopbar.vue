@@ -2,14 +2,14 @@
   <div class="files-topbar">
     <div class="files-breadcrumb">
       <span
-        v-for="(segment, idx) in segments"
+        v-for="(segment, idx) in store!.breadcrumbSegments.value"
         :key="idx"
         class="breadcrumb-item"
-        @click="emit('navigateBreadcrumb', idx)"
+        @click="store!.navigateToBreadcrumb(idx)"
       >
         {{ segment.label }}
         <Icon
-          v-if="idx < segments.length - 1"
+          v-if="idx < store!.breadcrumbSegments.value.length - 1"
           icon="mdi:chevron-right"
           :width="14"
           :height="14"
@@ -21,13 +21,13 @@
     <!-- 工具栏 -->
     <div class="files-toolbar">
       <NInput
-        v-model:value="searchQuery"
+        v-model:value="store!.searchQuery.value"
         :placeholder="t('files.searchPlaceholder')"
         clearable
         size="small"
         class="toolbar-search"
-        @update:value="emit('search')"
-        @keydown.escape="emit('clearSearch')"
+        @update:value="store!.handleSearch()"
+        @keydown.escape="store!.clearSearch()"
       >
         <template #prefix>
           <Icon
@@ -41,23 +41,23 @@
       <div class="toolbar-actions">
         <NSelect
           class="sort-select"
-          :value="sortBy"
+          :value="store!.sortBy.value"
           :options="sortOptions"
           size="small"
           :consistent-menu-width="false"
-          @update:value="emit('sortChange', $event)"
+          @update:value="store!.handleSortChange($event)"
         />
         <IconButton
           icon="mdi:view-list"
           :tooltip="t('files.listView')"
-          :active="viewMode === 'list'"
-          @click="viewMode = 'list'"
+          :active="store!.viewMode.value === 'list'"
+          @click="store!.viewMode.value = 'list'"
         />
         <IconButton
           icon="mdi:view-grid"
           :tooltip="t('files.iconView')"
-          :active="viewMode === 'icon'"
-          @click="viewMode = 'icon'"
+          :active="store!.viewMode.value === 'icon'"
+          @click="store!.viewMode.value = 'icon'"
         />
       </div>
     </div>
@@ -65,31 +65,16 @@
 </template>
 
 <script setup lang="ts">
+import type { FileStore } from './useFileStore'
 import { Icon } from '@iconify/vue'
 import { NInput, NSelect } from 'naive-ui'
 
+import { inject } from 'vue'
 import IconButton from '@/components/ui/IconButton.vue'
 import { useI18n } from '@/composables/useI18n'
+import { fileStoreInjectionKey } from './injectionKeys'
 
-/**
- * 文件管理器顶栏：面包屑导航 + 工具栏（搜索、排序、视图模式切换）。
- * searchQuery / viewMode 通过 v-model 与父组件双向绑定。
- */
-defineProps<{
-  segments: Array<{ label: string, path: string }>
-  sortBy: string
-}>()
-
-const emit = defineEmits<{
-  navigateBreadcrumb: [index: number]
-  search: []
-  clearSearch: []
-  sortChange: [value: string]
-}>()
-
-const searchQuery = defineModel<string>('searchQuery', { default: '' })
-const viewMode = defineModel<'icon' | 'list'>('viewMode', { default: 'icon' })
-
+const store = inject<FileStore>(fileStoreInjectionKey)
 const { t } = useI18n()
 
 const sortOptions = [

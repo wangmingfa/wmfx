@@ -65,6 +65,24 @@
         </NButton>
       </div>
     </div>
+
+    <Section :title="t('settings.sections.logs')">
+      <SectionItem :label="t('about.openLogFolder')">
+        <NButton
+          size="small"
+          @click="openLogFolder"
+        >
+          <template #icon>
+            <Icon
+              icon="mdi:folder-open"
+              width="16"
+              height="16"
+            />
+          </template>
+          {{ t('about.openLogFolder') }}
+        </NButton>
+      </SectionItem>
+    </Section>
   </div>
 </template>
 
@@ -73,6 +91,8 @@ import type { AppInfo, UpdaterStatus } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
 import { NButton } from 'naive-ui'
 import { computed, onMounted, ref } from 'vue'
+import Section from '@/components/Section.vue'
+import SectionItem from '@/components/SectionItem.vue'
 import { useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()
@@ -141,6 +161,11 @@ async function restart(): Promise<void> {
     console.error('[About] restart 失败')
     restarting.value = false
   }
+}
+
+function openLogFolder(): void {
+  console.debug('[About] openLogFolder')
+  void window.browserAPI.openLogFolder()
 }
 
 function handleUpdaterStatus(s: UpdaterStatus): void {

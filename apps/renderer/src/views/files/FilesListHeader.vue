@@ -1,47 +1,40 @@
 <template>
   <div
     class="list-header"
-    :style="{ gridTemplateColumns: gridTemplate }"
+    :style="{ gridTemplateColumns: store!.listGridTemplate.value }"
   >
     <div class="list-header-icon" />
     <div
-      v-for="col in columns"
+      v-for="col in store!.listColumns.value"
       :key="col.key"
       class="list-header-cell"
       :class="{ 'col-resizable': col.resizable, 'col-reorderable': col.reorderable }"
       :draggable="col.reorderable"
-      @dragstart="emit('dragStart', col.key, $event)"
+      @dragstart="store!.onColumnDragStart(col.key, $event)"
       @dragover.prevent
-      @drop="emit('drop', col.key)"
+      @drop="store!.onColumnDrop(col.key)"
     >
-      <span class="list-header-label">{{ labels[col.key] }}</span>
+      <span class="list-header-label">{{ store!.listColumnLabels[col.key] }}</span>
       <span
         v-if="col.resizable"
         class="list-header-resizer"
-        @mousedown="emit('resizeStart', col.key, $event)"
+        @mousedown="store!.onColumnResizeStart(col.key, $event)"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { ListViewColumn } from './useListColumns'
+import type { FileStore } from './useFileStore'
+import { inject } from 'vue'
+
+import { fileStoreInjectionKey } from './injectionKeys'
 
 /**
  * 列表视图表头（仅 list 模式显示）：列标题渲染，
- * 列宽拖拽调整与列顺序拖拽重排的事件由父组件（useListColumns）处理。
+ * 列宽拖拽调整与列顺序拖拽重排通过 inject 的 store 处理。
  */
-defineProps<{
-  columns: ListViewColumn[]
-  labels: Record<ListViewColumn['key'], string>
-  gridTemplate: string
-}>()
-
-const emit = defineEmits<{
-  resizeStart: [key: ListViewColumn['key'], event: MouseEvent]
-  dragStart: [key: ListViewColumn['key'], event: DragEvent]
-  drop: [key: ListViewColumn['key']]
-}>()
+const store = inject<FileStore>(fileStoreInjectionKey)
 </script>
 
 <style scoped lang="less">

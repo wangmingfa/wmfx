@@ -315,3 +315,11 @@ const cleanupProxy = () => {
 }
 process.on('SIGINT', cleanupProxy)
 process.on('SIGTERM', cleanupProxy)
+
+// 开发期：接收 orchestrator 的优雅退出信号，走正常 app.quit() 流程
+process.on('message', (msg) => {
+  if (msg === 'dev:shutdown') {
+    console.info('[App] dev:shutdown signal received, calling app.quit()')
+    app.quit()
+  }
+})

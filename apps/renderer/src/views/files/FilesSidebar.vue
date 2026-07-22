@@ -5,10 +5,10 @@
         {{ t('files.systemDirs') }}
       </div>
       <div
-        v-for="dir in systemDirs"
+        v-for="dir in store!.systemDirs.value"
         :key="dir.path"
         class="sidebar-item"
-        @click="emit('navigate', dir.path)"
+        @click="store!.navigateTo(dir.path)"
       >
         <Icon
           :icon="dir.icon"
@@ -33,11 +33,11 @@
         />
       </div>
       <div
-        v-for="bm in fileBookmarks"
+        v-for="bm in store!.fileBookmarks.value"
         :key="bm.id"
         class="sidebar-item"
         :class="{ 'is-active': activeBookmarkId === bm.id || renamingBookmarkId === bm.id }"
-        @click="renamingBookmarkId === bm.id ? undefined : emit('navigate', bm.path)"
+        @click="renamingBookmarkId === bm.id ? undefined : store!.navigateTo(bm.path)"
         @contextmenu.prevent="handleBookmarkContextMenu($event, bm)"
       >
         <Icon
@@ -67,31 +67,22 @@
 </template>
 
 <script setup lang="ts">
-import type { FileBookmark, MenuItem, SystemDir } from '@browser/ipc-contract'
+import type { FileBookmark, MenuItem } from '@browser/ipc-contract'
+import type { FileStore } from './useFileStore'
 import { Icon } from '@iconify/vue'
-import { ref } from 'vue'
 
+import { inject, ref } from 'vue'
 import IconButton from '@/components/ui/IconButton.vue'
 import { useI18n } from '@/composables/useI18n'
 import { useToast } from '@/composables/useToast'
 import { ContextMenu } from '@/lib/context-menu'
+import { fileStoreInjectionKey } from './injectionKeys'
 
 /**
  * 文件管理器侧栏：系统目录快捷入口 + 书签列表。
- * 书签的添加/重命名/删除与右键菜单全部内聚在本组件内，
- * 数据变更后通过 refreshMetadata 通知父组件重新拉取。
+ * 通过 inject 从 useFileStore 读取共享状态，不再依赖 props/emit。
  */
-const props = defineProps<{
-  systemDirs: SystemDir[]
-  fileBookmarks: FileBookmark[]
-  currentPath: string
-}>()
-
-const emit = defineEmits<{
-  navigate: [path: string]
-  refreshMetadata: []
-}>()
-
+const store = inject<FileStore>(fileStoreInjectionKey)
 const { t } = useI18n()
 const toast = useToast()
 
@@ -162,13 +153,13 @@ async function confirmBookmarkRename(): Promise<void> {
   }
   const newName = renamingBookmarkName.value.trim()
   cancelBookmarkRename()
-  const bm = props.fileBookmarks.find(b => b.id === id)
+  const bm = store!.fileBookmarks.value.find(b => b.id === id)
   if (!bm || newName === bm.name || !newName) {
     return
   }
   try {
     await window.browserAPI.renameFileBookmark(id, newName)
-    emit('refreshMetadata')
+    store!.loadMetadata()
   } catch (err) {
     console.error('[FilesSidebar] confirmBookmarkRename error:', err)
     toast.error((err as Error).message || '重命名书签失败')
@@ -184,7 +175,7 @@ async function handleDeleteBookmark(bm: FileBookmark): Promise<void> {
   console.debug('[FilesSidebar] handleDeleteBookmark:', bm.name)
   try {
     await window.browserAPI.removeFileBookmark(bm.id)
-    emit('refreshMetadata')
+    store!.loadMetadata()
   } catch (err) {
     console.error('[FilesSidebar] handleDeleteBookmark error:', err)
     toast.error((err as Error).message || '删除书签失败')
@@ -194,9 +185,9 @@ async function handleDeleteBookmark(bm: FileBookmark): Promise<void> {
 // 添加书签
 async function handleAddBookmark(): Promise<void> {
   console.debug('[FilesSidebar] handleAddBookmark')
-  const baseName = props.currentPath.split('/').pop() || '书签'
+  const baseName = store!.currentPath.value.split('/').pop() || '书签'
   // 同名书签追加序号，如「项目」「项目 (2)」「项目 (3)」
-  const existing = new Set(props.fileBookmarks.map(b => b.name))
+  const existing = new Set(store!.fileBookmarks.value.map(b => b.name))
   let bmName = baseName
   if (existing.has(bmName)) {
     let n = 2
@@ -206,8 +197,8 @@ async function handleAddBookmark(): Promise<void> {
     bmName = `${baseName} (${n})`
   }
   try {
-    await window.browserAPI.addFileBookmark(props.currentPath, bmName)
-    emit('refreshMetadata')
+    await window.browserAPI.addFileBookmark(store!.currentPath.value, bmName)
+    store!.loadMetadata()
   } catch (err) {
     console.error('[FilesSidebar] handleAddBookmark error:', err)
     toast.error((err as Error).message || '添加书签失败')

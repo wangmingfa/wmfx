@@ -37,7 +37,7 @@ export class FileBrowserError extends Error {
 }
 
 /** 系统敏感目录（相对路径模式，用于匹配 home/user 下不应访问的路径） */
-const SENSITIVE_DIR_PATTERNS = ['node_modules', '.git', '__pycache__', '.DS_Store', 'Thumbs.db']
+const SENSITIVE_DIR_PATTERNS: string[] = []
 
 const SENSITIVE_DIRS = ['/etc/passwd', '/etc/shadow', '/root', '/boot', '/sys', '/proc', '/var/log']
 
@@ -64,10 +64,10 @@ function validatePath(rawPath: string): string {
     }
   }
 
-  // 拒绝敏感文件名/目录名（防误入隐藏系统目录）
+  // 拒绝敏感文件名/目录名（防误入隐藏系统文件）
   const basename = path.basename(resolved)
   if (SENSITIVE_DIR_PATTERNS.some((p) => basename === p)) {
-    throw new FileBrowserError('SENSITIVE_DIR', `不允许访问特殊目录：${basename}`)
+    throw new FileBrowserError('SENSITIVE_DIR', `不允许访问特殊文件：${basename}`)
   }
 
   return resolved

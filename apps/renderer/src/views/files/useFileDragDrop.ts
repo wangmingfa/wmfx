@@ -3,22 +3,31 @@ import { type Ref, ref } from 'vue'
 
 import { useToast } from '@/composables/useToast'
 
-/** useFileDragDrop 依赖的外部状态（由 FilesView 注入） */
-interface FileDragDropDeps {
+/** useFileDragDrop 依赖的外部状态（由 useFileStore 注入） */
+export interface FileDragDropDeps {
   selectedPaths: Ref<string[]>
   currentPath: Ref<string>
+}
+
+export interface FileDragDropResult {
+  dragOverFilesList: Ref<boolean>
+  dragFiles: Ref<string[]>
+  handleDragStart: (event: DragEvent, file: FileEntry) => void
+  handleDragEnd: () => void
+  handleDragOverList: (event: DragEvent) => void
+  handleDragLeaveList: () => void
+  handleDropOnList: (event: DragEvent) => Promise<void>
 }
 
 /**
  * 文件拖拽交互：拖出（携带选中批）、列表区域拖入高亮、拖入 URL 创建下载。
  * 「拖已选中行 = 拖整批」（Windows 式）；未选中项仅拖单项。
  */
-export function useFileDragDrop(deps: FileDragDropDeps) {
+export function useFileDragDrop(deps: FileDragDropDeps): FileDragDropResult {
   const toast = useToast()
   const { selectedPaths, currentPath } = deps
 
   // 拖拽状态
-  const dragOverTarget = ref<string | null>(null)
   const dragOverFilesList = ref(false)
   const dragFiles = ref<string[]>([])
 
@@ -42,7 +51,6 @@ export function useFileDragDrop(deps: FileDragDropDeps) {
   function handleDragEnd(): void {
     console.debug('[useFileDragDrop] handleDragEnd')
     dragFiles.value = []
-    dragOverTarget.value = null
   }
 
   function handleDragOverList(event: DragEvent): void {

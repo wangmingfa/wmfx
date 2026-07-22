@@ -2,22 +2,22 @@
   <Teleport to="body">
     <div
       class="quick-look-backdrop"
-      @click="closePreview"
+      @click="store!.closePreview()"
     >
       <div
         class="quick-look-panel"
-        :class="{ 'quick-look--unknown': previewData?.type === 'unknown' }"
+        :class="{ 'quick-look--unknown': store!.previewData.value?.type === 'unknown' }"
         @click.stop
       >
         <!-- 顶部：文件名 + 信息 + 关闭 -->
         <div class="quick-look-header">
           <div class="quick-look-info">
-            <span class="quick-look-filename">{{ previewData?.fileName ?? '' }}</span>
+            <span class="quick-look-filename">{{ store!.previewData.value?.fileName ?? '' }}</span>
             <span class="quick-look-meta">{{ formatMeta() }}</span>
           </div>
           <button
             class="quick-look-close"
-            @click="closePreview"
+            @click="store!.closePreview()"
           >
             <Icon
               icon="mdi:close"
@@ -31,27 +31,27 @@
         <div class="quick-look-content">
           <!-- 图片预览 -->
           <div
-            v-if="previewData?.type === 'image' && previewData.data"
+            v-if="store!.previewData.value?.type === 'image' && store!.previewData.value.data"
             class="quick-look-image"
           >
             <img
-              :src="previewData.data"
-              :alt="previewData.fileName"
+              :src="store!.previewData.value.data"
+              :alt="store!.previewData.value.fileName"
               @load="handleImageLoad"
             />
           </div>
 
           <!-- 文本预览 -->
           <div
-            v-else-if="previewData?.type === 'text' && previewData.data"
+            v-else-if="store!.previewData.value?.type === 'text' && store!.previewData.value.data"
             class="quick-look-text"
           >
-            <pre :class="textClassName">{{ previewData.data }}</pre>
+            <pre :class="textClassName">{{ store!.previewData.value.data }}</pre>
           </div>
 
           <!-- PDF 预览 -->
           <div
-            v-else-if="previewData?.type === 'pdf'"
+            v-else-if="store!.previewData.value?.type === 'pdf'"
             class="quick-look-pdf"
           >
             <iframe
@@ -62,7 +62,7 @@
 
           <!-- 音频预览 -->
           <div
-            v-else-if="previewData?.type === 'audio'"
+            v-else-if="store!.previewData.value?.type === 'audio'"
             class="quick-look-media"
           >
             <audio
@@ -73,7 +73,7 @@
 
           <!-- 视频预览 -->
           <div
-            v-else-if="previewData?.type === 'video'"
+            v-else-if="store!.previewData.value?.type === 'video'"
             class="quick-look-media"
           >
             <video
@@ -84,7 +84,7 @@
 
           <!-- 不支持预览 -->
           <div
-            v-else-if="previewData?.type === 'unknown'"
+            v-else-if="store!.previewData.value?.type === 'unknown'"
             class="quick-look-unknown"
           >
             <Icon
@@ -98,8 +98,8 @@
 
         <!-- 底部：大小 + 修改时间 -->
         <div class="quick-look-footer">
-          <span class="quick-look-size">{{ formatSize(previewData?.fileSize ?? 0) }}</span>
-          <span class="quick-look-modified">{{ formatDate(previewData?.modifiedAt ?? 0) }}</span>
+          <span class="quick-look-size">{{ formatSize(store!.previewData.value?.fileSize ?? 0) }}</span>
+          <span class="quick-look-modified">{{ formatDate(store!.previewData.value?.modifiedAt ?? 0) }}</span>
         </div>
       </div>
     </div>
@@ -107,19 +107,14 @@
 </template>
 
 <script setup lang="ts">
-import type { PreviewData } from '@browser/ipc-contract'
+import type { FileStore } from './useFileStore'
+
 import { Icon } from '@iconify/vue'
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, inject, nextTick, onMounted, ref } from 'vue'
 
-const props = defineProps<{
-  previewData: PreviewData | null
-}>()
+import { fileStoreInjectionKey } from './injectionKeys'
 
-const emit = defineEmits<{
-  close: []
-  previous: []
-  next: []
-}>()
+const store = inject<FileStore>(fileStoreInjectionKey)
 
 const imageLoaded = ref(false)
 const imageNaturalWidth = ref(0)
@@ -127,7 +122,7 @@ const imageNaturalHeight = ref(0)
 
 // 文本语法高亮类
 const textClassName = computed(() => {
-  const ext = (props.previewData?.fileName ?? '').split('.').pop()?.toLowerCase()
+  const ext = (store!.previewData.value?.fileName ?? '').split('.').pop()?.toLowerCase()
   if (!ext) {
     return 'quick-look-text-code'
   }
@@ -177,7 +172,7 @@ const mediaUrl = computed(() => {
 
 // 格式化信息
 function formatMeta(): string {
-  const data = props.previewData
+  const data = store!.previewData.value
   if (!data) {
     return ''
   }
@@ -222,7 +217,7 @@ function handleImageLoad(event: Event): void {
 
 // 关闭预览
 function closePreview(): void {
-  emit('close')
+  store!.closePreview()
 }
 
 // 快捷键处理
@@ -235,11 +230,11 @@ function handleKeyDown(event: KeyboardEvent): void {
       break
     case 'ArrowLeft':
       event.preventDefault()
-      emit('previous')
+      store!.previousPreview()
       break
     case 'ArrowRight':
       event.preventDefault()
-      emit('next')
+      store!.nextPreview()
       break
   }
 }

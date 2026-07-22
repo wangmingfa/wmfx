@@ -99,7 +99,7 @@ async function promptLogLevel(): Promise<LogLevel> {
     const timer = setInterval(() => {
       remaining--
       if (remaining <= 0) {
-        cleanup()
+        cleanupStdin()
         console.log(`\n${CYAN}[dev]${RESET} ⏱️  超时，自动选择 ${GREEN}${lastLevel}${RESET}`)
         resolve(lastLevel)
       } else {
@@ -107,7 +107,7 @@ async function promptLogLevel(): Promise<LogLevel> {
       }
     }, 1000)
 
-    function cleanup(): void {
+    function cleanupStdin(): void {
       if (resolved) return
       resolved = true
       clearInterval(timer)
@@ -119,16 +119,17 @@ async function promptLogLevel(): Promise<LogLevel> {
     process.stdin.on('data', (chunk: string) => {
       for (const ch of chunk) {
         if (ch === '\x03') {
-          // Ctrl+C
-          cleanup()
+          // Ctrl+C — 恢复 stdin 然后正常退出
+          cleanupStdin()
           console.log(`\n${CYAN}[dev]${RESET} 已取消`)
           process.exit(0)
+          return
         } else if (ch === '\x7F' || ch === '\b') {
           // Backspace
           inputBuf = inputBuf.slice(0, -1)
         } else if (ch === '\r' || ch === '\n') {
           // Enter
-          cleanup()
+          cleanupStdin()
           const idx = parseInt(inputBuf, 10) - 1
           const level = idx >= 0 && idx < choices.length ? choices[idx].value : lastLevel
           console.log(`\n${CYAN}[dev]${RESET} 📋 日志等级: ${GREEN}${level}${RESET}`)
@@ -151,6 +152,9 @@ let electronProcess: ResultPromise | null = null
 let restartTimer: ReturnType<typeof setTimeout> | null = null
 let isRestarting = false
 let startupComplete = false
+/** 重启连续失败次数，超过阈值则放弃重启并 cleanup */
+let restartFailCount = 0
+const MAX_RESTART_FAILS = 3
 
 const childProcesses: ResultPromise[] = []
 
@@ -175,29 +179,57 @@ function startElectron(): void {
   const binary = resolveElectronBinary()
   const entry = path.join(ROOT, 'apps/main/dist/index.cjs')
   console.log(`${CYAN}[dev]${RESET} 🖥️  启动 Electron: ${binary} ${entry} [log=${selectedLogLevel}]`)
+  // 将 Electron 的 stdout/stderr 重定向到文件，避免 orchestrator 退出后
+  // Electron 仍在写终端导致日志混在 shell prompt 之后
+  const electronLogPath = path.join(ROOT, '.dev-electron.log')
+  const electronFd = require('node:fs').openSync(electronLogPath, 'a')
   electronProcess = execa(binary, [entry], {
     cwd: ROOT,
-    stdio: 'inherit',
+    stdio: ['inherit', electronFd, electronFd, 'ipc'],
     env: {
       ...process.env,
       VITE_DEV_SERVER_URL: devServerUrl,
       WMFX_LOG_LEVEL: selectedLogLevel,
     },
-  })
+  }) as unknown as ResultPromise
+
+  if (!electronProcess) return
 
   electronProcess.catch((err) => {
-    // SIGTERM 是正常重启信号，不视为错误
+    // SIGTERM 是正常重启信号（旧进程被 kill），不视为错误
     if (err.killed) return
     console.error(`${RED}[dev] Electron 启动失败:`, err.message)
     cleanup()
   })
   electronProcess.on('close', (code: number | null) => {
     electronProcess = null
+
     if (isRestarting) {
       isRestarting = false
-      startElectron()
-    } else if (code !== null && code !== 0) {
+      // 新进程启动后立即退出，说明启动失败
+      if (code !== null && code !== 0) {
+        restartFailCount++
+        console.error(
+          `${RED}[dev]${RESET} Electron 重启失败 (尝试 ${restartFailCount}/${MAX_RESTART_FAILS})，code=${code}`
+        )
+        if (restartFailCount >= MAX_RESTART_FAILS) {
+          console.error(
+            `${RED}[dev]${RESET} 连续重启失败 ${restartFailCount} 次，放弃重启，清理退出`
+          )
+          cleanup()
+          return
+        }
+        // 继续尝试重启
+        restartElectron()
+        return
+      }
+      restartFailCount = 0
+      return
+    }
+
+    if (code !== null && code !== 0) {
       console.log(`${RED}[dev]${RESET} Electron 退出，code=${code}`)
+      cleanup()
     } else {
       console.log('🛑 Electron 关闭，正在清理...')
       cleanup()
@@ -205,18 +237,55 @@ function startElectron(): void {
   })
 }
 
-function restartElectron(): void {
-  if (!startupComplete) return // tsup 初次构建期间不重启
+/**
+ * 重启 Electron：
+ * 1. kill 旧进程 → 等待其完全退出（含 Mihomo 子进程清理），超时则直接 cleanup
+ * 2. 短暂延迟让端口完全释放
+ * 3. 启动新进程
+ */
+async function restartElectron(): Promise<void> {
+  if (!startupComplete) return
   if (restartTimer) clearTimeout(restartTimer)
-  restartTimer = setTimeout(() => {
+
+  // 异步执行，避免阻塞 tsup watch 回调
+  restartTimer = setTimeout(async () => {
     isRestarting = true
-    if (electronProcess) {
-      console.log(`${CYAN}[dev]${RESET} 🔄 重启 Electron...`)
-      electronProcess.kill()
-    } else {
+    if (!electronProcess) {
       isRestarting = false
       startElectron()
+      return
     }
+
+    console.log(`${CYAN}[dev]${RESET} 🔄 重启 Electron...`)
+    electronProcess.kill()
+
+    // 等待旧进程完全退出，最多 5 秒
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        electronProcess?.once('close', () => resolve())
+      }),
+      new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+    ])
+
+    // 注意：electronProcess 可能已被 close handler 置为 null
+    const stillRunning = electronProcess !== null && !electronProcess.killed
+    if (stillRunning) {
+      console.error(`${RED}[dev]${RESET} 旧 Electron 进程未响应 kill，强制退出并清理`)
+      try {
+        electronProcess.kill('SIGKILL')
+      } catch {
+        /* ignore */
+      }
+      cleanup()
+      return
+    }
+
+    electronProcess = null
+
+    // 短暂延迟让 Mihomo 子进程和端口完全释放
+    await new Promise((r) => setTimeout(r, 200))
+
+    startElectron()
   }, 300)
 }
 
@@ -504,21 +573,47 @@ async function main(): Promise<void> {
     })
 }
 
-function cleanup(): void {
-  if (electronProcess) {
-    electronProcess.kill()
+/** 优雅关闭：先通知 Electron 优雅退出 → 再关 vite/tsup → 最后退场 */
+async function cleanup(): Promise<void> {
+  // 1. 先通知 Electron 优雅退出（走 before-quit → will-quit 流程），renderer 正常断开 vite
+  if (electronProcess && !electronProcess.killed) {
+    try {
+      electronProcess.send('dev:shutdown')
+    } catch {
+      /* IPC 通道已不可用 */
+    }
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        electronProcess?.once('close', () => resolve())
+        electronProcess?.once('exit', () => resolve())
+      }),
+      new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+    ])
+    if (electronProcess && !electronProcess.killed) {
+      electronProcess.kill()
+    }
+    electronProcess = null
   }
+
+  // 2. 关掉 vite + tsup
   for (const p of childProcesses) {
     try {
-      p.kill()
+      if (!p.killed) p.kill()
     } catch {
       /* ignore */
     }
   }
+
+  // 3. 退场
+  console.log()
   process.exit(0)
 }
 
-process.on('SIGINT', cleanup)
-process.on('SIGTERM', cleanup)
+process.on('SIGINT', async () => {
+  await cleanup()
+})
+process.on('SIGTERM', async () => {
+  await cleanup()
+})
 
 main()

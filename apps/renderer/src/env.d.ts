@@ -165,6 +165,7 @@ declare global {
       showInFolder: IpcInvoke['shell:showInFolder']
       openFile: IpcInvoke['shell:openFile']
       openFileInBrowser: IpcInvoke['shell:openFileInBrowser']
+      openLogFolder: IpcInvoke['settings:openLogFolder']
       // Proxy
       startProxy: () => Promise<void>
       stopProxy: () => Promise<void>
