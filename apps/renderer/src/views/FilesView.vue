@@ -60,7 +60,7 @@
             :title="renamingBookmarkName"
             @click.stop
             @keydown.enter="confirmBookmarkRename"
-            @keydown.escape="cancelBookmarkRename"
+            @keydown="cancelBookmarkRename"
             @blur="confirmBookmarkRename"
           />
           <span
@@ -268,7 +268,7 @@
                 @click.stop
                 @dblclick.stop
                 @keydown.enter="confirmRename"
-                @keydown.escape="cancelRename"
+                @keydown="cancelRename"
                 @blur="cancelRename"
               />
             </div>
@@ -299,7 +299,7 @@
                   @click.stop
                   @dblclick.stop
                   @keydown.enter="confirmRename"
-                  @keydown.escape="cancelRename"
+                  @keydown="cancelRename"
                   @blur="cancelRename"
                 />
                 <span
@@ -706,16 +706,23 @@ const sortedFiles = computed(() => {
 
 // 框选起点：仅在空白/列间隙（未命中 draggable）启动；已选中行兜底走拖拽
 function onMarqueeStart(event: MouseEvent): void {
-  console.debug('[FilesView] onMarqueeStart')
+  console.debug('[FilesView] onMarqueeStart: target=%o isElement=%s button=%d', event.target, event.target instanceof HTMLElement, event.button)
   if (event.button !== 0) {
     return
   }
-  // 命中 draggable 元素（未选中行的 .file-icon-cell / .file-cell-content，或已选中整行/整块）→ 拖文件
-  if ((event.target as HTMLElement).closest('[draggable="true"]')) {
+  // text node 没有 closest()，点击文件名文字时 event.target 可能是 text node
+  if (!(event.target instanceof HTMLElement)) {
+    console.debug('[FilesView] onMarqueeStart: target is not HTMLElement, skip. nodeType=%d', (event.target as Node | null)?.nodeType)
     return
   }
-  const rowEl = (event.target as HTMLElement).closest('.file-item, .file-row-cell')
+  // 命中 draggable 元素（未选中行的 .file-icon-cell / .file-cell-content，或已选中整行/整块）→ 拖文件
+  if (event.target.closest('[draggable="true"]')) {
+    console.debug('[FilesView] onMarqueeStart: hit draggable, skip')
+    return
+  }
+  const rowEl = event.target.closest('.file-item, .file-row-cell')
   const isRowSelected = !!rowEl && rowEl.classList.contains('selected')
+  console.debug('[FilesView] onMarqueeStart: rowEl=%s isRowSelected=%s', rowEl?.className, isRowSelected)
   // 已选中行的非内容空白区域：整行可拖（draggable 已为 true，此处兜底）
   if (isRowSelected) {
     return
@@ -876,8 +883,7 @@ async function loadDirectory(dirPath: string): Promise<void> {
   }
   beginLoading()
   try {
-    const entries = await window.browserAPI.readDir(dirPath)
-    fileEntries.value = entries
+    fileEntries.value = await window.browserAPI.readDir(dirPath)
     directoryError.value = null
     lastClickedIndex.value = -1
   }
@@ -926,8 +932,7 @@ async function reloadCurrentDir(): Promise<void> {
   await loadDirectory(currentPath.value)
   if (prevSelected.size > 0) {
     const existing = new Set(fileEntries.value.map(f => f.path))
-    const kept = [...prevSelected].filter(p => existing.has(p))
-    selectedPaths.value = kept
+    selectedPaths.value = [...prevSelected].filter(p => existing.has(p))
   }
 }
 
@@ -963,7 +968,8 @@ function navigateToBreadcrumb(index: number): void {
 
 // 点击文件项（支持 ctrl/cmd 多选、shift 范围选择）
 function handleItemClick(file: FileEntry, event: MouseEvent): void {
-  console.debug('[FilesView] handleItemClick:', file.name)
+  const isSel = isSelected(file.path)
+  console.debug('[FilesView] handleItemClick: %s selected=%s multi=%s shift=%s selCount=%d', file.name, isSel, event.ctrlKey || event.metaKey, event.shiftKey, selectedPaths.value.length)
   // 阻止冒泡到 .files-list 的 clearSelection，否则选中会被立即清空
   event.stopPropagation()
   const items = sortedFiles.value
@@ -976,8 +982,7 @@ function handleItemClick(file: FileEntry, event: MouseEvent): void {
     clearTimeout(renameTimer)
     renameTimer = 0
     const [from, to] = lastClickedIndex.value < idx ? [lastClickedIndex.value, idx] : [idx, lastClickedIndex.value]
-    const range = items.slice(from, to + 1).map(f => f.path)
-    selectedPaths.value = range
+    selectedPaths.value = items.slice(from, to + 1).map(f => f.path)
     return
   }
 
@@ -993,10 +998,11 @@ function handleItemClick(file: FileEntry, event: MouseEvent): void {
     }
   }
   else if (isSelected(file.path) && selectedPaths.value.length === 1) {
-    // 已选中的单项再次单击：文件夹留给 dblclick 导航，文件延迟重命名
-    if (file.isDir) return
+    // 已选中的单项再次单击：延迟进入重命名；若随后触发 dblclick（导航/打开），
+    // handleItemDblClick 会 clearTimeout 取消本次重命名，因此文件与文件夹均适用
+    console.debug('[FilesView] handleItemClick: 单击已选中项 %s isDir=%s → 设置 renameTimer', file.name, file.isDir)
     clearTimeout(renameTimer)
-    renameTimer = window.setTimeout(() => startRename(file), 250)
+    renameTimer = window.setTimeout(startRename, 100, file)
   }
   else {
     clearTimeout(renameTimer)
@@ -1008,9 +1014,9 @@ function handleItemClick(file: FileEntry, event: MouseEvent): void {
 
 // 双击文件项
 async function handleItemDblClick(file: FileEntry): Promise<void> {
+  console.debug('[FilesView] handleItemDblClick: %s, 清除renameTimer=%d', file.name, renameTimer)
   clearTimeout(renameTimer)
   renameTimer = 0
-  console.debug('[FilesView] handleItemDblClick:', file.name)
   if (file.isDir) {
     await navigateTo(file.path)
   }
@@ -1021,6 +1027,7 @@ async function handleItemDblClick(file: FileEntry): Promise<void> {
 
 // 清空选中：点击列表空白处时触发。多选模式（按住 Ctrl/Shift/⌘）下误触空白间隙不应清掉已选，故忽略带修饰键的点击
 function clearSelection(event: MouseEvent): void {
+  console.debug('[FilesView] clearSelection: ctrl=%s shift=%s marqueeSuppress=%s', event.ctrlKey || event.metaKey, event.shiftKey, marqueeSuppressClick.value)
   if (event.ctrlKey || event.metaKey || event.shiftKey) {
     return
   }
@@ -1105,8 +1112,7 @@ async function handleSearch(): Promise<void> {
   beginLoading()
   directoryError.value = null
   try {
-    const results = await window.browserAPI.searchDir(currentPath.value, searchQuery.value)
-    fileEntries.value = results
+    fileEntries.value = await window.browserAPI.searchDir(currentPath.value, searchQuery.value)
   }
   catch (err) {
     console.error('[FilesView] handleSearch error:', err)
@@ -1133,7 +1139,7 @@ function handleSortChange(value: string): void {
 // ─── 重命名 ───────────────────────────────────────────────────
 
 function startRename(file: FileEntry): void {
-  console.debug('[FilesView] startRename:', file.name)
+  console.debug('[FilesView] startRename: %s renamingPath(before)=%s', file.name, renamingPath.value)
   renamingPath.value = file.path
   renamingName.value = file.name
   // 延迟聚焦：等右键菜单关闭并释放焦点后再聚焦输入框，避免被菜单关闭抢走焦点
@@ -1625,8 +1631,7 @@ async function openPreview(file: FileEntry): Promise<void> {
     return
   }
   try {
-    const data = await window.browserAPI.readFilePreview(file.path)
-    previewData.value = data
+    previewData.value = await window.browserAPI.readFilePreview(file.path)
     previewIndex.value = sortedFiles.value.findIndex(f => f.path === file.path)
     previewVisible.value = true
   }
@@ -1901,7 +1906,6 @@ onUnmounted(() => {
   height: 100vh;
   overflow: hidden;
   background: var(--bg-secondary);
-  font-family: var(--font-sans);
 
   &--loading {
     opacity: 0.5;
@@ -2213,7 +2217,6 @@ onUnmounted(() => {
       font-size: 12px;
       color: var(--text-secondary);
       text-align: right;
-      font-family: var(--font-mono);
     }
 
     &.cell-kind,
