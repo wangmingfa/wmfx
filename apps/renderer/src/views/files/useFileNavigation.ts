@@ -113,10 +113,10 @@ export function useFileNavigation(deps: FileNavigationDeps): FileNavigationResul
     const lower = sortBy.value
     entries.sort((a, b) => {
       // 文件夹始终排在前面
-      if (a.isDir && !b.isDir) {
+      if (a.type === 'directory' && b.type !== 'directory') {
         return -1
       }
-      if (!a.isDir && b.isDir) {
+      if (a.type !== 'directory' && b.type === 'directory') {
         return 1
       }
       switch (lower) {

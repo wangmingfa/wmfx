@@ -109,6 +109,13 @@ export function formatAddressBarUrl(url: string): string {
  */
 export const WMFX_SCHEME = 'wmfx://'
 
+/**
+ * wmfx scheme 的裸名称（不带 `://`）。
+ * `protocol.registerSchemesAsPrivileged` 与 `protocol.handle` 需要的是裸 scheme 名，
+ * 不能传 `'wmfx://'`，否则协议无法识别（表现为 ERR_UNKNOWN_URL_SCHEME）。
+ */
+export const WMFX_SCHEME_NAME = 'wmfx'
+
 /** 新标签页默认地址。集中在此，未来支持「用户自定义新标签页地址」只需改这一处（或改 createNewTab 读设置）。 */
 export const NEW_TAB_URL = `${WMFX_SCHEME}newtab`
 

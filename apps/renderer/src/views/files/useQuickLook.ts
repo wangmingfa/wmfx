@@ -13,8 +13,8 @@ export interface QuickLookResult {
   previewData: Ref<PreviewData | null>
   openPreview: (file: FileEntry) => Promise<void>
   closePreview: () => void
-  previousPreview: () => Promise<void>
-  nextPreview: () => Promise<void>
+  togglePreview: (file: FileEntry) => Promise<void>
+  updatePreview: (index: number) => Promise<void>
 }
 
 /**
@@ -32,9 +32,6 @@ export function useQuickLook(deps: QuickLookDeps): QuickLookResult {
 
   async function openPreview(file: FileEntry): Promise<void> {
     console.debug('[useQuickLook] openPreview:', file.name)
-    if (file.isDir) {
-      return
-    }
     try {
       previewData.value = await window.browserAPI.readFilePreview(file.path)
       previewIndex.value = sortedFiles.value.findIndex((f) => f.path === file.path)
@@ -87,28 +84,26 @@ export function useQuickLook(deps: QuickLookDeps): QuickLookResult {
   function closePreview(): void {
     console.debug('[useQuickLook] closePreview')
     previewVisible.value = false
-    previewData.value = null
+    // previewData.value = null
   }
 
-  async function previousPreview(): Promise<void> {
-    console.debug('[useQuickLook] previousPreview')
-    if (previewIndex.value > 0) {
-      const file = sortedFiles.value[previewIndex.value - 1]
-      if (file && !file.isDir) {
-        previewIndex.value--
-        await openPreview(file)
-      }
+  async function togglePreview(file: FileEntry): Promise<void> {
+    if (previewVisible.value) {
+      closePreview()
+    } else {
+      await openPreview(file)
     }
   }
 
-  async function nextPreview(): Promise<void> {
-    console.debug('[useQuickLook] nextPreview')
-    if (previewIndex.value < sortedFiles.value.length - 1) {
-      const file = sortedFiles.value[previewIndex.value + 1]
-      if (file && !file.isDir) {
-        previewIndex.value++
-        await openPreview(file)
-      }
+  async function updatePreview(index: number): Promise<void> {
+    console.debug('[useQuickLook] updatePreview', index)
+    if (!previewVisible.value) {
+      return
+    }
+    if (index >= 0 && index < sortedFiles.value.length) {
+      previewIndex.value = index
+      const file = sortedFiles.value[index]
+      await openPreview(file)
     }
   }
 
@@ -117,7 +112,7 @@ export function useQuickLook(deps: QuickLookDeps): QuickLookResult {
     previewData,
     openPreview,
     closePreview,
-    previousPreview,
-    nextPreview,
+    updatePreview,
+    togglePreview,
   }
 }

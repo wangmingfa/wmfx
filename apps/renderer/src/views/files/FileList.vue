@@ -1,7 +1,15 @@
 <template>
   <div
+    ref="fileListEl"
     class="files-list"
-    :class="[store!.viewMode.value, { 'drag-over': store!.dragOverFilesList.value, 'marquee-active': store!.marqueeActive.value }]"
+    :class="[
+      store!.viewMode.value,
+      {
+        'drag-over': store!.dragOverFilesList.value,
+        'marquee-active': store!.marqueeActive.value,
+        'empty': !store!.showSkeleton.value && store!.directoryError.value === null && store!.fileEntries.value.length === 0,
+      },
+    ]"
     @click="store!.clearSelection($event)"
     @contextmenu="store!.showFileContextMenu($event)"
     @mousedown="store!.onMarqueeStart($event)"
@@ -54,7 +62,7 @@
         :key="file.path"
         class="file-item"
         :data-path="file.path"
-        :class="[{ 'selected': store!.isSelected(file.path), 'folder': file.isDir, 'dragging': store!.dragFiles.value.includes(file.path), 'marquee-hit': store!.marqueeHitPaths.value.includes(file.path) }]"
+        :class="[{ 'selected': store!.isSelected(file.path), 'folder': file.type === 'directory', 'dragging': store!.dragFiles.value.includes(file.path), 'marquee-hit': store!.marqueeHitPaths.value.includes(file.path) }]"
         :draggable="store!.isSelected(file.path)"
         @click="store!.handleItemClick(file, $event)"
         @dblclick="store!.handleItemDblClick(file)"
@@ -70,12 +78,19 @@
           class="file-icon-cell"
           :draggable="!store!.isSelected(file.path)"
         >
+          <FileThumbnail
+            v-if="isImageFile(file)"
+            :file="file"
+          />
+
           <Icon
+            v-else
             :icon="getFileIcon(file)"
             :width="48"
             :height="48"
             class="file-icon-large"
             :style="{ color: getFileIconColor(file) }"
+            :data-layout-id="file.path"
           />
           <span
             v-if="store!.renamingPath.value !== file.path"
@@ -184,9 +199,11 @@
 import type { FileStore } from './useFileStore'
 
 import { Icon } from '@iconify/vue'
-import { inject, ref } from 'vue'
+import { inject, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from '@/composables/useI18n'
+import FileThumbnail from './FileThumbnail.vue'
 import { fileStoreInjectionKey } from './injectionKeys'
+
 import { useFileDisplay } from './useFileDisplay'
 
 /**
@@ -195,10 +212,63 @@ import { useFileDisplay } from './useFileDisplay'
  */
 const store = inject<FileStore>(fileStoreInjectionKey)
 const { t } = useI18n()
-const { getFileIcon, getFileIconColor } = useFileDisplay()
+const { getFileIcon, getFileIconColor, isImageFile } = useFileDisplay()
 
 // 当前悬停项（组件内部状态）
 const itemHovered = ref('')
+
+/** 计算图标视图列数（基于实际 DOM grid 布局） */
+function calcIconColumns(): number {
+  const items = document.querySelectorAll('.file-item')
+  if (items.length === 0) {
+    return 1
+  }
+  const firstTop = items[0].getBoundingClientRect().top
+  let count = 0
+  for (const item of items) {
+    if (Math.abs(item.getBoundingClientRect().top - firstTop) < 1) {
+      count++
+    } else {
+      break
+    }
+  }
+  return Math.max(1, count)
+}
+
+/** 图标列表容器 ref */
+const fileListEl = ref<HTMLElement | null>(null)
+let iconListResizeObserver: ResizeObserver | null = null
+
+/** 更新图标视图列数 */
+function updateIconColumnCount(): void {
+  store!.iconColumnCount.value = calcIconColumns()
+}
+
+onMounted(() => {
+  if (!fileListEl.value) {
+    return
+  }
+  iconListResizeObserver = new ResizeObserver(() => {
+    updateIconColumnCount()
+  })
+  iconListResizeObserver.observe(fileListEl.value)
+  // 初始计算
+  updateIconColumnCount()
+})
+
+// 文件列表内容或视图模式变化后，DOM grid 布局会改变但容器尺寸不变，
+// ResizeObserver 不会触发，需在此主动重算列数，否则 iconColumnCount 会停留在初始的 1，
+// 导致图标视图上下方向键退化成左右（步进 = 列数 = 1）。
+watch(
+  [() => store!.sortedFiles.value.length, () => store!.viewMode.value],
+  updateIconColumnCount,
+  { flush: 'post' },
+)
+
+onUnmounted(() => {
+  iconListResizeObserver?.disconnect()
+  iconListResizeObserver = null
+})
 
 // 文件名高亮分段：搜索时把命中的子串标记为 hit，渲染层用 <mark> 区分颜色
 function getHighlightParts(name: string): Array<{ text: string, hit: boolean }> {
@@ -255,6 +325,15 @@ function getHighlightParts(name: string): Array<{ text: string, hit: boolean }> 
     outline: 2px dashed var(--accent-color);
     outline-offset: -2px;
     border-radius: 8px;
+  }
+
+  /* 空目录时关闭 grid 布局，改用 flex 居中 */
+  &.empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
   }
 }
 
@@ -321,6 +400,13 @@ function getHighlightParts(name: string): Array<{ text: string, hit: boolean }> 
 
   .file-icon-large {
     opacity: 0.9;
+  }
+
+  .file-thumbnail {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 6px;
   }
 
   .file-name-cell {
@@ -452,8 +538,7 @@ function getHighlightParts(name: string): Array<{ text: string, hit: boolean }> 
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 100%;
-  min-height: 200px;
+  min-height: 100%;
   padding: 24px;
   box-sizing: border-box;
 }

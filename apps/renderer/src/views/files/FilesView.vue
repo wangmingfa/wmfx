@@ -11,12 +11,11 @@
       <FilesStatusBar />
     </section>
   </div>
-  <QuickLookPanel v-if="previewVisible && previewData" />
+  <QuickLookPanel />
 </template>
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, provide } from 'vue'
-
 import FileList from './FileList.vue'
 import FilesListHeader from './FilesListHeader.vue'
 import FilesSidebar from './FilesSidebar.vue'
@@ -31,8 +30,6 @@ provide(fileStoreInjectionKey, store)
 
 const {
   viewMode,
-  previewVisible,
-  previewData,
 } = store
 
 onMounted(() => {

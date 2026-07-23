@@ -449,6 +449,9 @@ export interface Message {
     propertiesModified: string
     propertiesCreated: string
     propertiesPermissions: string
+    contains: string
+    copyPath: string
+    copyName: string
   }
 }
 
@@ -935,6 +938,9 @@ export const messages: Record<string, Message> = {
       propertiesModified: '修改时间',
       propertiesCreated: '创建时间',
       propertiesPermissions: '权限',
+      contains: '包含',
+      copyPath: '复制路径',
+      copyName: '复制名称',
     },
   },
   'en-US': {
@@ -1384,6 +1390,9 @@ export const messages: Record<string, Message> = {
       propertiesModified: 'Modified',
       propertiesCreated: 'Created',
       propertiesPermissions: 'Permissions',
+      contains: 'Contains',
+      copyPath: 'Copy Path',
+      copyName: 'Copy Name',
     },
   },
 }

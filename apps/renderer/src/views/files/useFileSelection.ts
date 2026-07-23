@@ -50,7 +50,7 @@ export function useFileSelection(deps: FileSelectionDeps): FileSelectionResult {
       return ''
     }
     const entries = fileEntries.value.filter((f) => selected.includes(f.path))
-    const allFiles = entries.length > 0 && entries.every((f) => !f.isDir)
+    const allFiles = entries.length > 0 && entries.every((f) => f.type !== 'directory')
     return allFiles ? formatSize(entries.reduce((sum, f) => sum + (f.size || 0), 0)) : ''
   })
   // 选中状态文案：已选择 M 个项目（，总大小）
@@ -111,7 +111,7 @@ export function useFileSelection(deps: FileSelectionDeps): FileSelectionResult {
       console.debug(
         '[useFileSelection] handleItemClick: 单击已选中项 %s isDir=%s detail=%d → 设置 renameTimer',
         file.name,
-        file.isDir,
+        file.type === 'directory',
         event.detail
       )
       if (event.detail <= 1) {

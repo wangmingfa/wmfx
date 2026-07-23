@@ -5,14 +5,20 @@ import type {
   FileBookmark,
   FileEntry,
   FileStat,
+  FileType,
   FtpConnectOptions,
   PreviewData,
   SftpConnectOptions,
   SystemDir,
 } from '@browser/ipc-contract'
 import { Client as FtpClient } from 'basic-ftp'
-import { app, BrowserWindow, clipboard, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, clipboard, shell } from 'electron'
 import { type SFTPWrapper, Client as SftpClient } from 'ssh2'
+import { getImageDimensions } from './thumbnail'
+
+// 只对图片文件读取尺寸
+const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff'])
+
 export interface FileOpResult {
   success: boolean
   error?: string
@@ -42,7 +48,7 @@ const SENSITIVE_DIR_PATTERNS: string[] = []
 const SENSITIVE_DIRS = ['/etc/passwd', '/etc/shadow', '/root', '/boot', '/sys', '/proc', '/var/log']
 
 /** 校验路径安全：拒绝 `..` 穿越，检查敏感目录 */
-function validatePath(rawPath: string): string {
+export function validatePath(rawPath: string): string {
   const resolved = path.resolve(rawPath)
 
   // 拒绝 `..` 穿越到系统根
@@ -101,24 +107,51 @@ export class FileBrowserManager {
 
   // ─── 目录操作 ──────────────────────────────────────────────
 
-  /** 读取目录内容，返回文件/文件夹列表 */
-  readDir(dirPath: string): FileEntry[] {
-    console.debug('[FileBrowserManager] readDir: dirPath', dirPath)
+  /** 读取目录内容，返回文件/文件夹列表；图片文件并行读取尺寸元数据 */
+  async readDir(dirPath: string): Promise<FileEntry[]> {
+    console.info('[FileBrowserManager] readDir: dirPath=%s', dirPath)
     const validated = validatePath(dirPath)
     try {
-      const entries = fs.readdirSync(validated, { withFileTypes: true })
-      return entries
-        .map((entry) => {
+      const entries = await fs.promises.readdir(validated, { withFileTypes: true })
+
+      const fileEntries: FileEntry[] = []
+
+      // 并行处理所有文件
+      await Promise.all(
+        entries.map(async (entry) => {
           const fullPath = path.join(validated, entry.name)
           try {
-            const stat = fs.statSync(fullPath)
-            return this.buildFileEntry(entry, fullPath, stat)
-          } catch {
-            console.warn('[FileBrowserManager] readDir stat error:', fullPath)
-            return null
+            const stat = await fs.promises.stat(fullPath)
+            const fileEntry = this.buildFileEntry(entry, fullPath, stat)
+
+            // 图片文件并行获取尺寸（仅支持尺寸检测的格式）
+            if (IMAGE_EXTENSIONS.has(path.extname(fullPath))) {
+              try {
+                const dimensions = await getImageDimensions(fullPath)
+                if (dimensions) {
+                  fileEntry.info = dimensions
+                }
+              } catch {
+                console.debug(
+                  '[FileBrowserManager] readDir getImageDimensions failed: %s',
+                  fullPath
+                )
+              }
+            }
+
+            fileEntries.push(fileEntry)
+          } catch (err) {
+            console.warn('[FileBrowserManager] readDir stat error: %s err=%s', fullPath, err)
           }
         })
-        .filter((e): e is FileEntry => e !== null)
+      )
+
+      console.info(
+        '[FileBrowserManager] readDir: dirPath=%s entries=%d',
+        dirPath,
+        fileEntries.length
+      )
+      return fileEntries
     } catch (err) {
       console.error('[FileBrowserManager] readDir error:', err)
       throw err
@@ -340,7 +373,7 @@ export class FileBrowserManager {
   // ─── Quick Look 预览 ──────────────────────────────────────
 
   /** 读取文件预览数据 */
-  readFilePreview(filePath: string): PreviewData {
+  async readFilePreview(filePath: string): Promise<PreviewData> {
     console.debug('[FileBrowserManager] readFilePreview: filePath', filePath)
     const validated = validatePath(filePath)
     try {
@@ -350,38 +383,48 @@ export class FileBrowserManager {
       const fileName = path.basename(filePath)
       const fileSize = stat.size
 
+      // 文件夹
+      if (stat.isDirectory()) {
+        return {
+          type: 'directory',
+          filePath,
+          fileName,
+          modifiedAt,
+          fileSize,
+        }
+      }
+
+      // 图片：通过 wmfx:// 协议加载（sharp 缩放/直出 + 磁盘缓存），
+      // 不受 10MB 限制，支持大图 / gigapixel；gif 走 file-raw 保留动画，其余走 file-preview 缩放。
+      // 尺寸仅解析元数据获取，超大图也能秒回。
+      if (this.isImageExt(ext)) {
+        const enc = encodeURIComponent(validated)
+        const data =
+          ext === 'gif' ? `wmfx://file-raw?path=${enc}` : `wmfx://file-preview?path=${enc}`
+        const dimensions = await getImageDimensions(validated)
+        return {
+          type: 'image',
+          filePath,
+          modifiedAt,
+          mimeType: this.getImageMimeType(ext),
+          data,
+          dimensions,
+          fileName,
+          fileSize,
+        }
+      }
+
       // 大文件（>10MB）仅显示元信息
       if (fileSize > 10 * 1024 * 1024) {
         return {
           type: this.detectType(ext),
+          filePath,
           fileName,
           fileSize,
         }
       }
 
       const data = fs.readFileSync(validated)
-
-      // 图片
-      if (this.isImageExt(ext)) {
-        const base64 = data.toString('base64')
-        const mimeType = this.getImageMimeType(ext)
-        let dimensions: { width: number; height: number } | undefined
-        try {
-          const size = nativeImage.createFromBuffer(data).getSize()
-          if (size.width > 0 && size.height > 0) dimensions = size
-        } catch {
-          console.warn('[FileBrowserManager] readFilePreview: 读取图片尺寸失败', filePath)
-        }
-        return {
-          type: 'image',
-          modifiedAt,
-          mimeType,
-          data: `data:${mimeType};base64,${base64}`,
-          dimensions,
-          fileName,
-          fileSize,
-        }
-      }
 
       // 文本
       if (this.isTextExt(ext)) {
@@ -390,6 +433,7 @@ export class FileBrowserManager {
         const text = truncated ? data.slice(0, 50 * 1024).toString('utf-8') : data.toString('utf-8')
         return {
           type: 'text',
+          filePath,
           modifiedAt,
           mimeType: 'text/plain',
           data: text,
@@ -401,16 +445,16 @@ export class FileBrowserManager {
 
       // PDF / 音频 / 视频：返回元信息，渲染端用 file:// 加载
       if (ext === 'pdf') {
-        return { type: 'pdf', fileName, fileSize, modifiedAt }
+        return { type: 'pdf', filePath, fileName, fileSize, modifiedAt }
       }
       if (this.isAudioExt(ext)) {
-        return { type: 'audio', fileName, fileSize, modifiedAt }
+        return { type: 'audio', filePath, fileName, fileSize, modifiedAt }
       }
       if (this.isVideoExt(ext)) {
-        return { type: 'video', fileName, fileSize, modifiedAt }
+        return { type: 'video', filePath, fileName, fileSize, modifiedAt }
       }
 
-      return { type: 'unknown', fileName, fileSize, modifiedAt }
+      return { type: 'unknown', filePath, fileName, fileSize, modifiedAt }
     } catch (err) {
       console.error('[FileBrowserManager] readFilePreview error:', err)
       throw err
@@ -605,7 +649,7 @@ export class FileBrowserManager {
       return list.map((item) => ({
         name: item.name,
         path: `${remotePath}/${item.name}`,
-        isDir: (item.type as number) === 2,
+        type: ((item.type as number) === 2 ? 'directory' : 'unknown') as FileType,
         size: item.size || 0,
         modifiedAt: Date.now(),
         createdAt: Date.now(),
@@ -633,7 +677,9 @@ export class FileBrowserManager {
                   name,
                   path: `${remotePath}/${name}`,
                   // biome-ignore lint/suspicious/noExplicitAny: ssh2 Stats has no .isDirectory() TS type
-                  isDir: (stat as any).isDirectory?.() ?? false,
+                  type: (((stat as any).isDirectory?.() ?? false)
+                    ? 'directory'
+                    : 'unknown') as FileType,
                   // biome-ignore lint/suspicious/noExplicitAny: ssh2 Stats size property
                   size: (stat as any).size || 0,
                   modifiedAt: Date.now(),
@@ -735,10 +781,11 @@ export class FileBrowserManager {
 
   private buildFileEntry(entry: fs.Dirent, fullPath: string, stat: fs.Stats): FileEntry {
     const ext = path.extname(fullPath).toLowerCase().slice(1)
+    const type = entry.isDirectory() ? 'directory' : this.detectFileType(ext)
     return {
       name: entry.name,
       path: fullPath,
-      isDir: entry.isDirectory(),
+      type,
       size: stat.size,
       modifiedAt: stat.mtimeMs,
       createdAt: stat.birthtimeMs,
@@ -782,6 +829,13 @@ export class FileBrowserManager {
     if (this.isImageExt(ext)) return 'image'
     if (this.isTextExt(ext)) return 'text'
     if (ext === 'pdf') return 'pdf'
+    if (this.isAudioExt(ext)) return 'audio'
+    if (this.isVideoExt(ext)) return 'video'
+    return 'unknown'
+  }
+
+  private detectFileType(ext: string): FileType {
+    if (this.isImageExt(ext)) return 'image'
     if (this.isAudioExt(ext)) return 'audio'
     if (this.isVideoExt(ext)) return 'video'
     return 'unknown'

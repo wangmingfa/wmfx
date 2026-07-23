@@ -28,13 +28,13 @@ export class SessionManager {
   private sessions = new Map<string, SessionConfig>()
   /** 代理规则字符串，传递给 session.fromPartition 的 proxyRules */
   private proxyRules?: string
-  /** session 创建完成后的钩子（如挂载广告拦截器），由主进程注入 */
-  private onSessionReady?: (sess: Session) => void
+  /** session 创建完成后的钩子数组（广告拦截器、wmfx 协议等），由主进程注入 */
+  private onSessionReadyCallbacks: ((sess: Session) => void)[] = []
 
-  /** 注册 session 就绪钩子（幂等挂载广告拦截等） */
-  setOnSessionReady(cb: (sess: Session) => void): void {
-    console.debug('[SessionManager] setOnSessionReady')
-    this.onSessionReady = cb
+  /** 注册 session 就绪钩子（支持多个订阅者，幂等挂载广告拦截、协议等） */
+  onSessionReady(cb: (sess: Session) => void): void {
+    console.debug('[SessionManager] onSessionReady: registered callback')
+    this.onSessionReadyCallbacks.push(cb)
   }
 
   constructor() {
@@ -94,8 +94,10 @@ export class SessionManager {
         ])
       }
     })
-    // session 就绪后挂载广告拦截等附加能力（广告拦截器内部幂等，重复调用安全）
-    this.onSessionReady?.(sess)
+    // session 就绪后挂载广告拦截、wmfx 协议等附加能力
+    for (const cb of this.onSessionReadyCallbacks) {
+      cb(sess)
+    }
     return sess
   }
 

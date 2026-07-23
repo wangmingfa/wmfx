@@ -19,6 +19,7 @@ export default defineConfig({
   external: [
     'electron',
     'better-sqlite3',
+    'sharp',
     '@wmfx/database',
     'electron-updater',
     '@iconify/utils',

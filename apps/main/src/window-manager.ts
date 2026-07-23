@@ -83,13 +83,13 @@ let appAdBlocker: AdBlocker | null = null
 /** 应用级共享 RequestCapturer，由 setRequestCapturer 注入后挂载到每个 session */
 let appRequestCapturer: RequestCapturer | null = null
 
-function getSharedSessionManager(): SessionManager {
+export function getSharedSessionManager(): SessionManager {
   if (!sharedSessionManager) {
     sharedSessionManager = new SessionManager()
     console.debug('[WindowManager] getSharedSessionManager: created shared SessionManager')
     // 每个新建 session 挂载广告拦截器（AdBlocker.attach 内部幂等）
     if (appAdBlocker) {
-      sharedSessionManager.setOnSessionReady((sess) => appAdBlocker!.attach(sess))
+      sharedSessionManager.onSessionReady((sess) => appAdBlocker!.attach(sess))
     }
   }
   return sharedSessionManager
@@ -354,7 +354,7 @@ export function setAdBlocker(ab: AdBlocker): void {
   appAdBlocker = ab
   // 若 SessionManager 已存在（先建窗口后注入的极端情况），补挂已有 session
   if (sharedSessionManager) {
-    sharedSessionManager.setOnSessionReady((sess) => appAdBlocker!.attach(sess))
+    sharedSessionManager.onSessionReady((sess) => appAdBlocker!.attach(sess))
     for (const name of sharedSessionManager.getPartitions()) {
       appAdBlocker.attach(sharedSessionManager.getSession(name))
     }
@@ -371,7 +371,7 @@ export function setRequestCapturer(rc: RequestCapturer): void {
   console.debug('[WindowManager] setRequestCapturer: set')
   appRequestCapturer = rc
   if (sharedSessionManager) {
-    sharedSessionManager.setOnSessionReady((sess) => appRequestCapturer!.attach(sess))
+    sharedSessionManager.onSessionReady((sess) => appRequestCapturer!.attach(sess))
     for (const name of sharedSessionManager.getPartitions()) {
       appRequestCapturer.attach(sharedSessionManager.getSession(name))
     }

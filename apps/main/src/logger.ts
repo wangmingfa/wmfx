@@ -33,6 +33,20 @@ import type { App } from 'electron'
 type Level = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR'
 type Source = 'main' | 'renderer'
 
+// 控制台 ANSI 颜色：DEBUG/INFO 默认色，WARN 黄，ERROR 红；管道重定向时不染色以免污染。
+const ANSI = {
+  reset: '\x1b[0m',
+  red: '\x1b[31m',
+  yellow: '\x1b[33m',
+} as const
+const LEVEL_COLORS: Record<Level, string> = {
+  DEBUG: '',
+  INFO: '',
+  WARN: ANSI.yellow,
+  ERROR: ANSI.red,
+}
+const useColor = (): boolean => Boolean(process.stdout.isTTY) || Boolean(process.stderr.isTTY)
+
 // 日志等级过滤（仅 dev 模式生效，生产包不设 WMFX_LOG_LEVEL → 全部保留）
 const LEVEL_ORDER: Record<Level, number> = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 }
 const MIN_LEVEL: Level = (process.env.WMFX_LOG_LEVEL?.toUpperCase() as Level) || 'DEBUG'
@@ -173,9 +187,10 @@ function emit(source: Source, level: Level, message: string): void {
   openStreamsSafe()
   const line = formatLine(source, level, message)
 
-  // 控制台始终即时输出（ERROR/WARN 走 stderr）
+  // 控制台始终即时输出（ERROR/WARN 走 stderr）；WARN 黄、ERROR 红，仅 TTY 上色以免污染管道/文件
   const consoleStream = level === 'ERROR' || level === 'WARN' ? process.stderr : process.stdout
-  consoleStream.write(line)
+  const color = useColor() ? LEVEL_COLORS[level] : ''
+  consoleStream.write(color ? `${color}${line}${ANSI.reset}` : line)
 
   if (cleaning) {
     pending.push({ line, source, level })

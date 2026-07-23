@@ -119,7 +119,7 @@ export function useFileOperations(deps: FileOperationsDeps): FileOperationsResul
   // 双击文件项
   async function handleItemDblClick(file: FileEntry): Promise<void> {
     console.debug('[useFileOperations] handleItemDblClick: %s', file.name)
-    if (file.isDir) {
+    if (file.type === 'directory') {
       await navigateTo(file.path)
     } else {
       await window.browserAPI.openFile(file.path)

@@ -22,6 +22,11 @@ import {
   setOnWindowReady,
   setRequestCapturer,
 } from './window-manager'
+import { registerWmfxProtocol, registerWmfxSchemePrivileged } from './wmfx-protocol'
+
+// wmfx:// 必须在 app.whenReady() 之前声明为 privileged/standard scheme，
+// 否则 <img src="wmfx://..."> 会报 ERR_UNKNOWN_URL_SCHEME。
+registerWmfxSchemePrivileged()
 
 // 单实例锁：设为默认浏览器后，系统点击链接会尝试启动新实例，
 // 由 second-instance 在已有实例中接管并打开链接；无锁则无法正确接收链接。
@@ -280,6 +285,7 @@ app.whenReady().then(async () => {
   })
 
   const mainWindow = createWindow({}, proxyManager)
+  registerWmfxProtocol()
   initNativeMenu(mainWindow.window)
   mainWindow.settingsManager.setNativeTheme()
   bootstrapWindow(mainWindow)
@@ -309,12 +315,15 @@ app.on('will-quit', () => {
   proxyManager.stop()
 })
 
-const cleanupProxy = () => {
-  console.debug('[App] signal received: stopping proxy before exit')
-  proxyManager.stop()
+// dev orchestrator 关闭时向本进程发 SIGTERM（IPC 在 Bun 下不可靠，故以信号为准）。
+// 必须调用 app.quit() 才能触发 will-quit 收尾（session 保存 / 代理停止 / 连带 Mihomo），
+// 仅 stop 代理会让 Electron 主进程继续存活，成为孤儿。
+const gracefulExit = (signal: string) => {
+  console.info('[App] %s received, calling app.quit()', signal)
+  app.quit()
 }
-process.on('SIGINT', cleanupProxy)
-process.on('SIGTERM', cleanupProxy)
+process.on('SIGINT', () => gracefulExit('SIGINT'))
+process.on('SIGTERM', () => gracefulExit('SIGTERM'))
 
 // 开发期：接收 orchestrator 的优雅退出信号，走正常 app.quit() 流程
 process.on('message', (msg) => {

@@ -11,12 +11,14 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { useI18n } from '@/composables/useI18n'
 import { usePageTitle } from '@/composables/usePageTitle'
+import { useToast } from '@/composables/useToast'
 import { ContextMenu } from '@/lib/context-menu'
 import { isMacOS } from '@/utils/os'
 import { useFileDragDrop } from './useFileDragDrop'
 import { useFileMetadata } from './useFileMetadata'
 import { useFileNavigation } from './useFileNavigation'
 import { useFileOperations } from './useFileOperations'
+import { useFileProperties } from './useFileProperties'
 import { useFileRename } from './useFileRename'
 import { useFileSelection } from './useFileSelection'
 import type { ListViewColumn } from './useListColumns'
@@ -100,8 +102,7 @@ export interface FileStore {
   cancelRenameTimer: () => void
   openPreview: (file: FileEntry) => Promise<void>
   closePreview: () => void
-  previousPreview: () => Promise<void>
-  nextPreview: () => Promise<void>
+  updatePreview: (index: number) => Promise<void>
   isSelected: (path: string) => boolean
   selectAll: () => void
   onMarqueeStart: (event: MouseEvent) => void
@@ -117,6 +118,9 @@ export interface FileStore {
   renderCellContent: (file: FileEntry, key: ListViewColumn['key']) => string
   showFileContextMenu: (event: MouseEvent, file?: FileEntry | null) => void
 
+  // 图标视图列数（从 FileList 的 DOM 读取 grid 容器宽度动态计算）
+  iconColumnCount: Ref<number>
+
   // 生命周期
   setup: () => Promise<void>
   teardown: () => void
@@ -128,6 +132,7 @@ export function useFileStore(): FileStore {
   const route = useRoute()
   const router = useRouter()
   const { t } = useI18n()
+  const toast = useToast()
 
   // ── 共享原始 refs ──
   const currentPath = ref('')
@@ -142,6 +147,11 @@ export function useFileStore(): FileStore {
   const navIndex = ref(-1)
   const isLoading = ref(false)
   const showSkeleton = ref(false)
+  const iconColumnCount = ref(1)
+  // 键盘 Shift 范围多选的活动光标（随方向键移动，锚点为 lastClickedIndex）；
+  // rangeCursorAnchor 记录建立光标时的锚点，用于检测锚点是否被非-shift 操作改变。
+  const rangeCursorIndex = ref(-1)
+  const rangeCursorAnchor = ref(-1)
 
   // 标签页标题同步为当前文件夹路径（document.title → 主进程 page-title-updated → 标签栏）
   usePageTitle(currentPath)
@@ -184,6 +194,9 @@ export function useFileStore(): FileStore {
     lastClickedIndex,
     loadDirectory: navigation.loadDirectory,
   })
+
+  // 3. Properties（需要 currentPath）
+  const properties = useFileProperties({ currentPath, fileEntries, t })
 
   // 3. Selection（需要 rename hooks）
   const selection = useFileSelection({
@@ -261,26 +274,53 @@ export function useFileStore(): FileStore {
       return
     }
 
-    // 上下方向键选择（Shift 范围多选）
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    // 方向键选择（Shift 范围多选）
+    if (
+      event.key === 'ArrowDown' ||
+      event.key === 'ArrowUp' ||
+      event.key === 'ArrowLeft' ||
+      event.key === 'ArrowRight'
+    ) {
       if (event.ctrlKey || event.altKey) return
       event.preventDefault()
       const items = navigation.sortedFiles.value
       if (items.length === 0) return
-      const dir = event.key === 'ArrowDown' ? 1 : -1
-      const next =
-        lastClickedIndex.value < 0
-          ? 0
-          : Math.min(items.length - 1, Math.max(0, lastClickedIndex.value + dir))
+      const isIconView = viewMode.value === 'icon'
+      // 图标视图：上下按行跳（步进 = 列数），左右按单项跳；列表视图：均按 1 步进
+      let step: number
+      if (isIconView) {
+        step =
+          event.key === 'ArrowDown'
+            ? iconColumnCount.value
+            : event.key === 'ArrowUp'
+              ? -iconColumnCount.value
+              : event.key === 'ArrowRight'
+                ? 1
+                : -1
+      } else {
+        step = event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : -1
+      }
+      const clamp = (i: number) => Math.min(items.length - 1, Math.max(0, i))
       if (event.shiftKey && lastClickedIndex.value >= 0) {
-        const [from, to] =
-          lastClickedIndex.value < next
-            ? [lastClickedIndex.value, next]
-            : [next, lastClickedIndex.value]
+        // Shift 范围多选：lastClickedIndex 为固定锚点，rangeCursorIndex 为随方向键移动的活动端。
+        // 若锚点被点击/普通方向键等非-shift 操作改变（rangeCursorAnchor 不再等于锚点），
+        // 或光标尚未建立，则以当前锚点为起点重建，保证每次 Shift+方向键都能连续扩展/收缩。
+        const anchor = lastClickedIndex.value
+        if (rangeCursorIndex.value < 0 || rangeCursorAnchor.value !== anchor) {
+          rangeCursorIndex.value = anchor
+          rangeCursorAnchor.value = anchor
+        }
+        const cursor = clamp(rangeCursorIndex.value + step)
+        rangeCursorIndex.value = cursor
+        const [from, to] = anchor < cursor ? [anchor, cursor] : [cursor, anchor]
         selectedPaths.value = items.slice(from, to + 1).map((f: FileEntry) => f.path)
       } else {
+        const next = lastClickedIndex.value < 0 ? 0 : clamp(lastClickedIndex.value + step)
         selectedPaths.value = [items[next].path]
         lastClickedIndex.value = next
+        // 普通移动重置光标基准，使下一次 Shift 序列从此处开始
+        rangeCursorIndex.value = next
+        rangeCursorAnchor.value = next
       }
       return
     }
@@ -390,8 +430,8 @@ export function useFileStore(): FileStore {
       event.preventDefault()
       if (selectedPaths.value.length === 1) {
         const file = fileEntries.value.find((f) => f.path === selectedPaths.value[0])
-        if (file && !file.isDir) {
-          await quickLook.openPreview(file)
+        if (file) {
+          await quickLook.togglePreview(file)
         }
       }
     }
@@ -440,6 +480,7 @@ export function useFileStore(): FileStore {
     viewMode,
     sortBy,
     searchQuery,
+    iconColumnCount,
 
     // 选中状态
     selectedPaths,
@@ -499,8 +540,7 @@ export function useFileStore(): FileStore {
     cancelRenameTimer: rename.cancelRenameTimer,
     openPreview: quickLook.openPreview,
     closePreview: quickLook.closePreview,
-    previousPreview: quickLook.previousPreview,
-    nextPreview: quickLook.nextPreview,
+    updatePreview: quickLook.updatePreview,
     isSelected: selection.isSelected,
     selectAll: selection.selectAll,
     onMarqueeStart: marquee.onMarqueeStart,
@@ -531,10 +571,13 @@ export function useFileStore(): FileStore {
       }
       event.preventDefault()
       event.stopPropagation()
-      const hasSelection = selectedPaths.value.length > 0
+      const selectionCount = selectedPaths.value.length
+      const isSingle = selectionCount === 1
+      const isMulti = selectionCount > 1
       const items: MenuItem[] = []
 
-      if (hasSelection) {
+      if (isSingle) {
+        // 单选：完整菜单
         items.push({ id: 'open', label: t('files.open'), icon: 'mdi:open-in-new' })
         items.push({ id: 'openNewTab', label: t('files.openInNewTab'), icon: 'mdi:tab' })
         items.push({ id: 'sep1', type: 'separator' })
@@ -543,7 +586,23 @@ export function useFileStore(): FileStore {
         items.push({ id: 'sep2', type: 'separator' })
         items.push({ id: 'copy', label: t('files.copy'), icon: 'mdi:content-copy' })
         items.push({ id: 'cut', label: t('files.cut'), icon: 'mdi:content-cut' })
+        items.push({ id: 'sep3', type: 'separator' })
+        items.push({ id: 'copyPath', label: t('files.copyPath'), icon: 'mdi:file-outline' })
+        items.push({ id: 'copyName', label: t('files.copyName'), icon: 'mdi:content-copy' })
+        items.push({ id: 'sep4', type: 'separator' })
+        items.push({
+          id: 'properties',
+          label: t('files.properties'),
+          icon: 'mdi:information-outline',
+        })
+      } else if (isMulti) {
+        // 多选：仅批量操作
+        items.push({ id: 'delete', label: t('files.delete'), icon: 'mdi:trash-can', danger: true })
+        items.push({ id: 'sep1', type: 'separator' })
+        items.push({ id: 'copy', label: t('files.copy'), icon: 'mdi:content-copy' })
+        items.push({ id: 'cut', label: t('files.cut'), icon: 'mdi:content-cut' })
       } else {
+        // 无选中：空白区域菜单
         items.push({ id: 'newFolder', label: t('files.newFolder'), icon: 'mdi:folder-plus' })
         items.push({ id: 'sep1', type: 'separator' })
         items.push({ id: 'paste', label: t('files.paste'), icon: 'mdi:content-paste' })
@@ -588,6 +647,22 @@ export function useFileStore(): FileStore {
             case 'cut':
               operations.handleCut()
               break
+            case 'copyPath': {
+              const f = fileEntries.value.find((f) => f.path === selectedPaths.value[0])
+              if (f) {
+                void navigator.clipboard.writeText(f.path)
+                toast.success(`${t('files.copyPath')}: ${f.path}`)
+              }
+              break
+            }
+            case 'copyName': {
+              const f = fileEntries.value.find((f) => f.path === selectedPaths.value[0])
+              if (f) {
+                void navigator.clipboard.writeText(f.name)
+                toast.success(`${t('files.copyName')}: ${f.name}`)
+              }
+              break
+            }
             case 'newFolder':
               operations.handleNewFolder()
               break
@@ -597,6 +672,13 @@ export function useFileStore(): FileStore {
             case 'selectAll':
               selectedPaths.value = fileEntries.value.map((f) => f.path)
               break
+            case 'properties': {
+              if (selectedPaths.value.length === 1) {
+                const f = fileEntries.value.find((f) => f.path === selectedPaths.value[0])
+                if (f) properties.showProperties(f)
+              }
+              break
+            }
           }
         },
       })

@@ -6,6 +6,33 @@
 
 import type { NativeMenuItemDescriptor } from './menu'
 
+// ─── 文件类型系统 ─────────────────────────────────────────
+
+/** 文件类型枚举 */
+export type FileType = 'directory' | 'image' | 'video' | 'audio' | 'document' | 'unknown'
+
+/** 图片信息 */
+export interface ImageInfo {
+  width: number
+  height: number
+}
+
+/** 视频信息（未来扩展） */
+export interface VideoInfo {
+  duration: number
+  width: number
+  height: number
+}
+
+/** 音频信息（未来扩展） */
+export interface AudioInfo {
+  duration: number
+  bitrate: number
+}
+
+/** 文件附加信息联合类型 */
+export type FileExtraInfo = ImageInfo | VideoInfo | AudioInfo
+
 /** Popover 类型：menu=下拉菜单, addressbar=地址栏建议面板, find=页内查找栏, downloads=下载列表, bookmark-folder=书签文件夹下拉 */
 export type PopoverType =
   | 'menu'
@@ -395,12 +422,13 @@ export interface CommandPaletteData {
 export interface FileEntry {
   name: string
   path: string
-  isDir: boolean
+  type: FileType // 替换 isDir，直接判断文件类型
   size: number
   modifiedAt: number
   createdAt: number
   extension: string
   isHidden: boolean
+  info?: FileExtraInfo
 }
 
 /** 文件状态 */
@@ -417,6 +445,7 @@ export interface FileStat {
 /** 文件预览数据 */
 export interface PreviewData {
   type: 'image' | 'text' | 'pdf' | 'audio' | 'video' | 'unknown'
+  filePath: string
   fileName: string
   fileSize: number
   modifiedAt?: number

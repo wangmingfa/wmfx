@@ -83,6 +83,7 @@
     "@iconify/vue": "^5.0.1",
     "@mozilla/readability": "^0.6.0",
     "better-sqlite3": "^12.11.1",
-    "electron-store": "^11.0.2"
+    "electron-store": "^11.0.2",
+    "motion-v": "^2.3.0"
   }
 }

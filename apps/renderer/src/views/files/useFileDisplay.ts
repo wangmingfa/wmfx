@@ -11,7 +11,7 @@ export function useFileDisplay() {
 
   // 文件图标
   function getFileIcon(file: FileEntry): string {
-    if (file.isDir) {
+    if (file.type === 'directory') {
       return 'mdi:folder'
     }
     const ext = file.extension.toLowerCase()
@@ -38,7 +38,7 @@ export function useFileDisplay() {
 
   /** 按文件类型返回图标颜色（与图标语义一致，便于快速区分文件种类） */
   function getFileIconColor(file: FileEntry): string {
-    if (file.isDir) {
+    if (file.type === 'directory') {
       return '#f5a623'
     } // 文件夹：橙黄
     const ext = file.extension.toLowerCase()
@@ -86,7 +86,7 @@ export function useFileDisplay() {
 
   /** 按文件类型返回种类标签（列表视图「种类」列） */
   function getFileKind(file: FileEntry): string {
-    if (file.isDir) {
+    if (file.type === 'directory') {
       return t('files.kindFolder')
     }
     const ext = file.extension.toLowerCase()
@@ -142,5 +142,12 @@ export function useFileDisplay() {
     return `${(bytes / 1024 ** i).toFixed(i > 0 ? 1 : 0)} ${sizes[i]}`
   }
 
-  return { getFileIcon, getFileIconColor, getFileKind, formatSize }
+  /** 判断是否为图片文件 */
+  function isImageFile(file: FileEntry): boolean {
+    if (file.type === 'directory') return false
+    const ext = file.extension.toLowerCase()
+    return ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico', 'tiff', 'tif'].includes(ext)
+  }
+
+  return { getFileIcon, getFileIconColor, getFileKind, formatSize, isImageFile }
 }
