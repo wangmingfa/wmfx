@@ -255,7 +255,6 @@ const api: {
   onOpenFind: (cb: (tabId: string) => void) => void
   onFocusAddressBar: (cb: () => void) => () => void
   onOpenCommandPalette: (cb: () => void) => () => void
-  onOpenSettings: (cb: () => void) => () => void
   // Log
   log: (entry: LogEntry) => void
   // Updater
@@ -263,6 +262,8 @@ const api: {
   getUpdaterStatus: () => Promise<UpdaterStatus>
   onUpdaterStatus: (cb: (status: UpdaterStatus) => void) => void
   restartAndInstall: () => void
+  // Settings
+  openSettings: () => void
   // App info
   getAppInfo: () => Promise<AppInfo>
   // Proxy traffic broadcast
@@ -567,11 +568,6 @@ const api: {
     ipcRenderer.on('shell:openCommandPalette', listener)
     return () => ipcRenderer.removeListener('shell:openCommandPalette', listener)
   },
-  onOpenSettings: (cb) => {
-    const listener = (): void => cb()
-    ipcRenderer.on('shell:openSettings', listener)
-    return () => ipcRenderer.removeListener('shell:openSettings', listener)
-  },
   // Log
   log: (entry) => ipcRenderer.send('log:frontend', entry),
   // Updater
@@ -580,6 +576,8 @@ const api: {
   onUpdaterStatus: (cb) =>
     ipcRenderer.on('updater:status', (_e, status) => cb(status as UpdaterStatus)),
   restartAndInstall: () => ipcRenderer.invoke('updater:restart'),
+  // Settings
+  openSettings: () => ipcRenderer.send('shell:openSettings'),
   // App info
   getAppInfo: () => ipcRenderer.invoke('app:info'),
   // Popover

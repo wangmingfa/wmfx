@@ -291,7 +291,7 @@ export function getCommands(): Command[] {
       label: 'commandPalette.actions.openSettings',
       icon: 'carbon:settings',
       keywords: ['settings', 'preferences', '设置', '偏好'],
-      action: () => api.loadURLCurrent('wmfx://settings'),
+      action: () => api.openSettings(),
     },
     {
       id: 'settings.bookmarkBar',

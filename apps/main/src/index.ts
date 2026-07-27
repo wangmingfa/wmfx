@@ -228,7 +228,9 @@ function wireWindowShortcuts(instance: BrowserWindowInstance): void {
       const focused = BrowserWindow.getFocusedWindow()
       if (!focused) return
       console.info('[App] shortcut: open-settings')
-      focused.webContents.send('shell:openSettings')
+      const inst = globalThis.browserInstances?.get(String(focused.id))
+      if (!inst) return
+      inst.tabManager.openSettings()
     },
     'next-tab': () => {
       const focused = BrowserWindow.getFocusedWindow()

@@ -139,7 +139,6 @@ declare global {
       onOpenFind: (handler: (tabId: string) => void) => void
       onFocusAddressBar: (handler: () => void) => () => void
       onOpenCommandPalette: (handler: () => void) => () => void
-      onOpenSettings: (handler: () => void) => () => void
       // Tab reorder
       reorderTabs: IpcInvoke['tab:reorder']
       // Tab thumbnail
@@ -216,6 +215,7 @@ declare global {
       restartAndInstall: IpcInvoke['updater:restart']
       // App info
       getAppInfo: IpcInvoke['app:info']
+      openSettings: () => void
       // Popover
       popoverOpen: (popoverId: string, options: PopoverOpenOptions) => Promise<void>
       popoverClose: (popoverId: string) => Promise<void>

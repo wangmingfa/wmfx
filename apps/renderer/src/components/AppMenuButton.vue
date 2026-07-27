@@ -108,6 +108,10 @@ async function runMenuItem(id: string): Promise<void> {
     showClearDialog.value = true
     return
   }
+  if (id === 'wmfx://settings') {
+    window.browserAPI.openSettings()
+    return
+  }
   if (id === 'incognito') {
     await window.browserAPI.createNewTab('incognito')
     return

@@ -39,7 +39,7 @@ function setupDialogKeys(positiveText: string, negativeText: string): void {
         if (negativeBtn) {
           negativeBtn.click()
         } else {
-          container.querySelector('.n-dialog-icon-head .n-button')?.click()
+          ;(container.querySelector('.n-dialog-icon-head .n-button') as HTMLElement)?.click()
         }
       }
     }

@@ -350,6 +350,20 @@ export class TabManager {
     return this.buildTabState(tab)
   }
 
+  /** 打开设置页：已有则激活，没有则新建标签页 */
+  openSettings(): void {
+    const existing = this.getList().find(
+      (t) =>
+        t.navigation.displayUrl === 'wmfx://settings' ||
+        t.navigation.displayUrl.startsWith('wmfx://settings/')
+    )
+    if (existing) {
+      this.activate(existing.id)
+    } else {
+      this.create({ url: 'wmfx://settings' })
+    }
+  }
+
   getList(): TabState[] {
     const states: TabState[] = []
     for (const tab of this.tabs.values()) {

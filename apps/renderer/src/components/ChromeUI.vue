@@ -113,17 +113,7 @@ let cleanupBookmarkBarChanged: (() => void) | null = null
 let cleanupFocusAddressBar: (() => void) | null = null
 let cleanupTabBarPositionChanged: (() => void) | null = null
 let cleanupOpenCommandPalette: (() => void) | null = null
-let cleanupOpenSettings: (() => void) | null = null
 let commandPalettePopover: Popover | null = null
-
-function openSettings(): void {
-  console.debug('[ChromeUI] openSettings: url=%s', activeTab.value?.navigation.committedUrl)
-  if (activeTab.value?.navigation.committedUrl === 'wmfx://settings') {
-    console.debug('[ChromeUI] openSettings: already on settings, skip')
-    return
-  }
-  void window.browserAPI.loadURLCurrent('wmfx://settings')
-}
 
 onMounted(() => {
   console.debug('[ChromeUI] onMounted: initializing')
@@ -167,12 +157,6 @@ onMounted(() => {
       },
     })
   })
-
-  // Cmd/Ctrl+,：打开设置页（导航当前活动标签到 wmfx://settings）
-  cleanupOpenSettings = window.browserAPI.onOpenSettings(() => {
-    console.info('[ChromeUI] onOpenSettings: navigating to wmfx://settings')
-    openSettings()
-  })
 })
 
 onUnmounted(() => {
@@ -186,8 +170,6 @@ onUnmounted(() => {
   cleanupFocusAddressBar = null
   cleanupOpenCommandPalette?.()
   cleanupOpenCommandPalette = null
-  cleanupOpenSettings?.()
-  cleanupOpenSettings = null
   commandPalettePopover?.close()
   commandPalettePopover = null
   cleanupTabBarPositionChanged?.()

@@ -888,6 +888,13 @@ export function registerIpcHandlers(): void {
     if (webContents && !webContents.isDestroyed()) webContents.send('content:focusBottom')
   })
 
+  ipcMain.on('shell:openSettings', (event) => {
+    console.debug('[IPC] shell:openSettings')
+    const inst = getInstance(event)
+    if (!inst) return
+    inst.tabManager.openSettings()
+  })
+
   ipcMain.on('shell:closeCurrentTab', (event) => {
     const inst = getInstance(event)
     if (!inst) return
