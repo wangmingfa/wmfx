@@ -87,11 +87,28 @@ function handle<K extends keyof IpcContract>(
 function getInstance(event?: Electron.IpcMainInvokeEvent): BrowserWindowInstance | null {
   if (event) {
     const win = BrowserWindow.fromWebContents(event.sender)
+    console.debug(
+      '[IPC] getInstance: event.sender -> BrowserWindow %s (id=%s)',
+      win ? 'found' : 'null',
+      win?.id
+    )
     if (win) {
-      return globalThis.browserInstances?.get(String(win.id)) ?? null
+      const key = String(win.id)
+      const result = globalThis.browserInstances?.get(key)
+      console.debug(
+        '[IPC] getInstance: browserInstances.get(%s) = %s',
+        key,
+        result ? 'found' : 'null'
+      )
+      return result ?? null
     }
   }
   const focused = BrowserWindow.getFocusedWindow()
+  console.debug(
+    '[IPC] getInstance: fallback getFocusedWindow %s (id=%s)',
+    focused ? 'found' : 'null',
+    focused?.id
+  )
   if (!focused) return null
   const key = String(focused.id)
   return globalThis.browserInstances?.get(key) ?? null
@@ -773,6 +790,119 @@ export function registerIpcHandlers(): void {
   handle('settings:getAll', () => {
     console.debug('[IPC] settings:getAll')
     return SettingsManager.getInstance().getAll()
+  })
+
+  // Keyboard mode
+  handle('keyboard:set-mode', (_event, mode) => {
+    console.info('[IPC] keyboard:set-mode: mode=%s', mode)
+    SettingsManager.getInstance().set('keyboardMode', mode)
+    // 广播给所有窗口
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send('keyboard:mode-changed', mode)
+    }
+  })
+
+  // Shell navigation commands (from GUI mode KeyboardManager)
+  ipcMain.on('shell:nextTab', (event) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    const tabs = inst.tabManager.getList()
+    const activeIdx = tabs.findIndex((t) => t.id === inst.tabManager.getActiveTabId())
+    if (activeIdx >= 0 && activeIdx < tabs.length - 1) {
+      inst.tabManager.activate(tabs[activeIdx + 1].id)
+    }
+  })
+
+  ipcMain.on('shell:prevTab', (event) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    const tabs = inst.tabManager.getList()
+    const activeIdx = tabs.findIndex((t) => t.id === inst.tabManager.getActiveTabId())
+    if (activeIdx > 0) {
+      inst.tabManager.activate(tabs[activeIdx - 1].id)
+    }
+  })
+
+  ipcMain.on('shell:switchTab', (event, index: number) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    const tabs = inst.tabManager.getList()
+    if (index >= 0 && index < tabs.length) {
+      inst.tabManager.activate(tabs[index].id)
+    }
+  })
+
+  ipcMain.on('shell:lastTab', (event) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    const tabs = inst.tabManager.getList()
+    if (tabs.length > 0) {
+      inst.tabManager.activate(tabs[tabs.length - 1].id)
+    }
+  })
+
+  ipcMain.on('shell:toggleFocus', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) win.webContents.send('shell:focusAddressBar')
+  })
+
+  ipcMain.on('shell:scrollPageDown', (event) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    const webContents = event.sender
+    if (webContents && !webContents.isDestroyed()) webContents.send('content:scrollPageDown')
+  })
+
+  ipcMain.on('shell:scrollPageUp', (event) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    const webContents = event.sender
+    if (webContents && !webContents.isDestroyed()) webContents.send('content:scrollPageUp')
+  })
+
+  ipcMain.on('shell:scrollTop', (event) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    const webContents = event.sender
+    if (webContents && !webContents.isDestroyed()) webContents.send('content:scrollTop')
+  })
+
+  ipcMain.on('shell:scrollBottom', (event) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    const webContents = event.sender
+    if (webContents && !webContents.isDestroyed()) webContents.send('content:scrollBottom')
+  })
+
+  ipcMain.on('shell:focusTop', (event) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    const webContents = event.sender
+    if (webContents && !webContents.isDestroyed()) webContents.send('content:focusTop')
+  })
+
+  ipcMain.on('shell:focusBottom', (event) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    const webContents = event.sender
+    if (webContents && !webContents.isDestroyed()) webContents.send('content:focusBottom')
+  })
+
+  ipcMain.on('shell:closeCurrentTab', (event) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    const activeTabId = inst.tabManager.getActiveTabId()
+    if (activeTabId) inst.tabManager.close(activeTabId)
+  })
+
+  // Vim command forwarding (from renderer KeyboardManager → active tab content)
+  ipcMain.on('keyboard:vim-command', (event, data: { command: string; count: number }) => {
+    const inst = getInstance(event)
+    if (!inst) return
+    const webContents = event.sender
+    if (webContents && !webContents.isDestroyed()) {
+      webContents.send('content:vim-command', data)
+    }
   })
 
   // Keyboard shortcuts
@@ -1580,8 +1710,16 @@ export function registerIpcHandlers(): void {
 
   // Popover
   handle('popover:open', (event, popoverId, options) => {
-    console.debug('[IPC] popover:open: popoverId', popoverId)
-    getInstance(event)?.popoverManager.open(popoverId, options)
+    console.debug(
+      '[IPC] popover:open: popoverId=%s type=%s mode=%s anchorType=%s',
+      popoverId,
+      options?.type,
+      options?.mode,
+      options?.anchor?.type
+    )
+    const inst = getInstance(event)
+    console.debug('[IPC] popover:open: getInstance returned %s', inst ? 'ok' : 'null')
+    inst?.popoverManager.open(popoverId, options)
   })
   handle('popover:close', (event, popoverId) => {
     console.debug('[IPC] popover:close: popoverId', popoverId)

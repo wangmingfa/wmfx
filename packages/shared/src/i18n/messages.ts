@@ -211,6 +211,7 @@ export interface Message {
       appearance: string
       system: string
       language: string
+      keyboard: string
       downloadLocation: string
       theme: string
       privacy: string
@@ -230,6 +231,11 @@ export interface Message {
     tabBarPositionOptions: { top: string; left: string }
     tabBarExpand: string
     tabBarCollapse: string
+    keyboardMode: string
+    vimModeWarning: string
+    scopeGlobal: string
+    scopeShell: string
+    scopePage: string
   }
   history: {
     title: string
@@ -699,6 +705,7 @@ export const messages: Record<string, Message> = {
         appearance: '外观',
         system: '系统',
         language: '语言',
+        keyboard: '键盘',
         downloadLocation: '下载位置',
         theme: '主题',
         privacy: '隐私与安全',
@@ -718,6 +725,11 @@ export const messages: Record<string, Message> = {
       tabBarPositionOptions: { top: '顶部', left: '左侧' },
       tabBarExpand: '展开标签栏',
       tabBarCollapse: '收起标签栏',
+      keyboardMode: '键盘模式',
+      vimModeWarning: 'VIM 模式仍处于实验阶段，部分功能可能不稳定或存在已知问题',
+      scopeGlobal: '全局',
+      scopeShell: '外壳级',
+      scopePage: '页面级',
       navShortcuts: '快捷键',
     },
     shortcuts: {
@@ -1149,6 +1161,7 @@ export const messages: Record<string, Message> = {
         appearance: 'Appearance',
         system: 'System',
         language: 'Language',
+        keyboard: 'Keyboard',
         downloadLocation: 'Download location',
         theme: 'Theme',
         privacy: 'Privacy & Security',
@@ -1168,6 +1181,12 @@ export const messages: Record<string, Message> = {
       tabBarPositionOptions: { top: 'Top', left: 'Left' },
       tabBarExpand: 'Expand tab bar',
       tabBarCollapse: 'Collapse tab bar',
+      keyboardMode: 'Keyboard Mode',
+      vimModeWarning:
+        'VIM mode is experimental — some features may be unstable or have known issues',
+      scopeGlobal: 'Global',
+      scopeShell: 'Shell',
+      scopePage: 'Page',
       navShortcuts: 'Shortcuts',
     },
     shortcuts: {

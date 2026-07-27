@@ -371,7 +371,8 @@ function onWindowResize(): void {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px;
+  height: 42px;
+  padding: 0 16px;
   border-radius: 8px;
   color: var(--text-primary);
   font-size: 14px;

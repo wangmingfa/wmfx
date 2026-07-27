@@ -13,7 +13,7 @@ async function getShell(): Promise<Page> {
   for (let i = 0; i < 60; i++) {
     for (const w of app.windows()) {
       try {
-        if ((await w.locator('.tab-bar').count()) > 0)
+        if ((await w.locator('.tab-bar').count()) > 0 || (await w.locator('.vertical-tab-bar').count()) > 0)
           return w
       }
       catch {
@@ -61,6 +61,10 @@ test.beforeAll(async () => {
     args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'],
   })
   page = await getShell()
+  await page.evaluate(async () => {
+    await window.browserAPI.setSetting({ key: 'tabBarPosition', value: 'top' })
+  })
+  await expect(page.locator('.tab-bar')).toBeVisible({ timeout: 10000 })
 })
 
 test.afterAll(() => {
@@ -82,7 +86,7 @@ test.beforeEach(async () => {
     }
   })
   await expect(page.locator('.tab-item')).toHaveCount(1, { timeout: 15000 })
-  await expect(page.locator('.url-input')).toHaveValue('', {
+  await expect(page.locator('.address-input')).toHaveValue('', {
     timeout: 15000,
   })
 })

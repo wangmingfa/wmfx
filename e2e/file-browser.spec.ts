@@ -8,7 +8,7 @@ async function getShell(): Promise<Page> {
   for (let i = 0; i < 60; i++) {
     for (const w of app.windows()) {
       try {
-        if ((await w.locator('.tab-bar').count()) > 0) return w
+        if ((await w.locator('.tab-bar').count()) > 0 || (await w.locator('.vertical-tab-bar').count()) > 0) return w
       } catch {
         /* page may detach between calls */
       }
@@ -23,6 +23,10 @@ test.beforeAll(async () => {
     args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'],
   })
   page = await getShell()
+  await page.evaluate(async () => {
+    await window.browserAPI.setSetting({ key: 'tabBarPosition', value: 'top' })
+  })
+  await expect(page.locator('.tab-bar')).toBeVisible({ timeout: 10000 })
 })
 
 test.afterAll(() => {
@@ -48,24 +52,24 @@ test.beforeEach(async () => {
 // ─── 地址栏导航 ──────────────────────────────────────────────
 
 test('file browser accessible via local path in address bar', async () => {
-  await page.locator('.url-input').click()
-  await page.locator('.url-input').fill('/tmp')
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill('/tmp')
   await page.keyboard.press('Enter')
-  await expect(page.locator('.url-input')).toHaveValue('/tmp')
+  await expect(page.locator('.address-input')).toHaveValue('/tmp')
 })
 
 test('typing wmfx://files navigates to file browser', async () => {
-  await page.locator('.url-input').click()
-  await page.locator('.url-input').fill('wmfx://files')
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill('wmfx://files')
   await page.keyboard.press('Enter')
-  await expect(page.locator('.url-input')).toHaveValue('wmfx://files')
+  await expect(page.locator('.address-input')).toHaveValue('wmfx://files')
 })
 
 // ─── 文件浏览器 UI ───────────────────────────────────────────
 
 test('file browser shows sidebar with system dirs', async () => {
-  await page.locator('.url-input').click()
-  await page.locator('.url-input').fill('wmfx://files')
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill('wmfx://files')
   await page.keyboard.press('Enter')
   await page.waitForTimeout(1500)
   await expect(page.locator('.files-view')).toBeVisible()
@@ -74,24 +78,24 @@ test('file browser shows sidebar with system dirs', async () => {
 })
 
 test('file browser shows breadcrumb', async () => {
-  await page.locator('.url-input').click()
-  await page.locator('.url-input').fill('wmfx://files')
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill('wmfx://files')
   await page.keyboard.press('Enter')
   await page.waitForTimeout(1500)
   await expect(page.locator('.files-breadcrumb')).toBeVisible()
 })
 
 test('file browser has toolbar with new folder button', async () => {
-  await page.locator('.url-input').click()
-  await page.locator('.url-input').fill('wmfx://files')
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill('wmfx://files')
   await page.keyboard.press('Enter')
   await page.waitForTimeout(1500)
   await expect(page.locator('.files-toolbar')).toBeVisible()
 })
 
 test('file browser has search input', async () => {
-  await page.locator('.url-input').click()
-  await page.locator('.url-input').fill('wmfx://files')
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill('wmfx://files')
   await page.keyboard.press('Enter')
   await page.waitForTimeout(1500)
   await expect(page.locator('.files-search-input')).toBeVisible()
@@ -102,8 +106,8 @@ test('file browser has search input', async () => {
 test('new folder creates a folder', async () => {
   // Navigate to a writable location
   const testDir = '/tmp/wmfx-e2e-test'
-  await page.locator('.url-input').click()
-  await page.locator('.url-input').fill(testDir)
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill(testDir)
   await page.keyboard.press('Enter')
   await page.waitForTimeout(1500)
 
@@ -119,8 +123,8 @@ test('new folder creates a folder', async () => {
 
 test('file browser lists directories', async () => {
   const testDir = '/tmp/wmfx-e2e-test'
-  await page.locator('.url-input').click()
-  await page.locator('.url-input').fill(testDir)
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill(testDir)
   await page.keyboard.press('Enter')
   await page.waitForTimeout(1500)
   // The file list should be visible
@@ -177,8 +181,8 @@ test('node_modules directory is blocked', async () => {
 test('Quick Look opens on file double-click', async () => {
   // Navigate to a directory with files
   const testDir = '/tmp/wmfx-e2e-test'
-  await page.locator('.url-input').click()
-  await page.locator('.url-input').fill(testDir)
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill(testDir)
   await page.keyboard.press('Enter')
   await page.waitForTimeout(1500)
 
@@ -197,8 +201,8 @@ test('Quick Look opens on file double-click', async () => {
 // ─── 下载集成 ────────────────────────────────────────────────
 
 test('downloads page has open-in-browser button', async () => {
-  await page.locator('.url-input').click()
-  await page.locator('.url-input').fill('wmfx://downloads')
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill('wmfx://downloads')
   await page.keyboard.press('Enter')
   await page.waitForTimeout(1500)
   await expect(page.locator('.downloads-view')).toBeVisible()

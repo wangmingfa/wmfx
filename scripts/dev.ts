@@ -74,10 +74,10 @@ async function main(): Promise<void> {
 
   // 7. Vite 就绪后启动 Electron，并延迟启用产物监听（避免初次构建触发重启）
   viteReady
-    .then((url) => {
+    .then(async (url) => {
       electron.setDevServerUrl(url)
       devLog(`${GREEN}✅${RESET} Vite 就绪: ${url}`)
-      electron.start()
+      await electron.start()
       setTimeout(() => {
         electron.markStartupComplete()
         electron.watchForChanges()

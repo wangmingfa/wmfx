@@ -2,6 +2,61 @@ import { NFormItem, NInput, useDialog } from 'naive-ui'
 import type { VNodeChild } from 'vue'
 import { h, ref } from 'vue'
 
+/**
+ * 给 Naive UI dialog 注册键盘快捷键：Enter → 确认按钮，Escape → 取消按钮。
+ * Naive UI useDialog 默认不处理这两个键，需要手动监听。
+ * 通过 MutationObserver 自动清理，无需调用方管理生命周期。
+ */
+function setupDialogKeys(positiveText: string, negativeText: string): void {
+  // 等 dialog DOM 渲染完成后再绑定
+  requestAnimationFrame(() => {
+    // 找到最新的 dialog 容器（Naive UI teleport 到 body）
+    const dialogs = document.querySelectorAll('.n-dialog')
+    const container = dialogs[dialogs.length - 1] as HTMLElement | undefined
+    if (!container) return
+
+    // 在 dialog 内部查找按钮：positiveText / negativeText 匹配按钮文字
+    const findBtn = (text: string): HTMLElement | null => {
+      const btns = container.querySelectorAll('.n-button')
+      for (const btn of btns) {
+        if (btn.textContent?.trim() === text) return btn as HTMLElement
+      }
+      return null
+    }
+
+    const positiveBtn = findBtn(positiveText)
+    const negativeBtn = findBtn(negativeText)
+
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'Enter' && !e.isComposing) {
+        e.preventDefault()
+        e.stopPropagation()
+        positiveBtn?.click()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        // 优先点取消按钮；没有则点关闭按钮（×）
+        if (negativeBtn) {
+          negativeBtn.click()
+        } else {
+          container.querySelector('.n-dialog-icon-head .n-button')?.click()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handler, true)
+
+    // 监听 dialog 从 DOM 移除，自动清理 listener
+    const observer = new MutationObserver(() => {
+      if (!document.body.contains(container)) {
+        document.removeEventListener('keydown', handler, true)
+        observer.disconnect()
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+  })
+}
+
 /** 确认弹窗的可配置文案 */
 export interface ConfirmOptions {
   /** 标题 */
@@ -63,10 +118,10 @@ export function useConfirm() {
         negativeText: options.negativeText,
         onPositiveClick: () => resolve(true),
         onNegativeClick: () => resolve(false),
-        // 点遮罩/关闭按钮关闭时视为取消
         onClose: () => resolve(false),
         onMaskClick: () => resolve(false),
       })
+      setupDialogKeys(options.positiveText, options.negativeText)
     })
   }
 
@@ -125,6 +180,7 @@ export function useConfirm() {
         onClose: () => resolve(null),
         onMaskClick: () => resolve(null),
       })
+      setupDialogKeys(options.positiveText, options.negativeText)
     })
   }
 

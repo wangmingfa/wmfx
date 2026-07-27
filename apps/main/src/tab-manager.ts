@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import type {
   CreateTabOptions,
   MenuItem,
@@ -26,7 +27,7 @@ import { setFavicon } from './favicon-cache'
 import type { HistoryManager } from './history-manager'
 import { loadInternalView } from './internal-url'
 import type { ExtractedArticle, PageEnhanceManager } from './page-enhance-manager'
-import { getPreloadPath } from './paths'
+import { getPreloadPath, resolveFromRoot } from './paths'
 import type { PopoverManager } from './popover-manager'
 import type { SettingsManager } from './settings-manager'
 
@@ -111,7 +112,7 @@ export class TabManager {
         windowId: this.windowId,
         sessionId,
         navigation: {
-          displayUrl: resolvedUrl,
+          displayUrl: this.toDisplayUrl(resolvedUrl),
           requestedUrl: resolvedUrl,
           committedUrl: '',
           internalUrl: '',
@@ -403,13 +404,19 @@ export class TabManager {
     return 'insecure'
   }
 
+  /** 将内部 URL 转换为地址栏显示的格式；无需展示给用户的 URL 返回空字符串 */
+  private toDisplayUrl(url: string): string {
+    if (url === 'wmfx://newtab') return ''
+    return url
+  }
+
   setNavigating(tabId: string, url: string): void {
     const tab = this.tabs.get(tabId)
     if (!tab) return
     console.debug('[TabManager] setNavigating: tabId url', tabId, url)
     this.certPending.delete(tabId)
     tab.state.navigation.requestedUrl = url
-    tab.state.navigation.displayUrl = url
+    tab.state.navigation.displayUrl = this.toDisplayUrl(url)
     tab.state.navigation.state = 'loading'
     tab.state.navigation.error = null
     tab.state.navigation.isLoading = true
@@ -749,7 +756,7 @@ export class TabManager {
       }
 
       nav.committedUrl = url
-      nav.displayUrl = url
+      nav.displayUrl = this.toDisplayUrl(url)
       nav.internalUrl = actual
       nav.state = 'success'
       nav.error = null
@@ -805,6 +812,13 @@ export class TabManager {
         this.exitReadingMode(tab.id)
       }
 
+      // VIM 模式：注入 content-vim.js 到外部页面
+      if (!tab.isInternal && this.settingsManager?.get('keyboardMode') === 'vim') {
+        const vimScriptPath = resolveFromRoot('resources/content-vim.js')
+        const vimScript = readFileSync(vimScriptPath, 'utf-8')
+        wc.executeJavaScript(vimScript, false)
+      }
+
       // 无痕标签不写入历史（独立无痕窗口 / 无痕 session）
       if (
         tab.sessionId !== 'incognito' &&
@@ -827,7 +841,7 @@ export class TabManager {
       const nav = tab.state.navigation
       nav.internalUrl = actual
       nav.committedUrl = url
-      nav.displayUrl = url
+      nav.displayUrl = this.toDisplayUrl(url)
       nav.securityState = this.deriveSecurity(url)
       tab.state.canGoBack = wc.navigationHistory.canGoBack()
       tab.state.canGoForward = wc.navigationHistory.canGoForward()
@@ -891,7 +905,7 @@ export class TabManager {
       nav.error = { code: errorCode, description: errorDescription }
       nav.state = 'error'
       nav.securityState = 'insecure'
-      nav.displayUrl = nav.requestedUrl
+      nav.displayUrl = this.toDisplayUrl(nav.requestedUrl)
       this.broadcastState(tab)
 
       // 存储错误信息供 ErrorView 拉取；relaunchView 会销毁旧 webContents，必须在此之前存储
@@ -937,7 +951,7 @@ export class TabManager {
       nav.error = { code: -2000, description: errorText }
       nav.state = 'error'
       nav.securityState = 'insecure'
-      nav.displayUrl = nav.requestedUrl
+      nav.displayUrl = this.toDisplayUrl(nav.requestedUrl)
       this.broadcastState(tab)
 
       // 存储证书错误信息供 CertWarningView 拉取

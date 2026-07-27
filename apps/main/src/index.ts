@@ -230,6 +230,28 @@ function wireWindowShortcuts(instance: BrowserWindowInstance): void {
       console.info('[App] shortcut: open-settings')
       focused.webContents.send('shell:openSettings')
     },
+    'next-tab': () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) return
+      const inst = globalThis.browserInstances.get(String(focused.id))
+      if (!inst) return
+      const tabs = inst.tabManager.getList()
+      const activeIdx = tabs.findIndex((t) => t.id === inst.tabManager.getActiveTabId())
+      if (activeIdx >= 0 && activeIdx < tabs.length - 1) {
+        inst.tabManager.activate(tabs[activeIdx + 1].id)
+      }
+    },
+    'prev-tab': () => {
+      const focused = BrowserWindow.getFocusedWindow()
+      if (!focused) return
+      const inst = globalThis.browserInstances.get(String(focused.id))
+      if (!inst) return
+      const tabs = inst.tabManager.getList()
+      const activeIdx = tabs.findIndex((t) => t.id === inst.tabManager.getActiveTabId())
+      if (activeIdx > 0) {
+        inst.tabManager.activate(tabs[activeIdx - 1].id)
+      }
+    },
   }
 
   for (const def of SHORTCUT_REGISTRY) {

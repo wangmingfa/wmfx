@@ -21,6 +21,11 @@ const config: Configuration = {
       to: 'mihomo/',
       filter: ['**/*'],
     },
+    {
+      from: 'resources/',
+      to: 'resources/',
+      filter: ['**/*'],
+    },
   ],
 
   linux: {

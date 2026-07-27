@@ -115,6 +115,9 @@ declare global {
       // QuickLinks
       getQuickLinks: IpcInvoke['settings:getQuickLinks']
       setQuickLinks: IpcInvoke['settings:setQuickLinks']
+      // Keyboard
+      setKeyboardMode: IpcInvoke['keyboard:set-mode']
+      onKeyboardModeChanged: (handler: (mode: 'gui' | 'vim') => void) => () => void
       // Autocomplete
       getAutocompleteSuggestions: IpcInvoke['autocomplete:suggestions']
       // Bookmark
@@ -123,6 +126,8 @@ declare global {
       onBookmarksChanged: (handler: () => void) => () => void
       onBookmarkBarChanged: (handler: () => void) => () => void
       onTabBarPositionChanged: (handler: () => void) => () => void
+      // Shell commands (fire-and-forget)
+      send: (channel: string, ...args: unknown[]) => void
       // Find in Page
       startFind: (opts: FindInPageOptions) => void
       endFind: IpcInvoke['page:endFind']

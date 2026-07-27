@@ -444,7 +444,7 @@ export interface FileStat {
 
 /** 文件预览数据 */
 export interface PreviewData {
-  type: 'image' | 'text' | 'pdf' | 'audio' | 'video' | 'unknown'
+  type: 'directory' | 'image' | 'text' | 'pdf' | 'audio' | 'video' | 'unknown'
   filePath: string
   fileName: string
   fileSize: number
@@ -584,6 +584,8 @@ export interface SettingsSnapshot {
   tabBarPosition: 'top' | 'left'
   /** 垂直标签栏是否折叠 */
   tabBarCollapsed: boolean
+  /** 键盘模式：GUI 或 VIM */
+  keyboardMode: 'gui' | 'vim'
 }
 
 /** 设置为默认浏览器结果（setAsDefaultProtocolClient 跨平台生效，返回是否成功） */
@@ -694,6 +696,11 @@ export interface IpcContract {
   'reader:requestArticle': (
     tabId: string
   ) => { title: string; content: string; byline: string | null; url: string } | null
+  // Keyboard
+  /** 设置键盘模式（GUI / VIM），持久化并广播给所有窗口 */
+  'keyboard:set-mode': (mode: 'gui' | 'vim') => void
+  /** 广播键盘模式变化（main → renderer） */
+  'keyboard:mode-changed': (mode: 'gui' | 'vim') => void
   // Settings
   'settings:get': (key: string) => unknown
   'settings:set': ({ key, value }: { key: string; value: unknown }) => void

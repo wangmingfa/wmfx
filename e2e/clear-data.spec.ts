@@ -8,14 +8,14 @@ let page: Page
  * Electron + WebContentsView 下，Playwright 的 firstWindow()/windows() 只暴露一个 page，
  * 且该 page 可能绑定到外壳渲染进程，也可能绑定到某个标签的 WebContentsView
  * （两者都加载同一个 index.html，标签页的 hash 为 #/newtab 等内部路由）。
- * 外壳是唯一带 .tab-bar 的页面，且其路由为 #/（标签页为 #/newtab 等子路由）。
+ * 外壳是唯一带 .tab-bar 或 .vertical-tab-bar 的页面，且其路由为 #/（标签页为 #/newtab 等子路由）。
  * 这里轮询直到拿到外壳，避免选中标签页导致断言失败。
  */
 async function getShell(): Promise<Page> {
   for (let i = 0; i < 60; i++) {
     for (const w of app.windows()) {
       try {
-        if ((await w.locator('.tab-bar').count()) > 0) return w
+        if ((await w.locator('.tab-bar').count()) > 0 || (await w.locator('.vertical-tab-bar').count()) > 0) return w
       } catch {
         /* page may detach between calls */
       }
@@ -43,11 +43,34 @@ async function findPopoverPage(text: string): Promise<Page> {
   throw new Error(`findPopoverPage: "${text}" not found in any webContents`)
 }
 
+/**
+ * 标签页内容渲染在独立的 WebContentsView 中（非外壳），轮询找到含目标选择器的标签页 page。
+ * 排除带 .tab-bar/.vertical-tab-bar 的外壳页面，确保返回的是标签内容页。
+ */
+async function findTabContentPage(selector: string): Promise<Page> {
+  for (let i = 0; i < 50; i++) {
+    for (const w of app.windows()) {
+      try {
+        if ((await w.locator('.tab-bar').count()) > 0 || (await w.locator('.vertical-tab-bar').count()) > 0) continue
+        if ((await w.locator(selector).count()) > 0) return w
+      } catch {
+        /* page may detach between calls */
+      }
+    }
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  throw new Error(`findTabContentPage: "${selector}" not found in any tab webContents`)
+}
+
 test.beforeAll(async () => {
   app = await electron.launch({
     args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'],
   })
   page = await getShell()
+  await page.evaluate(async () => {
+    await window.browserAPI.setSetting({ key: 'tabBarPosition', value: 'top' })
+  })
+  await expect(page.locator('.tab-bar')).toBeVisible({ timeout: 10000 })
 })
 
 test.afterAll(() => {
@@ -69,22 +92,25 @@ test.beforeEach(async () => {
     }
   })
   await expect(page.locator('.tab-item')).toHaveCount(1, { timeout: 15000 })
-  await expect(page.locator('.url-input')).toHaveValue('', {
+  await expect(page.locator('.address-input')).toHaveValue('', {
     timeout: 15000,
   })
 })
 
 test('设置页清除浏览数据弹窗', async () => {
   // 导航到隐私设置页
-  await page.locator('.url-input').fill('wmfx://settings/privacy')
+  await page.locator('.address-input').fill('wmfx://settings/privacy')
   await page.keyboard.press('Enter')
-  await expect(page.locator('.url-input')).toHaveValue('wmfx://settings/privacy')
+  await expect(page.locator('.address-input')).toHaveValue('wmfx://settings/privacy')
+
+  // 设置页内容在标签的 WebContentsView 中渲染，需找到对应的 webContents
+  const settingsPage = await findTabContentPage('button:has-text("清除浏览数据")')
 
   // 点击设置页触发按钮（文案「清除浏览数据」）
-  await page.getByRole('button', { name: '清除浏览数据' }).first().click()
+  await settingsPage.getByRole('button', { name: '清除浏览数据' }).first().click()
 
-  // 弹窗标题「清除浏览数据」可见
-  const modal = page.locator('.n-modal')
+  // 弹窗标题「清除浏览数据」可见（在同一个 webContents 中）
+  const modal = settingsPage.locator('.n-modal')
   await expect(modal.getByText('清除浏览数据', { exact: true }).first()).toBeVisible()
 
   // 取消勾选全部四个复选（默认全勾），清除按钮应禁用
@@ -105,13 +131,18 @@ test('设置页清除浏览数据弹窗', async () => {
 })
 
 test('三点菜单清空缓存打开同一弹窗', async () => {
-  // 导航到新标签页（任意页均可）
-  await page.locator('.url-input').fill('wmfx://newtab')
+  // 先导航到非 newtab 的页面，确保后续 newtab 导航能触发 watcher 清空输入框
+  await page.locator('.address-input').fill('wmfx://settings')
   await page.keyboard.press('Enter')
-  await expect(page.locator('.url-input')).toHaveValue('')
+  await expect(page.locator('.address-input')).toHaveValue('wmfx://settings')
 
-  // 点击三点菜单（title=「菜单」）
-  await page.getByTitle('菜单').click()
+  // 导航到新标签页
+  await page.locator('.address-input').fill('wmfx://newtab')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.address-input')).toHaveValue('')
+
+  // 点击三点菜单（IconButton 用 NTooltip，不设 title，通过 icon 定位）
+  await page.locator('.app-menu').click()
 
   // 在 popover 面板中点击「清空缓存」
   const panel = await findPopoverPage('清空缓存')

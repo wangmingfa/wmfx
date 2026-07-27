@@ -16,14 +16,14 @@ let externalUrl = ''
  * Electron + WebContentsView 下，Playwright 的 firstWindow()/windows() 只暴露一个 page，
  * 且该 page 可能绑定到外壳渲染进程，也可能绑定到某个标签的 WebContentsView
  * （两者都加载同一个 index.html，标签页的 hash 为 #/newtab 等内部路由）。
- * 外壳是唯一带 .tab-bar 的页面，且其路由为 #/（标签页为 #/newtab 等子路由）。
+ * 外壳是唯一带 .tab-bar 或 .vertical-tab-bar 的页面，且其路由为 #/（标签页为 #/newtab 等子路由）。
  * 这里轮询直到拿到外壳，避免选中标签页导致断言失败。
  */
 async function getShell(): Promise<Page> {
   for (let i = 0; i < 60; i++) {
     for (const w of app.windows()) {
       try {
-        if ((await w.locator('.tab-bar').count()) > 0) return w
+        if ((await w.locator('.tab-bar').count()) > 0 || (await w.locator('.vertical-tab-bar').count()) > 0) return w
       } catch {
         /* page may detach between calls */
       }
@@ -93,6 +93,10 @@ test.beforeAll(async () => {
     args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'],
   })
   page = await getShell()
+  await page.evaluate(async () => {
+    await window.browserAPI.setSetting({ key: 'tabBarPosition', value: 'top' })
+  })
+  await expect(page.locator('.tab-bar')).toBeVisible({ timeout: 10000 })
 })
 
 test.afterAll(async () => {
@@ -116,7 +120,7 @@ test.beforeEach(async () => {
     }
   })
   await expect(page.locator('.tab-item')).toHaveCount(1, { timeout: 15000 })
-  await expect(page.locator('.url-input')).toHaveValue('', { timeout: 15000 })
+  await expect(page.locator('.address-input')).toHaveValue('', { timeout: 15000 })
 })
 
 test('暗色主题下外部页进入外部代码路径（提交 URL + 阅读按钮可见）', async () => {
@@ -147,7 +151,9 @@ test('暗色主题下外部页进入外部代码路径（提交 URL + 阅读按�
   expect(committedUrl.startsWith('http://127.0.0.1:')).toBe(true)
 
   // 真实断言 2：阅读模式按钮对外部页可见（isExternal 判定为真的可观察信号，紧扣外部页代码路径）。
-  await expect(page.getByTitle('阅读模式')).toBeVisible({ timeout: 8000 })
+  // IconButton 用 NTooltip 渲染 tooltip，不设置 title 属性，需通过 Iconify 图标 data-icon 定位
+  const readerBtn = page.locator('button', { has: page.locator('[data-icon="mdi:book-open-outline"]') }).first()
+  await expect(readerBtn).toBeVisible({ timeout: 8000 })
 })
 
 test('阅读模式进入/退出（isReaderMode 翻转）', async () => {
@@ -162,7 +168,8 @@ test('阅读模式进入/退出（isReaderMode 翻转）', async () => {
   test.skip(!committed, `外部页 ${externalUrl} 未能在超时内提交（需可用的本地/外部网络）`)
 
   // 阅读按钮应对外部页可见（进入阅读模式的入口）。
-  const enterBtn = page.getByTitle('阅读模式')
+  // IconButton 用 NTooltip 渲染 tooltip，不设置 title 属性，需通过 Iconify 图标 data-icon 定位
+  const enterBtn = page.locator('button', { has: page.locator('[data-icon="mdi:book-open-outline"]') }).first()
   await expect(enterBtn).toBeVisible({ timeout: 8000 })
   await enterBtn.click()
 

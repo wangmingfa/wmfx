@@ -123,8 +123,8 @@ function onDragEnd(): void {
   min-width: 200px;
   max-height: 380px;
   overflow-y: auto;
-  background: var(--bg-secondary);
-  border: 1px solid var(--bg-tertiary);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
   border-radius: 6px;
   color: var(--text-primary);
   font-size: 13px;
@@ -139,7 +139,7 @@ function onDragEnd(): void {
   user-select: none;
 }
 .folder-item:hover {
-  background: var(--bg-hover);
+  background: var(--panel-hover);
 }
 .folder-item.dragging {
   opacity: 0.4;

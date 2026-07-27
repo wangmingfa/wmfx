@@ -26,7 +26,13 @@ export class DropdownMenu {
   private onAction: DropdownMenuOptions['onAction']
 
   constructor(opts: DropdownMenuOptions) {
-    console.debug('[DropdownMenu] constructor: id', opts.descriptor.id)
+    console.debug(
+      '[DropdownMenu] constructor: id=%s autoOpen=%s mode=%s items=%d',
+      opts.descriptor.id,
+      opts.autoOpen,
+      opts.mode,
+      opts.descriptor.items.length
+    )
     const hasSubmenu = this.hasSubmenu(opts.descriptor.items)
     const resolvedMode = opts.mode ?? 'overlay'
     if (hasSubmenu && resolvedMode !== 'overlay') {

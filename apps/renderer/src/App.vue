@@ -20,13 +20,18 @@
 <script setup lang="ts">
 import type { GlobalThemeOverrides, MessageProviderInst } from 'naive-ui'
 import { darkTheme, NConfigProvider, NDialogProvider, NMessageProvider } from 'naive-ui'
-import { computed, provide, ref } from 'vue'
+import { computed, onMounted, provide, ref } from 'vue'
 import { RouterView } from 'vue-router'
 import { useTheme } from '@/composables/useTheme'
+import { KeyboardManager } from '@/keyboard/KeyboardManager'
 
 const { theme } = useTheme()
 const messageProviderRef = ref<MessageProviderInst>()
 provide('messageProvider', messageProviderRef)
+
+onMounted(() => {
+  KeyboardManager.getInstance().init()
+})
 const naiveTheme = computed(() => (theme.value === 'dark' ? darkTheme : undefined))
 
 console.debug('[App] resolveColor: 初始化 CSS 变量解析函数')

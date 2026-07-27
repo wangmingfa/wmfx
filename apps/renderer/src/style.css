@@ -206,6 +206,8 @@
   --error-color: #d32f2f;
   /* 成功色（安全连接等正面状态） */
   --success-color: #27ae60;
+  /* 成功色淡底（成功标签背景） */
+  --success-bg: #e6f9ee;
 
   /* ===== 垂直标签栏变量 ===== */
   /* 垂直标签栏展开宽度 */
@@ -355,6 +357,8 @@
   --error-color: #ff5555;
   /* 成功色（安全连接等正面状态） */
   --success-color: #4caf50;
+  /* 成功色淡底（成功标签背景） */
+  --success-bg: #1a3a2a;
 
   /* ===== 垂直标签栏变量（深色覆盖） ===== */
   --vtab-bg: var(--tabbar-bg);
@@ -527,4 +531,6 @@
   --error-color: #ff6b8a;
   /* 成功色 */
   --success-color: #5fd99a;
+  /* 成功色淡底（成功标签背景） */
+  --success-bg: #1a2e25;
 }

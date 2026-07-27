@@ -157,8 +157,8 @@ watch(() => props.data, (newData) => {
   max-height: 400px;
   display: flex;
   flex-direction: column;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
   border-radius: 8px;
   overflow: hidden;
   animation: slide-in 150ms ease-out;
@@ -254,7 +254,7 @@ watch(() => props.data, (newData) => {
 
   &:hover,
   &.is-selected {
-    background: var(--bg-hover);
+    background: var(--panel-hover);
   }
 
   &.is-selected {

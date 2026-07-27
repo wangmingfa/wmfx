@@ -1,4 +1,4 @@
-import { watch } from 'node:fs'
+import { statSync, watch } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { execa, type ResultPromise } from 'execa'
@@ -52,8 +52,35 @@ export class ElectronController {
     return require('electron')
   }
 
+  /** 等待 CJS 入口文件存在且非空（最多重试 maxRetries 次，每次间隔 intervalMs） */
+  private async waitForEntry(
+    entryPath: string,
+    maxRetries = 15,
+    intervalMs = 500
+  ): Promise<boolean> {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const stat = statSync(entryPath)
+        if (stat.isFile() && stat.size > 0) {
+          return true
+        }
+      } catch {
+        // 文件不存在或无法读取，继续重试
+      }
+      devLog(`⏳ 等待入口文件就绪 (${i + 1}/${maxRetries}): ${path.relative(ROOT, entryPath)}`)
+      await delay(intervalMs)
+    }
+    console.error(
+      `${RED}[dev]${RESET} ❌ 入口文件 ${path.relative(ROOT, entryPath)} 在 ${
+        maxRetries * intervalMs
+      }ms 内未就绪，启动失败`
+    )
+    this.opts.onFatal()
+    return false
+  }
+
   /** 启动 Electron 进程 */
-  start(): void {
+  async start(): Promise<void> {
     // 取消尚未执行的重启请求，避免刚启动就被下一轮 restart 杀掉
     if (this.restartTimer) {
       clearTimeout(this.restartTimer)
@@ -63,6 +90,12 @@ export class ElectronController {
 
     const binary = this.resolveBinary()
     const entry = path.join(ROOT, 'apps/main/dist/index.cjs')
+
+    // 等待 CJS 入口文件就绪（tsup 重建期间文件可能尚未写入）
+    if (!(await this.waitForEntry(entry))) {
+      return
+    }
+
     devLog(`🖥️  启动 Electron: ${binary} ${entry} [log=${this.logLevel}]`)
     // stdout/stderr 用 pipe 并手动转发到终端，让开发者看到 Electron 主进程日志；
     // shuttingDown 后停止转发，避免 detached 进程在 orchestrator 退出后仍写终端
@@ -127,7 +160,7 @@ export class ElectronController {
       this.isRestarting = true
       if (!this.process) {
         this.isRestarting = false
-        this.start()
+        await this.start()
         return
       }
 
@@ -153,7 +186,7 @@ export class ElectronController {
       this.process = null
       // 短暂延迟让 Mihomo 子进程和端口完全释放
       await delay(200)
-      this.start()
+      await this.start()
     }, 300)
   }
 

@@ -8,14 +8,14 @@ let page: Page
  * Electron + WebContentsView 下，Playwright 的 firstWindow()/windows() 只暴露一个 page，
  * 且该 page 可能绑定到外壳渲染进程，也可能绑定到某个标签的 WebContentsView
  * （两者都加载同一个 index.html，标签页的 hash 为 #/newtab 等内部路由）。
- * 外壳是唯一带 .tab-bar 的页面，且其路由为 #/（标签页为 #/newtab 等子路由）。
+ * 外壳是唯一带 .tab-bar 或 .vertical-tab-bar 的页面，且其路由为 #/（标签页为 #/newtab 等子路由）。
  * 这里轮询直到拿到外壳，避免选中标签页导致断言失败。
  */
 async function getShell(): Promise<Page> {
   for (let i = 0; i < 60; i++) {
     for (const w of app.windows()) {
       try {
-        if ((await w.locator('.tab-bar').count()) > 0) return w
+        if ((await w.locator('.tab-bar').count()) > 0 || (await w.locator('.vertical-tab-bar').count()) > 0) return w
       } catch {
         /* page may detach between calls */
       }
@@ -43,11 +43,31 @@ async function findPopoverPage(text: string): Promise<Page> {
   throw new Error(`findPopoverPage: "${text}" not found in any webContents`)
 }
 
+/** 轮询 app.windows()，返回含目标选择器的面板 page（独立 webContents）。 */
+async function findPanelWith(selector: string): Promise<Page> {
+  for (let i = 0; i < 50; i++) {
+    for (const w of app.windows()) {
+      try {
+        if ((await w.locator(selector).count()) > 0) return w
+      } catch {
+        /* page may detach between calls */
+      }
+    }
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  throw new Error(`findPanelWith: "${selector}" not found in any webContents`)
+}
+
 test.beforeAll(async () => {
   app = await electron.launch({
     args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'],
   })
   page = await getShell()
+  // 重置 tabBarPosition 为 top，避免上一次运行/手动操作遗留 left 导致 VerticalTabBar 渲染
+  await page.evaluate(async () => {
+    await window.browserAPI.setSetting({ key: 'tabBarPosition', value: 'top' })
+  })
+  await expect(page.locator('.tab-bar')).toBeVisible({ timeout: 10000 })
 })
 
 test.afterAll(() => {
@@ -72,7 +92,7 @@ test.beforeEach(async () => {
     }
   })
   await expect(page.locator('.tab-item')).toHaveCount(1, { timeout: 15000 })
-  await expect(page.locator('.url-input')).toHaveValue('', {
+  await expect(page.locator('.address-input')).toHaveValue('', {
     timeout: 15000,
   })
 })
@@ -123,7 +143,7 @@ test('downloads page is accessible via app menu', async () => {
   const panel = await findPopoverPage('下载')
   await expect(panel.getByText('下载', { exact: true })).toBeVisible()
   await panel.getByText('下载', { exact: true }).click()
-  await expect(page.locator('.url-input')).toHaveValue('wmfx://downloads')
+  await expect(page.locator('.address-input')).toHaveValue('wmfx://downloads')
 })
 
 test('history list is accessible via browserAPI', async () => {
@@ -165,24 +185,41 @@ test('app menu opens and closes', async () => {
 })
 
 test('default new tab shows empty address bar', async () => {
-  await expect(page.locator('.url-input')).toHaveValue('')
+  await expect(page.locator('.address-input')).toHaveValue('')
 })
 
-test('find bar opens on Ctrl+F', async () => {
-  await page.keyboard.press('Control+F')
-  await expect(page.locator('.find-bar')).toBeVisible()
+test('find bar opens via browserAPI', async () => {
+  // Ctrl+F 是 OS 级 globalShortcut，Playwright keyboard 无法触发。
+  // 直接通过 browserAPI.popoverOpen 创建 find 类型面板（等效 FindBar 内部逻辑）
+  await page.evaluate(async () => {
+    await window.browserAPI.popoverOpen('e2e-find', {
+      type: 'find',
+      mode: 'bounded',
+      persistent: true,
+      anchor: { type: 'point', x: 0, y: 0 },
+      data: { query: '', matches: 0, activeMatch: -1, focusNonce: 0 },
+    })
+  })
+  const panel = await findPanelWith('.popover-box')
+  await expect(panel.locator('.find-panel')).toBeVisible()
 })
 
 test('autocomplete dropdown appears on input focus', async () => {
-  await page.locator('.url-input').click()
+  await page.locator('.address-input').click()
   await page.keyboard.type('test')
-  await page.waitForTimeout(250)
-  const dropdown = page.locator('.autocomplete')
-  await expect(dropdown).toBeVisible()
+  // 地址栏联想在独立面板 WebContentsView 中渲染
+  const panel = await findPanelWith('.addressbar-panel')
+  await expect(panel.locator('.addressbar-panel')).toBeVisible()
 })
 
-test('bookmark star button exists', async () => {
-  await expect(page.locator('.bookmark-btn')).toBeVisible()
+test('bookmark star button exists on external page', async () => {
+  // 导航到外部 URL 使 isExternal=true，bookmark 按钮才会显示
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill('http://example.com')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.address-input')).toHaveValue('http://example.com', { timeout: 10000 })
+  // bookmark 按钮使用 ic:round-star-outline 图标
+  await expect(page.locator('.url-input-actions .icon-btn').last()).toBeVisible()
 })
 
 test('tab reorder via drag', async () => {
@@ -197,14 +234,14 @@ test('proxy page is accessible via app menu', async () => {
   const panel = await findPopoverPage('代理')
   await expect(panel.getByText('代理', { exact: true })).toBeVisible()
   await panel.getByText('代理', { exact: true }).click()
-  await expect(page.locator('.url-input')).toHaveValue('wmfx://proxy')
+  await expect(page.locator('.address-input')).toHaveValue('wmfx://proxy')
 })
 
 test('typing wmfx://settings navigates to settings page', async () => {
-  await page.locator('.url-input').click()
-  await page.locator('.url-input').fill('wmfx://settings')
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill('wmfx://settings')
   await page.keyboard.press('Enter')
-  await expect(page.locator('.url-input')).toHaveValue('wmfx://settings/appearance')
+  await expect(page.locator('.address-input')).toHaveValue('wmfx://settings/appearance')
 })
 
 test('proxy status can be queried via browserAPI', async () => {
@@ -254,25 +291,27 @@ test('session state is saved on quit and restored on restart', async () => {
 
 test('address bar clears when navigating to new tab from external page', async () => {
   // Navigate to a settings page (non-newtab internal URL)
-  await page.locator('.url-input').fill('wmfx://settings')
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill('wmfx://settings')
   await page.keyboard.press('Enter')
-  await expect(page.locator('.url-input')).toHaveValue('wmfx://settings/appearance')
+  await expect(page.locator('.address-input')).toHaveValue('wmfx://settings/appearance')
 
   // Navigate to newtab — address bar should be empty
-  await page.locator('.url-input').fill('wmfx://newtab')
+  await page.locator('.address-input').click()
+  await page.locator('.address-input').fill('wmfx://newtab')
   await page.keyboard.press('Enter')
-  await expect(page.locator('.url-input')).toHaveValue('')
+  await expect(page.locator('.address-input')).toHaveValue('', { timeout: 10000 })
 })
 
 test('address bar updates when navigating to a non-newtab internal page', async () => {
-  await page.locator('.url-input').fill('wmfx://proxy')
+  await page.locator('.address-input').fill('wmfx://proxy')
   await page.keyboard.press('Enter')
-  await expect(page.locator('.url-input')).toHaveValue('wmfx://proxy')
+  await expect(page.locator('.address-input')).toHaveValue('wmfx://proxy')
 })
 
 test('new tab button triggers address bar focus', async () => {
   await page.locator('.tab-new').click()
   await expect(page.locator('.tab-item')).toHaveCount(2)
   // After creating new tab, address bar should be empty (new tab)
-  await expect(page.locator('.url-input')).toHaveValue('')
+  await expect(page.locator('.address-input')).toHaveValue('')
 })

@@ -242,7 +242,7 @@ function reset(): void {
 }
 
 function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data?: unknown, mode?: PopoverMode, bd?: { color?: string, blur?: number }, cob?: boolean, g?: number): void {
-  console.debug('[PanelRoot] onRender: popoverId type mode backdrop closeOnBackdrop gap', popoverId, type, mode, bd, cob, g)
+  console.debug('[PanelRoot] onRender: id=%s type=%s mode=%s', popoverId, type, mode)
   currentPopoverId.value = popoverId
   currentType.value = type
   currentData.value = data ?? null
@@ -275,6 +275,7 @@ function onRender(popoverId: string, type: PopoverType, anc: PopoverAnchor, data
         ...(useRectWidth && anchor.value.type === 'rect' ? { width: `${anchor.value.rect.width}px` } : {}),
       }
       const initialW = useRectWidth && anchor.value.type === 'rect' ? anchor.value.rect.width : el.offsetWidth
+      console.debug('[PanelRoot] onRender bounded: measuring size=%dx%d', initialW, el.offsetHeight)
       window.browserAPI.popoverMeasure(currentPopoverId.value, {
         width: initialW,
         height: el.offsetHeight,
@@ -595,6 +596,10 @@ body,
   visibility: hidden;
   min-width: 180px;
   pointer-events: auto;
+  /* 面板统一颜色变量，子组件通过 var(--panel-bg/border/hover) 引用 */
+  --panel-bg: var(--bg-secondary);
+  --panel-border: var(--bg-tertiary);
+  --panel-hover: var(--bg-tertiary);
   &.ready {
     visibility: visible;
   }

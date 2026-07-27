@@ -197,8 +197,8 @@ function openActionMenu(e: MouseEvent, ws: Workspace): void {
 .workspace-panel {
   width: 240px;
   padding: 8px 0;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
   border-radius: 8px;
 }
 
@@ -216,11 +216,11 @@ function openActionMenu(e: MouseEvent, ws: Workspace): void {
   color: var(--text-primary);
 
   &:hover {
-    background: var(--bg-hover);
+    background: var(--panel-hover);
   }
 
   &--active {
-    background: var(--bg-tertiary);
+    background: var(--panel-hover);
   }
 }
 

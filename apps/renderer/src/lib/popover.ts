@@ -72,16 +72,31 @@ export class Popover {
   private opened = false
 
   constructor(private opts: PopoverOptions) {
-    console.debug('[Popover] constructor: id type', this.popoverId, this.opts.type)
+    console.debug(
+      '[Popover] constructor: id=%s type=%s autoOpen=%s mode=%s anchorType=%s',
+      this.popoverId,
+      this.opts.type,
+      opts.autoOpen,
+      opts.mode,
+      opts.anchor?.type
+    )
     if (opts.onDismiss) {
       dismissCallbacks.set(this.popoverId, opts.onDismiss)
     }
-    if (opts.autoOpen !== false) this.open()
+    if (opts.autoOpen !== false) {
+      console.debug('[Popover] autoOpen trigger open')
+      this.open()
+    } else {
+      console.debug('[Popover] autoOpen=false, not opening')
+    }
   }
 
   open(): void {
-    if (this.opened) return
-    console.debug('[Popover] open: id type', this.popoverId, this.opts.type)
+    if (this.opened) {
+      console.warn('[Popover] open: already opened id=%s', this.popoverId)
+      return
+    }
+    console.debug('[Popover] open: id=%s type=%s', this.popoverId, this.opts.type)
     if (this.opts.onEvent) {
       eventMap.set(this.popoverId, this.opts.onEvent)
     }
@@ -98,6 +113,7 @@ export class Popover {
       gap: this.opts.gap,
     }
     void window.browserAPI.popoverOpen(this.popoverId, options)
+    console.debug('[Popover] browserAPI.popoverOpen called: id=%s', this.popoverId)
     this.opened = true
   }
 

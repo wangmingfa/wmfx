@@ -144,6 +144,9 @@ const api: {
   // QuickLinks
   getQuickLinks: () => Promise<QuickLink[]>
   setQuickLinks: (links: QuickLink[]) => Promise<void>
+  // Keyboard
+  setKeyboardMode: (mode: 'gui' | 'vim') => Promise<void>
+  onKeyboardModeChanged: (cb: (mode: 'gui' | 'vim') => void) => () => void
   // Autocomplete
   getAutocompleteSuggestions: (opts: AutocompleteQuery) => Promise<AutocompleteSuggestion[]>
   // Bookmark
@@ -346,6 +349,8 @@ const api: {
   getActiveWorkspace: () => Promise<Workspace | null>
   reorderWorkspaces: (ids: string[]) => Promise<void>
   onWorkspaceSwitched: (cb: (workspace: Workspace) => void) => () => void
+  // Shell commands (fire-and-forget)
+  send: (channel: string, ...args: unknown[]) => void
 } = {
   ping: (message) => ipcRenderer.invoke('app:ping', message),
   createTab: (opts) => ipcRenderer.invoke('tab:create', opts),
@@ -435,6 +440,13 @@ const api: {
   // QuickLinks
   getQuickLinks: () => ipcRenderer.invoke('settings:getQuickLinks'),
   setQuickLinks: (links) => ipcRenderer.invoke('settings:setQuickLinks', links),
+  // Keyboard
+  setKeyboardMode: (mode) => ipcRenderer.invoke('keyboard:set-mode', mode),
+  onKeyboardModeChanged: (cb) => {
+    const listener = (_e: unknown, mode: unknown) => cb(mode as 'gui' | 'vim')
+    ipcRenderer.on('keyboard:mode-changed', listener)
+    return () => ipcRenderer.removeListener('keyboard:mode-changed', listener)
+  },
   // Autocomplete
   getAutocompleteSuggestions: (opts) => ipcRenderer.invoke('autocomplete:suggestions', opts),
   // Bookmark
@@ -459,6 +471,8 @@ const api: {
     ipcRenderer.on('tabBarPosition:changed', listener)
     return () => ipcRenderer.removeListener('tabBarPosition:changed', listener)
   },
+  // Shell commands (fire-and-forget)
+  send: (channel: string, ...args: unknown[]) => ipcRenderer.send(channel, ...args),
   // Find in Page
   startFind: (opts) => ipcRenderer.send('page:startFind', opts),
   endFind: (tabId) => ipcRenderer.invoke('page:endFind', tabId),

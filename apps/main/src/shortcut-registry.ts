@@ -117,4 +117,18 @@ export const SHORTCUT_REGISTRY: ShortcutDef[] = [
     group:        'window',
     description:  { 'zh-CN': '打开设置', 'en-US': 'Open settings' },
   },
+  {
+    id:           'next-tab',
+    accelerator:  'Ctrl+Tab',
+    scope:        'in-app',
+    group:        'tab',
+    description:  { 'zh-CN': '下一个标签', 'en-US': 'Next tab' },
+  },
+  {
+    id:           'prev-tab',
+    accelerator:  'Ctrl+Shift+Tab',
+    scope:        'in-app',
+    group:        'tab',
+    description:  { 'zh-CN': '上一个标签', 'en-US': 'Previous tab' },
+  },
 ]

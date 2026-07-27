@@ -1,12 +1,13 @@
 <template>
-  <IconButton
-    class="app-menu"
-    icon="carbon:overflow-menu-vertical"
-    :size="18"
-    :active="isOpen"
-    :tooltip="t('tab.menu')"
-    @click.stop="openMenu"
-  />
+  <span class="app-menu">
+    <IconButton
+      icon="carbon:overflow-menu-vertical"
+      :size="18"
+      :active="isOpen"
+      :tooltip="t('tab.menu')"
+      @click.stop="openMenu"
+    />
+  </span>
   <ClearDataDialog v-model:show="showClearDialog" />
 </template>
 
@@ -160,6 +161,7 @@ onMounted(() => {
 
 <style scoped>
 .app-menu {
+  display: inline-flex;
   margin-left: auto;
   flex-shrink: 0;
 }

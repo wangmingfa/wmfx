@@ -293,11 +293,6 @@ watch(urlInput, () => {
 watch(
   () => props.url,
   (newUrl) => {
-    // 仅新标签页地址栏清空，其它内部页（settings/proxy 等）仍显示 URL
-    if (newUrl.startsWith('wmfx://newtab')) {
-      urlInput.value = ''
-      return
-    }
     if (newUrl !== urlInput.value) {
       urlInput.value = formatAddressBarUrl(newUrl)
     }

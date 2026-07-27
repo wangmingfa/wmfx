@@ -25,8 +25,9 @@
         'pinned': tab.isPinned,
         'menu-open': tab.id === activeMenuTabId,
         'tab-loading': showTabLoading(tab),
+        'is-hovered': hoveredTabId === tab.id,
       }"
-      :style="`width:${tabWidthFor(tab)}px;min-width:${tabWidthFor(tab)}px;max-width:${tabWidthFor(tab)}px`"
+      :style="`width:${!tab.isPinned && (enteringTabs.has(tab.id) || closingTabs.has(tab.id)) ? 1 : tabWidthFor(tab)}px;min-width:${!tab.isPinned && (enteringTabs.has(tab.id) || closingTabs.has(tab.id)) ? 1 : tabWidthFor(tab)}px;max-width:${!tab.isPinned && (enteringTabs.has(tab.id) || closingTabs.has(tab.id)) ? 1 : tabWidthFor(tab)}px`"
       :draggable="true"
       @click="activateTab(tab.id)"
       @contextmenu="onTabContextMenu($event, tab)"
@@ -37,6 +38,7 @@
       @dragleave="onDragLeave"
       @drop="onDrop($event, index)"
       @dragend="onDragEnd"
+      @transitionend="onTabTransitionEnd($event, tab)"
     >
       <!-- 填充下方的圆角过度 -->
       <template v-if="tab.active">
@@ -144,7 +146,7 @@
 <script setup lang="ts">
 import type { PopoverAnchor, TabState } from '@browser/ipc-contract'
 import { Icon } from '@iconify/vue'
-import { onMounted, onUnmounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import IconButton from '@/components/ui/IconButton.vue'
 import { requestAddressBarFocus } from '@/composables/useAddressBarFocus'
 import { useI18n } from '@/composables/useI18n'
@@ -180,21 +182,60 @@ const {
   closeOthers,
   closeRight,
   closeLeft,
+  onTabCreated,
+  onTabClosing,
+  removeTab,
 } = useTabList()
 
 const tabBarRef = ref<HTMLElement>()
 const tabBarWidth = ref(0)
 const isMaximized = ref(false)
 
+// --- 标签创建/关闭动画 ---
+const enteringTabs = new Set<string>()
+const closingTabs = new Set<string>()
+// 右键菜单高亮的标签 ID、悬停标签 ID、悬停定时器
+const activeMenuTabId = ref<string | null>(null)
+const hoveredTabId = ref<string | null>(null)
+let hoverDelayTimer: ReturnType<typeof setTimeout> | null = null
+let hoverLeaveTimer: ReturnType<typeof setTimeout> | null = null
+
+onTabCreated((tabId: string) => {
+  activeMenuTabId.value = null
+  hoveredTabId.value = null
+  if (hoverDelayTimer) {
+    clearTimeout(hoverDelayTimer)
+    hoverDelayTimer = null
+  }
+  enteringTabs.add(tabId)
+  void nextTick(() => {
+    enteringTabs.delete(tabId)
+  })
+})
+
+onTabClosing((tabId: string) => {
+  if (activeMenuTabId.value === tabId) {
+    activeMenuTabId.value = null
+  }
+  hoveredTabId.value = null
+  closingTabs.add(tabId)
+})
+
+function onTabTransitionEnd(event: TransitionEvent, tab: TabState): void {
+  if (event.propertyName !== 'width') {
+    return
+  }
+  if (closingTabs.has(tab.id)) {
+    closingTabs.delete(tab.id)
+    removeTab(tab.id)
+  }
+}
+
 // --- 工作区按钮 ---
 const currentWorkspace = ref<{ id: string, name: string, color: string } | null>(null)
 let workspacePopover: Popover | null = null
-// 当前因右键菜单而高亮的触发元素（菜单关闭时由 onClose 清空）
-const activeMenuTabId = ref<string | null>(null)
 
 // --- 标签悬停缩略图（popover 实现） ---
-let hoverDelayTimer: ReturnType<typeof setTimeout> | null = null
-let hoverLeaveTimer: ReturnType<typeof setTimeout> | null = null
 let hoverPopover: Popover | null = null
 let hoverPopoverTabId: string | null = null
 
@@ -216,7 +257,7 @@ function showTabLoading(tab: TabState) {
 }
 
 function openTabContextMenu(event: MouseEvent, tab: TabState): void {
-  console.debug('[TabBar] openTabContextMenu: tabId', tab.id)
+  console.debug('[TabBar] openTabContextMenu: tabId=%s button=%d', tab.id, event.button)
   closeHoverPopover()
   event.preventDefault()
   event.stopPropagation()
@@ -330,9 +371,11 @@ function createNewTab(): void {
 }
 
 function closeHoverPopover(): void {
+  console.debug('[TabBar] closeHoverPopover: delayTimer=%s leaveTimer=%s', hoverDelayTimer ? 'yes' : 'no', hoverLeaveTimer ? 'yes' : 'no')
   if (hoverDelayTimer) {
     clearTimeout(hoverDelayTimer)
     hoverDelayTimer = null
+    console.debug('[TabBar] closeHoverPopover: cleared delayTimer')
   }
   if (hoverLeaveTimer) {
     clearTimeout(hoverLeaveTimer)
@@ -380,17 +423,34 @@ function closeWindow(): void {
 }
 
 function onTabContextMenu(event: MouseEvent, tab: TabState): void {
+  console.debug('[TabBar] onTabContextMenu (wrapper): tabId=%s button=%d', tab.id, event.button)
   openTabContextMenu(event, tab)
 }
 
 // --- 标签悬停缩略图（popover 实现） ---
 function onTabEnter(event: MouseEvent, tab: TabState): void {
+  console.debug('[TabBar] onTabEnter: tabId=%s active=%s pinned=%s', tab.id, tab.active, tab.isPinned)
+  hoveredTabId.value = tab.id
   if (tab.active || tab.isPinned) {
+    console.debug('[TabBar] onTabEnter: guard early return (active/pinned)')
     return
   }
   cancelHoverLeave()
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  // 必须在同步阶段提前捕获 currentTarget 和 rect，
+  // 因为浏览器在 setTimeout 回调执行前会清空 MouseEvent 对象，
+  // 此时 event.currentTarget 为 null 导致缩略图不显示。
+  const target = event.currentTarget as HTMLElement | null
+  const rect = target ? target.getBoundingClientRect() : null
+  console.debug('[TabBar] onTabEnter: setting 300ms timer, oldTimer=%s target=%s', hoverDelayTimer ? 'had' : 'none', rect ? 'ok' : 'null')
+  if (!target || !rect) {
+    return
+  }
   hoverDelayTimer = setTimeout(() => {
+    console.debug('[TabBar] hover setTimeout fired: tabId=%s hovered=%s', tab.id, hoveredTabId.value)
+    if (hoveredTabId.value !== tab.id) {
+      console.debug('[TabBar] hover: hovered changed, skip')
+      return
+    }
     const src = thumbnailCache.get(tab.id) ?? null
     const data = { src, loading: !src, title: tab.title || 'New Tab', url: tab.navigation.displayUrl }
     const anchor: PopoverAnchor = {
@@ -398,6 +458,7 @@ function onTabEnter(event: MouseEvent, tab: TabState): void {
       rect: { x: rect.left, y: rect.bottom + 6, width: rect.width, height: 0 },
       placement: 'bottom-start',
     }
+    console.debug('[TabBar] hover: creating popover, rect=%j, data=%j', rect, data)
     // 关闭旧的 hover popover
     hoverPopover?.close()
     const tabId = tab.id
@@ -431,6 +492,7 @@ function onTabEnter(event: MouseEvent, tab: TabState): void {
 }
 
 function onTabLeave(): void {
+  hoveredTabId.value = null
   if (hoverDelayTimer) {
     clearTimeout(hoverDelayTimer)
     hoverDelayTimer = null
@@ -565,8 +627,9 @@ onUnmounted(() => {
   flex-shrink: 0;
   z-index: 0;
   -webkit-app-region: no-drag;
+  transition: width 200ms ease-in-out, min-width 200ms ease-in-out;
 
-  &:hover,
+  &.is-hovered,
   &.menu-open:not(.active) {
     background: var(--bg-tab-hover);
   }

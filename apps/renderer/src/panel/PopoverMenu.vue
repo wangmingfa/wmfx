@@ -125,8 +125,8 @@ function onClick(item: MenuItem): void {
   list-style: none;
   margin: 0;
   padding: 4px 0;
-  background: var(--bg-secondary);
-  border: 1px solid var(--bg-tertiary);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
   border-radius: 6px;
 }
 .popover-menu-item {
@@ -173,8 +173,8 @@ function onClick(item: MenuItem): void {
 .popover-submenu {
   position: absolute;
   top: -4px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--bg-tertiary);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   z-index: 10;

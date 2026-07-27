@@ -14,6 +14,25 @@ export function useTabList() {
   let createdHandler: ((state: TabState) => void) | null = null
   let removedHandler: ((tabId: string) => void) | null = null
 
+  // --- 标签创建/关闭动画回调 ---
+  let tabCreatedCallback: ((tabId: string) => void) | null = null
+  let tabClosingCallback: ((tabId: string) => void) | null = null
+
+  /** 注册创建动画回调：新标签创建时调用 */
+  function onTabCreated(cb: (tabId: string) => void): void {
+    tabCreatedCallback = cb
+  }
+
+  /** 注册关闭动画回调：标签关闭时调用（延迟移除，由动画控制） */
+  function onTabClosing(cb: (tabId: string) => void): void {
+    tabClosingCallback = cb
+  }
+
+  /** 动画结束后真正移除标签（由 TabBar 在 transitionend 后调用） */
+  function removeTab(tabId: string): void {
+    tabs.value = tabs.value.filter((t) => t.id !== tabId)
+  }
+
   async function loadTabs(): Promise<void> {
     tabs.value = await window.browserAPI.getList()
     console.debug('[useTabList] loadTabs: count', tabs.value.length)
@@ -124,13 +143,20 @@ export function useTabList() {
 
     createdHandler = (state: TabState) => {
       if (!tabs.value.some((t) => t.id === state.id)) {
+        // 新标签创建时，主动清除所有已有标签的 active 标记，防止旧标签残留 active class
+        tabs.value = tabs.value.map((t) => ({ ...t, active: false }))
         tabs.value.push(state)
         applyOrder()
+        tabCreatedCallback?.(state.id)
       }
     }
 
     removedHandler = (tabId: string) => {
-      tabs.value = tabs.value.filter((t) => t.id !== tabId)
+      if (tabClosingCallback) {
+        tabClosingCallback(tabId)
+      } else {
+        tabs.value = tabs.value.filter((t) => t.id !== tabId)
+      }
     }
 
     window.browserAPI.onTabStateChange(stateChangeHandler)
@@ -179,5 +205,8 @@ export function useTabList() {
     closeOthers,
     closeRight,
     closeLeft,
+    onTabCreated,
+    onTabClosing,
+    removeTab,
   }
 }

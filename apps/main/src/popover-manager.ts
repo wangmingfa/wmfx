@@ -114,6 +114,15 @@ export class PopoverManager {
       closeOnBackdrop: options.closeOnBackdrop,
       onSelect: options.onSelect,
       gap: options.gap,
+      // cursor 锚点：在 open() 时立即抓取，避免 applyMeasure 延迟导致光标漂移
+      initialCursor:
+        options.anchor.type === 'cursor'
+          ? (() => {
+              const sp = screen.getCursorScreenPoint()
+              const w = this.win.getContentBounds()
+              return { x: sp.x - w.x, y: sp.y - w.y }
+            })()
+          : undefined,
     })
     const alreadyRendered = this.stack.includes(popoverId)
     if (!alreadyRendered) this.stack.push(popoverId)
@@ -133,7 +142,7 @@ export class PopoverManager {
     const id = this.stack[this.stack.length - 1]
     const ov = this.overlays.get(id)
     if (!ov) return
-    console.debug('[PopoverManager] renderTop: top mode', id ?? 'none', ov.mode)
+    console.debug('[PopoverManager] renderTop: top=%s mode=%s', id ?? 'none', ov.mode)
     // WebContentsView 没有 setTopBrowserView（该 API 仅适用于已弃用的 BrowserView）；
     // 通过移除后重新 addChildView 把它放到 contentView 子视图栈顶，确保盖住所有 tab 视图。
     this.win.contentView.removeChildView(this.popoverView)
@@ -141,6 +150,11 @@ export class PopoverManager {
 
     if (ov.mode === 'bounded') {
       // 先发渲染让面板测量内容；定位与显示等 popover:measure 回执
+      console.debug(
+        '[PopoverManager] renderTop bounded: sending popover:render id=%s type=%s',
+        id,
+        ov.type
+      )
       this.popoverView.webContents.send(
         'popover:render',
         id,
@@ -152,6 +166,7 @@ export class PopoverManager {
         undefined,
         ov.gap
       )
+      console.debug('[PopoverManager] renderTop bounded: send done')
       return
     }
 
@@ -178,8 +193,22 @@ export class PopoverManager {
     popoverId: string,
     size: { width: number; height: number; gutter?: number; offsetX?: number; offsetY?: number }
   ): void {
+    console.debug(
+      '[PopoverManager] applyMeasure: id=%s size=%dx%d',
+      popoverId,
+      size.width,
+      size.height
+    )
     const ov = this.overlays.get(popoverId)
-    if (ov?.mode !== 'bounded') return
+    console.debug(
+      '[PopoverManager] applyMeasure: overlay=%s mode=%s',
+      ov ? 'found' : 'null',
+      ov?.mode
+    )
+    if (ov?.mode !== 'bounded') {
+      console.warn('[PopoverManager] applyMeasure: skipping, mode=%s', ov?.mode)
+      return
+    }
     console.debug(
       '[PopoverManager] applyMeasure: popoverId sizex%d',
       popoverId,
@@ -190,14 +219,40 @@ export class PopoverManager {
     const gutter = Math.max(0, size.gutter ?? 0)
 
     if (this.rendered.has(popoverId)) {
-      // re-measure（子菜单展开/收起）：在现有视图边界上扩展，包住视觉内容。
-      // offsetX/offsetY 是 getVisualRect 的 left/top（WebContentsView 局部坐标），
-      // 需加上 cur.x/cur.y 转换为窗口 content view 坐标。
       const cur = this.popoverView.getBounds()
       const vrLeft = cur.x + (size.offsetX ?? 0)
       const vrTop = cur.y + (size.offsetY ?? 0)
       const vrRight = vrLeft + size.width
       const vrBottom = vrTop + size.height
+
+      // 内容收缩时（视觉矩形在现有边界内），用锚点重新定位，避免被首次测量的虚高尺寸锁定位置
+      // offsetX/offsetY 是 getVisualRect 的 left/top（WebContentsView 局部坐标），
+      // 需加上 cur.x/cur.y 转换为窗口 content view 坐标。
+      const isShrunk =
+        vrLeft >= cur.x &&
+        vrTop >= cur.y &&
+        vrRight <= cur.x + cur.width &&
+        vrBottom <= cur.y + cur.height
+      if (isShrunk) {
+        const actualW = size.width + gutter * 2
+        const actualH = size.height + gutter * 2
+        const cursor = ov.anchor.type === 'cursor' ? ov.initialCursor : undefined
+        const win = this.win.getContentBounds()
+        const pos = computePopoverBounds(
+          ov.anchor,
+          { width: actualW, height: actualH },
+          { width: win.width, height: win.height },
+          cursor
+        )
+        this.popoverView.setBounds({
+          x: pos.x - gutter,
+          y: pos.y - gutter,
+          width: actualW,
+          height: actualH,
+        })
+        return
+      }
+
       const newX = Math.min(cur.x, vrLeft)
       const newY = Math.min(cur.y, vrTop)
       const newRight = Math.max(cur.x + cur.width, vrRight)
@@ -218,11 +273,6 @@ export class PopoverManager {
     const winSize = { width: win.width, height: win.height }
     let cursor: { x: number; y: number } | undefined
     if (ov.anchor.type === 'cursor') {
-      if (!ov.initialCursor) {
-        const sp = screen.getCursorScreenPoint()
-        const win = this.win.getContentBounds()
-        ov.initialCursor = { x: sp.x - win.x, y: sp.y - win.y }
-      }
       cursor = ov.initialCursor
     }
     const actualW = w + gutter * 2
@@ -241,6 +291,13 @@ export class PopoverManager {
     })
     this.rendered.add(popoverId)
     this.popoverView.setVisible(true)
+    console.debug(
+      '[PopoverManager] applyMeasure: first render done pos=%s,%s size=%dx%d',
+      pos.x - gutter,
+      pos.y - gutter,
+      actualW,
+      actualH
+    )
     this.popoverView.webContents.focus()
   }
 

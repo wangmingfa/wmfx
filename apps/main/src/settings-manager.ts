@@ -41,6 +41,7 @@ interface SettingsSchema {
   interceptorEnabled: boolean
   interceptorRules: InterceptorRule[]
   commandPaletteRecentActions: string[]
+  keyboardMode: 'gui' | 'vim'
 }
 
 export const defaultSettings: SettingsSchema = {
@@ -74,6 +75,7 @@ export const defaultSettings: SettingsSchema = {
   interceptorEnabled: false,
   interceptorRules: [],
   commandPaletteRecentActions: [],
+  keyboardMode: 'gui',
 }
 
 /** 校验 theme 值 */
@@ -297,6 +299,10 @@ export class SettingsManager {
           : (defaultSettings.interceptorRules as SettingsSchema[K])
       case 'commandPaletteRecentActions':
         return validateStringArray(value) as SettingsSchema[K]
+      case 'keyboardMode': {
+        if (['gui', 'vim'].includes(value as string)) return value as SettingsSchema[K]
+        return defaultSettings.keyboardMode as SettingsSchema[K]
+      }
       default:
         return value
     }
