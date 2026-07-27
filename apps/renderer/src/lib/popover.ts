@@ -141,10 +141,14 @@ export class Popover {
 
   close(): void {
     if (!this.opened) return
-    console.debug('[Popover] close: id', this.popoverId)
-    eventMap.delete(this.popoverId)
+    console.debug('[Popover] close: id=%s', this.popoverId)
+    // 先同步触发 onDismiss（避免先删回调、后等 IPC 返回导致回调丢失），
+    // 再将 opened 置为 false，防止外部 dismiss IPC 回来时重复调用
+    const onDismiss = dismissCallbacks.get(this.popoverId)
     dismissCallbacks.delete(this.popoverId)
+    eventMap.delete(this.popoverId)
     closeRegistry.delete(this.popoverId)
+    onDismiss?.()
     void window.browserAPI.popoverClose(this.popoverId)
     this.opened = false
   }
