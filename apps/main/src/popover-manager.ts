@@ -103,8 +103,24 @@ export class PopoverManager {
         if (id !== popoverId && other?.mode === 'bounded' && !other.persistent) this.close(id)
       }
     }
+    let initialCursor: { x: number; y: number } | undefined
+    // cursor 锚点：在 open() 时立即抓取，避免 applyMeasure 延迟导致光标漂移
+    // 同时把 cursor 转为 point 类型，带上窗口局部坐标，供 overlay 模式的面板直接定位，
+    // 避免面板侧依赖 mousemove 事件获取 lastPointer（面板 WebContentsView 的鼠标坐标可能与窗口坐标不一致）
+    let anchor: PopoverAnchor = options.anchor
+    if (options.anchor.type === 'cursor') {
+      const sp = screen.getCursorScreenPoint()
+      const w = this.win.getContentBounds()
+      initialCursor = { x: sp.x - w.x, y: sp.y - w.y }
+      anchor = {
+        type: 'point',
+        x: initialCursor.x,
+        y: initialCursor.y,
+        placement: options.anchor.placement,
+      }
+    }
     this.overlays.set(popoverId, {
-      anchor: options.anchor,
+      anchor,
       type: options.type,
       data: options.data,
       mode,
@@ -114,15 +130,7 @@ export class PopoverManager {
       closeOnBackdrop: options.closeOnBackdrop,
       onSelect: options.onSelect,
       gap: options.gap,
-      // cursor 锚点：在 open() 时立即抓取，避免 applyMeasure 延迟导致光标漂移
-      initialCursor:
-        options.anchor.type === 'cursor'
-          ? (() => {
-              const sp = screen.getCursorScreenPoint()
-              const w = this.win.getContentBounds()
-              return { x: sp.x - w.x, y: sp.y - w.y }
-            })()
-          : undefined,
+      initialCursor,
     })
     const alreadyRendered = this.stack.includes(popoverId)
     if (!alreadyRendered) this.stack.push(popoverId)
