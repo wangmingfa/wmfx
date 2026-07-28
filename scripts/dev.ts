@@ -22,15 +22,19 @@ let shuttingDown = false
  *    必须在任何 await 之前完成——dev.ts 是多层 shell（bun shim → mvm run → 嵌套 bun）
  *    下的孙子进程，上层收到 Ctrl+C 后可能在我们 await 期间就把本进程拆掉；
  *    信号先同步发出，即使 orchestrator 立即消失，Electron 也会自行 app.quit() 收尾。
- * 2. 等待 Electron 退出，超时后按进程组强杀 vite/tsup/Electron（连带 Mihomo），最后退场。
+ * 2. 立即 SIGKILL 强杀所有子进程组，避免在 await 期间 process.exit 导致 dev.ts
+ *    退出而 vite/tsup 等孤儿进程继续后台监听文件（修改文件后会触发意外构建）。
+ * 3. 等待 Electron 退出，超时后按进程组强杀（连带 Mihomo），最后退场。
  */
 async function shutdown(code = 0): Promise<void> {
   if (shuttingDown) return
   shuttingDown = true
   electron.beginGracefulShutdown()
   pm.terminate()
-  await electron.waitAndForceKill()
+  // 立即强杀 vite/tsup 等所有子进程，防止 await 期间 dev.ts 被上层 shell 拆掉，
+  // 留下孤儿进程继续监听文件变化
   pm.killAll('SIGKILL')
+  await electron.waitAndForceKill()
   console.log()
   process.exit(code)
 }

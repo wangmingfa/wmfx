@@ -57,15 +57,19 @@
             v-if="tab.active"
             class="vtab-indicator"
           />
-          <div class="vtab-favicon">
+          <div
+            class="vtab-favicon"
+            :class="{ 'tab-loading': showTabLoading(tab) }"
+          >
             <Favicon
-              v-if="!showTabLoading(tab)"
+              class="favicon"
               :url="tab.navigation.displayUrl"
               :favicon="tab.favicon"
               :size="isExpanded ? 16 : 20"
             />
             <Spinner
-              v-else
+              v-if="showTabLoading(tab)"
+              class="tab-spinner"
               :size="14"
             />
           </div>
@@ -546,6 +550,7 @@ onUnmounted(() => {
 }
 
 .vtab-favicon {
+  position: relative;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -556,6 +561,23 @@ onUnmounted(() => {
   .vertical-tab-bar:not(.vertical-tab-bar--expanded) & {
     width: 20px;
     height: 20px;
+  }
+
+  .tab-spinner {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+
+  .favicon {
+    transition: transform 0.15s ease;
+  }
+
+  &.tab-loading .favicon {
+    transform: scale(0.6);
   }
 }
 

@@ -77,7 +77,7 @@
           :size="16"
         />
         <Favicon
-          v-else
+          class="favicon"
           :url="tab.navigation.displayUrl"
           :favicon="tab.favicon"
           :size="14"
