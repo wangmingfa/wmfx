@@ -33,7 +33,7 @@
     "format": "bun x biome format --write . && bun run format:vue",
     "format:vue": "bun x eslint --fix '**/*.vue'",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "test": "bun x vitest run",
+    "test:unit": "bun x vitest run",
     "test:e2e": "bun run build && bun x playwright test",
     "typecheck": "bun run --filter '*' typecheck",
     "package": "bun run build && electron-builder",

@@ -66,7 +66,7 @@
 
 <script setup lang="ts">
 import type { FileStore } from './useFileStore'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { NInput, NSelect } from 'naive-ui'
 
 import { inject } from 'vue'

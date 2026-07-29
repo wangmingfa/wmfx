@@ -122,7 +122,7 @@
 <script setup lang="ts">
 import type { FileStore } from './useFileStore'
 
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { computed, inject, nextTick, onMounted, ref, watch } from 'vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import { fileStoreInjectionKey } from './injectionKeys'

@@ -1,10 +1,19 @@
 import './lib/logger'
+import { addCollection } from '@iconify/vue/dist/offline'
+import carbon from '@iconify-json/carbon/icons.json'
+import ic from '@iconify-json/ic/icons.json'
+import mdi from '@iconify-json/mdi/icons.json'
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 import App from './App.vue'
 import { router } from './router'
 import './style.css'
 import { syncThemeToShell } from '@/composables/useTheme'
+
+// 离线图标集预加载：@iconify/vue 默认走在线 API，使用 dist/offline 版时需手动注入本地集合
+addCollection(mdi)
+addCollection(ic)
+addCollection(carbon)
 
 console.debug('[main] 启动：创建 app 实例并挂载插件')
 const app = createApp(App).use(createPinia()).use(router)

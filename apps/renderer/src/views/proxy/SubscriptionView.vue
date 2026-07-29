@@ -97,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { onMounted, ref } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 

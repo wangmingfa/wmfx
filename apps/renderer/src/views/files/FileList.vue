@@ -198,7 +198,7 @@
 <script setup lang="ts">
 import type { FileStore } from './useFileStore'
 
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { inject, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import FileThumbnail from './FileThumbnail.vue'

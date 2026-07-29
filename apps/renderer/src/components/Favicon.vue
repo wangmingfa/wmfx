@@ -26,7 +26,7 @@
 
 <script setup lang="ts">
 import { faviconKeyOf, isWmfxUrl } from '@browser/shared'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useTheme } from '@/composables/useTheme'
 import DefaultFavicon from './DefaultFavicon.vue'

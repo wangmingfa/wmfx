@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { computed, ref } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import Favicon from './Favicon.vue'

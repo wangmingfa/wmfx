@@ -23,7 +23,7 @@
 <script setup lang="ts">
 import type { FileEntry } from '@browser/ipc-contract'
 
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { ref } from 'vue'
 import { useFileDisplay } from './useFileDisplay'
 

@@ -145,7 +145,7 @@
 
 <script setup lang="ts">
 import type { PopoverAnchor, TabState } from '@browser/ipc-contract'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import IconButton from '@/components/ui/IconButton.vue'
 import { requestAddressBarFocus } from '@/composables/useAddressBarFocus'

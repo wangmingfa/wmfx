@@ -158,6 +158,24 @@ import { NInput, NSelect, NSwitch } from 'naive-ui'
 | 单选 | `NRadioGroup` + `NRadioButton` |
 | 提示 | `NTooltip` |
 
+## 图标（@iconify/vue）
+
+### 离线模式
+- **必须使用离线版**：从 `@iconify/vue/dist/offline` 导入 `Icon`，不要从 `@iconify/vue` 默认导出导入（默认导出版会走在线 API 拉取图标，导致首次渲染图标晚于文案，打包后离线时图标直接不可见）
+- **在 `main.ts` 预加载图标集**：`addCollection(mdi)` / `addCollection(ic)` / `addCollection(carbon)` 等，使用 `@iconify-json/*` 本地图标包
+- **新图标集**：通过 `bun add @iconify-json/<prefix>` 添加依赖，然后在 `main.ts` 中注册
+
+```ts
+// main.ts
+import { addCollection } from '@iconify/vue/dist/offline'
+import mdi from '@iconify-json/mdi/icons.json'
+addCollection(mdi)
+```
+```ts
+// component.vue
+import { Icon } from '@iconify/vue/dist/offline'
+```
+
 ## Vue 组件样式规范
 
 - Vue 单文件组件的 `<style>` **必须使用 LESS 语法**（`lang="less"`），禁止纯 CSS 写法。

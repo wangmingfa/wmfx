@@ -71,7 +71,7 @@
 
 <script setup lang="ts">
 import type { Workspace } from '@browser/ipc-contract'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { nextTick, onMounted, ref } from 'vue'
 import { ContextMenu } from '../lib/context-menu'
 

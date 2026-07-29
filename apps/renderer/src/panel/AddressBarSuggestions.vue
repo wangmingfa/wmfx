@@ -58,7 +58,7 @@
 <script setup lang="ts">
 import type { AutocompleteSuggestion } from '@browser/ipc-contract'
 import { ADDRESS_BAR_PLACEHOLDER } from '@browser/shared'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { onMounted, ref, watch } from 'vue'
 import AddressInput from '../components/AddressInput.vue'
 

@@ -70,7 +70,7 @@ bun run dev
 | 仅构建渲染进程 | `bun run build:renderer` |
 | 打包（三平台）| `bun run package` |
 | 打包 macOS / Win / Linux | `bun run package:mac` / `:win` / `:linux` |
-| 单元测试 | `bun test` |
+| 单元测试 | `bun run test:unit` |
 | E2E 测试 | `bun run test:e2e` |
 | 代码检查 | `bun run lint` |
 | 类型检查 | `bun run lint:typecheck` |

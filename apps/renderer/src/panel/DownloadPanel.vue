@@ -130,7 +130,7 @@
 
 <script setup lang="ts">
 import type { DownloadItem, DownloadState } from '@browser/ipc-contract'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { computed } from 'vue'
 import { useI18n } from '../composables/useI18n'
 

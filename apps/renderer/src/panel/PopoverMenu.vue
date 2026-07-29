@@ -72,7 +72,7 @@
 
 <script setup lang="ts">
 import type { MenuItem } from '@browser/ipc-contract'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { computed, ref } from 'vue'
 
 defineProps<{

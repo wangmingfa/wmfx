@@ -72,7 +72,7 @@
 
 <script setup lang="ts">
 import type { TooltipProps } from 'naive-ui'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { NTooltip } from 'naive-ui'
 import { computed } from 'vue'
 

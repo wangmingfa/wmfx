@@ -86,7 +86,7 @@
 
 <script setup lang="ts">
 import type { DownloadItem, DownloadState } from '@browser/ipc-contract'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import PageLayout from '@/components/PageLayout.vue'
 import Section from '@/components/Section.vue'

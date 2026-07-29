@@ -88,7 +88,7 @@
 
 <script setup lang="ts">
 import type { AppInfo, UpdaterStatus } from '@browser/ipc-contract'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { NButton } from 'naive-ui'
 import { computed, onMounted, ref } from 'vue'
 import Section from '@/components/Section.vue'

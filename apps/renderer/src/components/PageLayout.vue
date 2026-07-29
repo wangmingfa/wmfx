@@ -80,7 +80,7 @@
 
 <script setup lang="ts">
 import type { SideMenuItem } from './side-menu'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { NInput } from 'naive-ui'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'

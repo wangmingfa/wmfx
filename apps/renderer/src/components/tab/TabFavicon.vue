@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { computed } from 'vue'
 import Favicon from '@/components/Favicon.vue'
 import Spinner from '@/components/ui/Spinner.vue'

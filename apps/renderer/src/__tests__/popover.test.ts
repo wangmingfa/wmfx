@@ -88,7 +88,10 @@ describe('Popover', () => {
       }
     ).__eventCb!
     cb({ popoverId: 'id-1', eventName: 'select', eventData: 'item-1' })
-    expect(onEvent).toHaveBeenCalledWith('select', 'item-1')
+    expect(onEvent).toHaveBeenCalledWith(
+      { name: 'select', data: 'item-1' },
+      expect.objectContaining({ close: expect.any(Function) })
+    )
   })
 
   it('sendData 调用 popoverSendData', () => {

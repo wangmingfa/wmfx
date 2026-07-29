@@ -76,7 +76,7 @@
 
 <script setup lang="ts">
 import type { TabState } from '@browser/ipc-contract'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 import { computed } from 'vue'
 import IconButton from '@/components/ui/IconButton.vue'
 import TabFavicon from './TabFavicon.vue'

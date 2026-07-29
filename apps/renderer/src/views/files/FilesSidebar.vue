@@ -69,7 +69,7 @@
 <script setup lang="ts">
 import type { FileBookmark, MenuItem } from '@browser/ipc-contract'
 import type { FileStore } from './useFileStore'
-import { Icon } from '@iconify/vue'
+import { Icon } from '@iconify/vue/dist/offline'
 
 import { inject, ref } from 'vue'
 import IconButton from '@/components/ui/IconButton.vue'
