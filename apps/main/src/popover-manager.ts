@@ -147,6 +147,7 @@ export class PopoverManager {
 
   /** 把栈顶 popover 推到最前，再通知面板渲染对应数据。overlay 铺满窗口并聚焦；bounded 先渲染待测量。 */
   private renderTop(): void {
+    if (this.win.isDestroyed()) return
     const id = this.stack[this.stack.length - 1]
     const ov = this.overlays.get(id)
     if (!ov) return
@@ -311,6 +312,7 @@ export class PopoverManager {
 
   /** 主 renderer → popover WebContentsView 双向数据同步 */
   sendData(popoverId: string, data: unknown): void {
+    if (this.win.isDestroyed()) return
     if (this.stack.includes(popoverId)) {
       console.debug('[PopoverManager] sendData: popoverId', popoverId)
       this.popoverView.webContents.send('popover:data', popoverId, data)
@@ -319,18 +321,21 @@ export class PopoverManager {
 
   /** 同步主题到 popover 面板（面板自身无 data-theme 广播，需主进程主动推送） */
   sendTheme(theme: ThemeMode): void {
+    if (this.win.isDestroyed()) return
     console.debug('[PopoverManager] sendTheme: theme', theme)
     this.popoverView.webContents.send('theme:change', theme)
   }
 
   /** 同步书签变更到 popover 面板（面板需主进程主动推送刷新） */
   sendBookmarksChanged(): void {
+    if (this.win.isDestroyed()) return
     console.debug('[PopoverManager] sendBookmarksChanged')
     this.popoverView.webContents.send('bookmarks:changed')
   }
 
   /** popover WebContentsView → 主 renderer 事件通知 */
   notifyEvent(popoverId: string, eventName: string, eventData?: unknown): void {
+    if (this.win.isDestroyed()) return
     console.debug('[PopoverManager] notifyEvent: popoverId event', popoverId, eventName)
     if (eventName === 'select') {
       this.overlays.get(popoverId)?.onSelect?.(eventData)
@@ -340,6 +345,7 @@ export class PopoverManager {
 
   /** 关闭指定 popover：出栈后若仍有未关闭项则渲染新的栈顶，否则隐藏整个 popoverView。 */
   close(popoverId: string): void {
+    if (this.win.isDestroyed() || this.popoverView.webContents.isDestroyed()) return
     console.debug('[PopoverManager] close: popoverId remaining', popoverId, this.stack.length - 1)
     this.overlays.delete(popoverId)
     this.rendered.delete(popoverId)

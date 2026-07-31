@@ -112,5 +112,6 @@ test('菜单 popover 不挡应用，点应用其它区域失焦关闭', async ()
 
   // 点击应用窗口的非 popover 区域应使 popover 失焦关闭
   await page.mouse.click(400, 400)
+  await page.waitForTimeout(500)
   await expect.poll(async () => await countInAllWindows('.popover-box')).toBe(0)
 })

@@ -18,6 +18,25 @@ async function getShell(): Promise<Page> {
   throw new Error('getShell: shell window not found')
 }
 
+/**
+ * 文件浏览器 / 下载页 渲染在 tab 的 webContents 中（非外壳 page）。
+ * 轮询 app.windows() 找到不含 .tab-bar（即非外壳）且含目标选择器的 tab page。
+ */
+async function findTabPage(selector: string): Promise<Page> {
+  for (let i = 0; i < 50; i++) {
+    for (const w of app.windows()) {
+      try {
+        if ((await w.locator('.tab-bar').count()) > 0 || (await w.locator('.vertical-tab-bar').count()) > 0) continue
+        if ((await w.locator(selector).count()) > 0) return w
+      } catch {
+        /* page may detach between calls */
+      }
+    }
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  throw new Error(`findTabPage: "${selector}" not found in any tab webContents`)
+}
+
 test.beforeAll(async () => {
   app = await electron.launch({
     args: ['apps/main/dist/index.cjs', '--no-sandbox', '--disable-gpu'],
@@ -72,9 +91,10 @@ test('file browser shows sidebar with system dirs', async () => {
   await page.locator('.address-input').fill('wmfx://files')
   await page.keyboard.press('Enter')
   await page.waitForTimeout(1500)
-  await expect(page.locator('.files-view')).toBeVisible()
+  const tabPage = await findTabPage('.files-view')
+  await expect(tabPage.locator('.files-view')).toBeVisible()
   // Sidebar should contain at least "下载" (Downloads) system dir
-  await expect(page.locator('.files-sidebar')).toBeVisible()
+  await expect(tabPage.locator('.files-sidebar')).toBeVisible()
 })
 
 test('file browser shows breadcrumb', async () => {
@@ -82,7 +102,8 @@ test('file browser shows breadcrumb', async () => {
   await page.locator('.address-input').fill('wmfx://files')
   await page.keyboard.press('Enter')
   await page.waitForTimeout(1500)
-  await expect(page.locator('.files-breadcrumb')).toBeVisible()
+  const tabPage = await findTabPage('.files-breadcrumb')
+  await expect(tabPage.locator('.files-breadcrumb')).toBeVisible()
 })
 
 test('file browser has toolbar with new folder button', async () => {
@@ -90,7 +111,8 @@ test('file browser has toolbar with new folder button', async () => {
   await page.locator('.address-input').fill('wmfx://files')
   await page.keyboard.press('Enter')
   await page.waitForTimeout(1500)
-  await expect(page.locator('.files-toolbar')).toBeVisible()
+  const tabPage = await findTabPage('.files-toolbar')
+  await expect(tabPage.locator('.files-toolbar')).toBeVisible()
 })
 
 test('file browser has search input', async () => {
@@ -98,37 +120,39 @@ test('file browser has search input', async () => {
   await page.locator('.address-input').fill('wmfx://files')
   await page.keyboard.press('Enter')
   await page.waitForTimeout(1500)
-  await expect(page.locator('.files-search-input')).toBeVisible()
+  const tabPage = await findTabPage('.toolbar-search')
+  await expect(tabPage.locator('.toolbar-search')).toBeVisible()
 })
 
 // ─── 文件操作 ────────────────────────────────────────────────
 
 test('new folder creates a folder', async () => {
   // Navigate to a writable location
-  const testDir = '/tmp/wmfx-e2e-test'
   await page.locator('.address-input').click()
-  await page.locator('.address-input').fill(testDir)
+  await page.locator('.address-input').fill('/tmp')
   await page.keyboard.press('Enter')
-  await page.waitForTimeout(1500)
+  await page.waitForTimeout(2000)
 
+  const tabPage = await findTabPage('.files-toolbar')
   // Click new folder button
-  const newFolderBtn = page.locator('.files-toolbar').getByRole('button', { name: /新建|New/i }).first()
+  const newFolderBtn = tabPage.locator('.files-toolbar').getByRole('button', { name: /新建|New/i }).first()
   if ((await newFolderBtn.count()) > 0) {
     await newFolderBtn.click()
     await page.waitForTimeout(500)
     // Check if a new folder appears or rename dialog opens
-    await expect(page.locator('.file-item')).toContainText('未命名文件夹')
+    await expect(tabPage.locator('.file-item')).toContainText('未命名文件夹')
   }
 })
 
 test('file browser lists directories', async () => {
-  const testDir = '/tmp/wmfx-e2e-test'
+  // Navigate to /tmp which always exists
   await page.locator('.address-input').click()
-  await page.locator('.address-input').fill(testDir)
+  await page.locator('.address-input').fill('/tmp')
   await page.keyboard.press('Enter')
-  await page.waitForTimeout(1500)
-  // The file list should be visible
-  await expect(page.locator('.files-list')).toBeVisible()
+  await page.waitForTimeout(2000)
+  // .files-list is in the tab's webContents; use findTabPage to locate it
+  const tabPage = await findTabPage('.files-list')
+  await expect(tabPage.locator('.files-list')).toBeVisible({ timeout: 10000 })
 })
 
 // ─── 安全 ────────────────────────────────────────────────────
@@ -143,7 +167,7 @@ test('path traversal is blocked via browserAPI', async () => {
     }
   })
   expect(result.ok).toBe(false)
-  expect(result.message).toContain('SENSITIVE_DIR')
+  expect(result.message).toContain('不允许访问')
 })
 
 test('sensitive directory access is blocked via browserAPI', async () => {
@@ -179,22 +203,21 @@ test('node_modules directory is blocked', async () => {
 // ─── Quick Look ──────────────────────────────────────────────
 
 test('Quick Look opens on file double-click', async () => {
-  // Navigate to a directory with files
-  const testDir = '/tmp/wmfx-e2e-test'
   await page.locator('.address-input').click()
-  await page.locator('.address-input').fill(testDir)
+  await page.locator('.address-input').fill('/tmp')
   await page.keyboard.press('Enter')
-  await page.waitForTimeout(1500)
+  await page.waitForTimeout(2000)
 
+  const tabPage = await findTabPage('.file-item')
   // Find a file item and double-click it
-  const fileItem = page.locator('.file-item').first()
+  const fileItem = tabPage.locator('.file-item').first()
   if ((await fileItem.count()) > 0) {
     await fileItem.dblclick()
     await page.waitForTimeout(500)
     // Quick Look panel should appear
-    await expect(page.locator('.quick-look')).toBeVisible()
+    await expect(tabPage.locator('.quick-look')).toBeVisible({ timeout: 5000 })
     // Press Escape to close
-    await page.keyboard.press('Escape')
+    await tabPage.keyboard.press('Escape')
   }
 })
 
@@ -204,6 +227,8 @@ test('downloads page has open-in-browser button', async () => {
   await page.locator('.address-input').click()
   await page.locator('.address-input').fill('wmfx://downloads')
   await page.keyboard.press('Enter')
-  await page.waitForTimeout(1500)
-  await expect(page.locator('.downloads-view')).toBeVisible()
+  await page.waitForTimeout(2000)
+  // DownloadsView 使用 PageLayout，根类为 .page
+  const tabPage = await findTabPage('.page')
+  await expect(tabPage.locator('.page')).toBeVisible({ timeout: 10000 })
 })

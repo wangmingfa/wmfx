@@ -294,12 +294,14 @@ test('address bar clears when navigating to new tab from external page', async (
   await page.locator('.address-input').click()
   await page.locator('.address-input').fill('wmfx://settings')
   await page.keyboard.press('Enter')
+  await page.waitForTimeout(1000)
   await expect(page.locator('.address-input')).toHaveValue('wmfx://settings/appearance')
 
   // Navigate to newtab — address bar should be empty
   await page.locator('.address-input').click()
   await page.locator('.address-input').fill('wmfx://newtab')
   await page.keyboard.press('Enter')
+  await page.waitForTimeout(1000)
   await expect(page.locator('.address-input')).toHaveValue('', { timeout: 10000 })
 })
 

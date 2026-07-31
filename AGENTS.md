@@ -44,6 +44,16 @@
 - `bun run build:main` → only main process (CJS)
 - `bun run build:renderer` → only renderer (Vite)
 
+## 测试流程（test:e2e / test:unit）
+- **完整测试**：`bun run test:e2e`（E2E）或 `bun run test:unit`（Vitest 单元测试）
+- **指定测试**：`bun run test:unit -- --grep "<测试名片段>"`（Vitest，支持模糊匹配）
+- **E2E 指定测试**：`bun run test:e2e -- --grep "<测试名片段>"`（Playwright，支持模糊匹配）
+- **调试顺序**：
+  1. 先跑完整测试，收集所有失败用例列表
+  2. 针对每个失败用例用 `--grep` 单独运行，定位具体报错
+  3. 所有错误修复后，再跑完整测试确认
+  4. 如有新错误，回到步骤 2，**反复直到完整测试全部通过**
+
 ## 日志规范
 
 ### 调试日志（console.debug）

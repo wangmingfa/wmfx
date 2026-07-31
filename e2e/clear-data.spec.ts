@@ -98,20 +98,24 @@ test.beforeEach(async () => {
 })
 
 test('设置页清除浏览数据弹窗', async () => {
-  // 导航到隐私设置页
   await page.locator('.address-input').fill('wmfx://settings/privacy')
   await page.keyboard.press('Enter')
   await expect(page.locator('.address-input')).toHaveValue('wmfx://settings/privacy')
 
   // 设置页内容在标签的 WebContentsView 中渲染，需找到对应的 webContents
-  const settingsPage = await findTabContentPage('button:has-text("清除浏览数据")')
+  const settingsPage = await findTabContentPage('.n-switch')
 
-  // 点击设置页触发按钮（文案「清除浏览数据」）
-  await settingsPage.getByRole('button', { name: '清除浏览数据' }).first().click()
+  // 等待设置页加载完毕
+  await settingsPage.waitForTimeout(1000)
 
-  // 弹窗标题「清除浏览数据」可见（在同一个 webContents 中）
+  // 点击「清除浏览数据」按钮
+  const clearBtn = settingsPage.getByRole('button', { name: '清除浏览数据' }).first()
+  await expect(clearBtn).toBeVisible({ timeout: 10000 })
+  await clearBtn.click()
+
+  // 弹窗标题「清除浏览数据」可见
   const modal = settingsPage.locator('.n-modal')
-  await expect(modal.getByText('清除浏览数据', { exact: true }).first()).toBeVisible()
+  await expect(modal.getByText('清除浏览数据', { exact: true }).first()).toBeVisible({ timeout: 10000 })
 
   // 取消勾选全部四个复选（默认全勾），清除按钮应禁用
   await modal.getByText('Cookie', { exact: true }).click()
@@ -141,13 +145,15 @@ test('三点菜单清空缓存打开同一弹窗', async () => {
   await page.keyboard.press('Enter')
   await expect(page.locator('.address-input')).toHaveValue('')
 
-  // 点击三点菜单（IconButton 用 NTooltip，不设 title，通过 icon 定位）
+  // 点击三点菜单
   await page.locator('.app-menu').click()
 
   // 在 popover 面板中点击「清空缓存」
   const panel = await findPopoverPage('清空缓存')
-  await panel.getByText('清空缓存', { exact: true }).click()
+  await panel.getByText('清空缓存', { exact: true }).first().click()
+  await page.waitForTimeout(500)
 
-  // 弹窗标题「清除浏览数据」可见（与设置页同一弹窗）
-  await expect(page.locator('.n-modal').getByText('清除浏览数据', { exact: true }).first()).toBeVisible()
+  // 弹窗在 tab 的 webContents 中，需找到含 .n-modal 的 tab page
+  const modalPage = await findTabContentPage('.n-modal')
+  await expect(modalPage.locator('.n-modal').getByText('清除浏览数据', { exact: true }).first()).toBeVisible({ timeout: 10000 })
 })

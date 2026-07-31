@@ -143,13 +143,14 @@ test('右键书签栏项 → 删除，移除该条目', async () => {
   expect(before).toBeGreaterThan(0)
 
   await page.locator('.bookmark-bar .bookmark-item').first().click({ button: 'right' })
+  await page.waitForTimeout(300)
 
   const ctx = await findPopoverPage('删除')
-  await ctx.getByText('删除', { exact: true }).click()
+  await ctx.getByText('删除', { exact: true }).first().click()
+  await page.waitForTimeout(500)
 
-  await expect
-    .poll(async () => await page.locator('.bookmark-bar .bookmark-item').count(), { timeout: 15000 })
-    .toBeLessThan(before)
+  const after = await page.locator('.bookmark-bar .bookmark-item').count()
+  expect(after, 'bookmark count should decrease after delete').toBeLessThan(before)
 })
 
 test('再次打开三-点菜单可隐藏书签栏，.bookmark-bar 移除', async () => {
