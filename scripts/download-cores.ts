@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const PROJECT_ROOT = join(import.meta.dir, '..')
@@ -47,10 +48,17 @@ async function download() {
   console.log(`Downloading mihomo from ${url}...`)
 
   if (process.platform === 'win32') {
-    const tmpZip = join('/tmp', 'mihomo.zip')
-    execSync(`curl -L "${url}" -o "${tmpZip}"`, { stdio: 'inherit' })
+    // 用系统临时目录，避免硬编码 /tmp（Windows 上解析为不存在的 C:\tmp，导致 curl 写文件失败）
+    const tmpZip = join(tmpdir(), 'mihomo.zip')
+    // --ssl-no-revoke: Windows schannel 默认会做证书吊销检查，国内/企业网络常因连不上
+    // 吊销服务器而报 CRYPT_E_REVOCATION_OFFLINE，跳过吊销检查即可（仍校验证书，非 -k 裸信任）
+    // --retry: GitHub 偶发抖动时自动重试
     execSync(
-      `powershell -Command "Expand-Archive -Path '${tmpZip.replace(/\//g, '\\')}' -DestinationPath '${dir.replace(/\//g, '\\')}' -Force"`,
+      `curl -L --ssl-no-revoke --retry 3 --retry-delay 2 --retry-all-errors "${url}" -o "${tmpZip}"`,
+      { stdio: 'inherit' }
+    )
+    execSync(
+      `powershell -Command "Expand-Archive -Path '${tmpZip}' -DestinationPath '${dir}' -Force"`,
       { stdio: 'inherit' }
     )
     // 递归查找目录下第一个 .exe 文件
@@ -69,7 +77,7 @@ async function download() {
     }
     const exe = findExe(dir)
     if (exe) {
-      execSync(`copy /Y "${exe.replace(/\//g, '\\')}" "${targetPath.replace(/\//g, '\\')}"`, {
+      execSync(`copy /Y "${exe}" "${targetPath}"`, {
         stdio: 'inherit',
       })
     }
