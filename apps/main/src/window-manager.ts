@@ -248,7 +248,26 @@ export function createWindow(
   sessionManager.setProxyRules(proxyManager.getProxyRules())
   console.debug('[WindowManager] createWindow: proxy rules set up isIncognito=%s', isIncognito)
 
-  win.once('ready-to-show', () => win.show())
+  let shown = false
+  win.once('ready-to-show', () => {
+    console.info('[WindowManager] ready-to-show: windowId=%s', win.id)
+    win.show()
+    win.focus()
+    shown = true
+  })
+  // 兜底：10s 后未 ready-to-show 也强制显示（防止 renderer 渲染异常导致窗口永不可见）
+  const showFallback = setTimeout(() => {
+    if (!shown && !win.isDestroyed()) {
+      console.warn('[WindowManager] ready-to-show timeout, force showing windowId=%s', win.id)
+      win.show()
+      win.focus()
+    }
+  }, 10_000)
+  win.once('closed', () => clearTimeout(showFallback))
+  // 加载完成时也记录（用于排查 ready-to-show 不触发的问题）
+  win.webContents.once('did-finish-load', () => {
+    console.info('[WindowManager] did-finish-load: windowId=%s', win.id)
+  })
 
   // 无痕窗口不持久化尺寸；普通窗口仅当为首个普通窗口时写回
   if (!isIncognito) {

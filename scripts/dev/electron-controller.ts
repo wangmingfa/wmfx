@@ -98,11 +98,12 @@ export class ElectronController {
 
     devLog(`🖥️  启动 Electron: ${binary} ${entry} [log=${this.logLevel}]`)
     // stdout/stderr 用 pipe 并手动转发到终端，让开发者看到 Electron 主进程日志；
-    // shuttingDown 后停止转发，避免 detached 进程在 orchestrator 退出后仍写终端
+    // shuttingDown 后停止转发，避免进程在 orchestrator 退出后仍写终端。
+    // 注意：不使用 detached: true。Windows 上 detached + piped stdio 会导致
+    // stdout/stderr 收不到数据。进程树回收由 killTree 通过 taskkill /T 处理。
     const proc = execa(binary, [entry], {
       cwd: ROOT,
       stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
-      detached: true,
       env: {
         ...process.env,
         VITE_DEV_SERVER_URL: this.devServerUrl,

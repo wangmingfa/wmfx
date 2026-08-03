@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { defineConfig } from 'tsup'
 import {
   isInstrumentEnabled,
@@ -20,11 +21,18 @@ export default defineConfig({
     'electron',
     'better-sqlite3',
     'sharp',
-    '@wmfx/database',
     'electron-updater',
     '@iconify/utils',
     /@iconify-json\/.*/,
   ],
-  noExternal: ['@browser/ipc-contract', '@browser/shared', '@browser/proxy'],
+  // 主进程直接引用 packages 源码（alias → src），不再单独 tsup 构建包
+  noExternal: ['@browser/ipc-contract', '@browser/shared', '@browser/proxy', '@wmfx/database'],
+  // 直接把 workspace 包解析到源码，dev/prod 都不再需要单独构建 packages
+  alias: {
+    '@browser/shared': resolve(REPO_ROOT, 'packages/shared/src/index.ts'),
+    '@browser/ipc-contract': resolve(REPO_ROOT, 'packages/ipc-contract/src/index.ts'),
+    '@browser/proxy': resolve(REPO_ROOT, 'packages/proxy/src/index.ts'),
+    '@wmfx/database': resolve(REPO_ROOT, 'packages/database/src/index.ts'),
+  },
   esbuildPlugins: devPlugins,
 })
