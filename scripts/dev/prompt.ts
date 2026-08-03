@@ -21,12 +21,6 @@ export async function promptLogLevel(): Promise<LogLevel> {
     console.log(`  ${i + 1}. ${i === defaultIdx ? GREEN : ''}${c.name}${RESET}`)
   })
 
-  // 非 TTY 环境（CI、管道、被其他进程调用）无法交互，直接使用上次等级
-  if (!process.stdin.isTTY) {
-    console.log(`${CYAN}[dev]${RESET} ⏱️  非交互式环境，自动选择 ${GREEN}${lastLevel}${RESET}`)
-    return lastLevel
-  }
-
   const level = await new Promise<LogLevel>((resolve) => {
     let remaining = 5
     let inputBuf = ''

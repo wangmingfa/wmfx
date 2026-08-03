@@ -1,21 +1,24 @@
 import { existsSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import path from 'node:path'
 import { CYAN, delay, GREEN, RED, RESET, ROOT } from './constants.ts'
 import type { ProcessManager } from './process-manager.ts'
-
-const require = createRequire(import.meta.url)
 
 /**
  * 每个包的初次构建产物清单，用于「等所有 watch 首次构建完成」的轮询检查。
  * 依据各包 tsup.config.ts 的 entry/format/outExtension 得出。
  */
+const DEP_PACKAGE_OUTPUTS: string[] = [
+  path.join(ROOT, 'packages/shared/dist/index.js'),
+  path.join(ROOT, 'packages/ipc-contract/dist/index.js'),
+  path.join(ROOT, 'packages/database/dist/index.cjs'),
+  path.join(ROOT, 'packages/proxy/dist/index.js'),
+]
 const MAIN_OUTPUTS: string[] = [
   path.join(ROOT, 'apps/main/dist/index.cjs'),
   path.join(ROOT, 'apps/main/dist/preload.cjs'),
 ]
-const BUILD_OUTPUTS = [...MAIN_OUTPUTS]
+const BUILD_OUTPUTS = [...DEP_PACKAGE_OUTPUTS, ...MAIN_OUTPUTS]
 
 /**
  * 轮询等待给定产物文件全部出现（每个 200ms 检查一次），超时则报错退出。
@@ -49,20 +52,22 @@ async function waitForOutputs(outputs: string[], timeoutMs: number): Promise<voi
  */
 export async function startWatchesAndWait(pm: ProcessManager): Promise<void> {
   const timeoutMs = 60_000
-  console.log(`${CYAN}[dev]${RESET} 🧹 清理主进程 dist 目录...`)
-  // 并发删除主进程 dist 目录（Promise 版 rm），任一不存在则忽略
+  console.log(`${CYAN}[dev]${RESET} 🧹 清理所有 dist 目录...`)
+  // 并发删除各 dist 目录（Promise 版 rm），任一不存在则忽略
   await Promise.all(
-    MAIN_OUTPUTS.map((out) => rm(path.dirname(out), { recursive: true, force: true }))
+    BUILD_OUTPUTS.map((out) => rm(path.dirname(out), { recursive: true, force: true }))
   )
 
-  // packages 改为直接引用源码（apps 通过 alias 解析到 packages/*/src），
-  // 不再需要 4 个 tsup --watch；只需启动主进程 watch，它会把 packages 源码内联进主包。
-  console.log(
-    `${CYAN}[dev]${RESET} 📦 启动主进程 tsup --watch（packages 源码由主包内联，不再单独构建）`
-  )
-  // 直接用 node 运行 tsup CLI，不用 `bun x tsup`（Bun 1.3.14 Windows 上 segfault）
-  const tsupBin = require.resolve('tsup/dist/cli-default.js')
-  pm.spawnArgs('node', [tsupBin, '--watch'], path.join(ROOT, 'apps/main'))
+  console.log(`${CYAN}[dev]${RESET} 📦 并发启动依赖包 tsup --watch（shared/ipc/database/proxy）`)
+  pm.spawn('bun x tsup --watch', path.join(ROOT, 'packages/shared'))
+  pm.spawn('bun x tsup --watch', path.join(ROOT, 'packages/ipc-contract'))
+  pm.spawn('bun x tsup --watch', path.join(ROOT, 'packages/database'))
+  pm.spawn('bun x tsup --watch', path.join(ROOT, 'packages/proxy'))
+  await waitForOutputs(DEP_PACKAGE_OUTPUTS, timeoutMs)
+  console.log(`${CYAN}[dev]${RESET} ${GREEN}✅${RESET} 依赖包初次构建完成`)
+
+  console.log(`${CYAN}[dev]${RESET} 📦 启动主进程 tsup --watch（依赖已就绪）`)
+  pm.spawn('bun x tsup --watch', path.join(ROOT, 'apps/main'))
   await waitForOutputs(MAIN_OUTPUTS, timeoutMs)
   console.log(`${CYAN}[dev]${RESET} ${GREEN}✅${RESET} 主进程初次构建完成`)
 }

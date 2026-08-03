@@ -558,7 +558,7 @@ export function registerIpcHandlers(): void {
 
   handle('privacy:clearData', async (event, opts) => {
     console.info(`[IPC] privacy:clearData: types=${JSON.stringify(opts?.types)}`)
-    if (!opts || !opts.types?.length) {
+    if (!opts?.types?.length) {
       console.warn('[IPC] privacy:clearData: no valid opts')
       return
     }

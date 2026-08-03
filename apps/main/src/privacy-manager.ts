@@ -32,7 +32,7 @@ const STORAGE_MAP: Record<ClearDataType, StorageKind[]> = {
 
 export class PrivacyManager {
   async clear(opts: ClearDataOptions): Promise<void> {
-    if (!opts || !opts.types?.length) {
+    if (!opts?.types?.length) {
       console.warn('[PrivacyManager] clear: no valid types')
       return
     }
@@ -56,7 +56,7 @@ export class PrivacyManager {
         await sess.clearStorageData({ storages })
       } catch (err) {
         console.warn(
-          `[PrivacyManager] clearStorageData failed for session ${sess.partition}:`,
+          '[PrivacyManager] clearStorageData failed:',
           err instanceof Error ? err.message : String(err)
         )
       }

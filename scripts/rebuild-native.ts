@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { resolve } from 'node:path'
 /**
  * 重建 better-sqlite3 原生模块（适配 Electron ABI）。
  *
@@ -11,7 +12,6 @@
  * 此脚本在启动 electron-rebuild 前清除这两个环境变量，使子进程不受 shim 影响。
  */
 import { execaSync } from 'execa'
-import { resolve } from 'node:path'
 
 const ROOT = resolve(import.meta.dirname, '..')
 
