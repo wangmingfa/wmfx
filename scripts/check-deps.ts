@@ -6,6 +6,7 @@
  */
 
 import { execSync } from 'node:child_process'
+import { existsSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -71,6 +72,23 @@ function ensureNodeModules(): boolean {
   return true
 }
 
+/**
+ * dev 流程依赖的关键 CLI 工具（对应 node_modules/.bin/ 下的可执行文件）。
+ * bun 在 Windows 上创建 .exe / .bunx 变体，在 macOS/Linux 上创建无后缀符号链接。
+ */
+const CRITICAL_BINS = ['electron-rebuild', 'tsup', 'vite']
+
+/**
+ * 检查 node_modules/.bin 目录是否存在且包含 dev 流程所需的关键可执行文件。
+ * .bin 缺失通常意味着 bun install 未正常完成（如 postinstall 失败导致中断）。
+ */
+function ensureBinLinks(): boolean {
+  const binDir = path.join(ROOT, 'node_modules', '.bin')
+  if (!existsSync(binDir)) return false
+  const entries = readdirSync(binDir)
+  return CRITICAL_BINS.every((bin) => entries.some((f) => f.startsWith(bin)))
+}
+
 export async function checkDependencies(): Promise<boolean> {
   if (!ensureNodeModules()) return false
   let semver: SemVerModule | null = null
@@ -92,6 +110,20 @@ export async function checkDependencies(): Promise<boolean> {
 
   const mismatches = findMismatches(semver)
   if (mismatches.length === 0) {
+    // 版本匹配后再检查 .bin 链接完整性，防止 install 部分失败导致 .bin 缺失
+    if (!ensureBinLinks()) {
+      console.log(`${YELLOW}⚠${RESET} node_modules/.bin 缺失或不完整，正在重新执行 bun install ...`)
+      try {
+        execSync('bun install', { stdio: 'inherit', timeout: 180000 })
+      } catch {
+        console.log(`${RED}✗${RESET} bun install 失败，请手动运行后重试`)
+        return false
+      }
+      if (!ensureBinLinks()) {
+        console.log(`${RED}✗${RESET} bun install 后 .bin 仍不完整，请删除 node_modules 后重新 bun install`)
+        return false
+      }
+    }
     console.log(`${CYAN}[dev]${RESET} ${GREEN}✓${RESET} 依赖检查通过`)
     return true
   }
@@ -102,6 +134,10 @@ export async function checkDependencies(): Promise<boolean> {
     const recheck = findMismatches(semver)
     if (recheck.length > 0) {
       console.log(`${RED}✗${RESET} 安装后仍有 ${recheck.length} 个依赖版本不匹配，请手动处理`)
+      return false
+    }
+    if (!ensureBinLinks()) {
+      console.log(`${RED}✗${RESET} 安装后 .bin 仍不完整，请删除 node_modules 后重新 bun install`)
       return false
     }
     console.log(`${CYAN}[dev]${RESET} ${GREEN}✓${RESET} 依赖重新检查通过`)

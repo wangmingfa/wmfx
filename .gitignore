@@ -18,6 +18,12 @@ playwright-report/
 # TypeScript
 *.tsbuildinfo
 
+# tsup bundled config (auto-generated temp files)
+tsup.config.bundled_*.mjs
+
+# Build tool artifacts
+{}
+
 # Test coverage
 coverage/
 
@@ -30,3 +36,6 @@ mihomo/
 
 # superpowers local state
 .superpowers/
+
+# WorkBuddy workspace memory (local only)
+.workbuddy/

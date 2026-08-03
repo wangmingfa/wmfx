@@ -5,7 +5,11 @@
     "moduleResolution": "Bundler",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["apps/renderer/src/*"]
+      "@/*": ["apps/renderer/src/*"],
+      "@browser/shared": ["packages/shared/src/index.ts"],
+      "@browser/ipc-contract": ["packages/ipc-contract/src/index.ts"],
+      "@browser/proxy": ["packages/proxy/src/index.ts"],
+      "@wmfx/database": ["packages/database/src/index.ts"]
     },
     "strict": true,
     "esModuleInterop": true,
