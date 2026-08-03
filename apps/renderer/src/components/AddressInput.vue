@@ -33,6 +33,7 @@
       :style="{ paddingRight: paddingRight ? `${paddingRight}px` : undefined }"
       @input="onInput"
       @focus="emit('focus')"
+      @blur="emit('blur')"
       @keydown="onKeydown"
     />
   </div>
@@ -59,6 +60,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
   'input': [event: Event]
   'focus': []
+  'blur': []
   'keydown': [event: KeyboardEvent]
 }>()
 

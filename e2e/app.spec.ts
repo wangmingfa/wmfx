@@ -78,6 +78,27 @@ test.afterAll(() => {
 // 注意：关闭最后一个标签会触发应用退出（tab:close 处理器），因此只关闭多余标签，保留首个。
 // 保留标签先跳到一个不同内部路由再回到 wmfx://newtab，确保真正触发导航事件
 // （相同 hash 的 loadURL 不会重新派发导航事件，地址栏会残留上一用例键入的旧值）。
+test.afterEach(async () => {
+  // 关闭所有残留的 popover（含 persistent），避免遮挡下个用例的地址栏
+  await app.evaluate(async ({ BrowserWindow }) => {
+    const focused = BrowserWindow.getFocusedWindow()
+    const instance = (focused && (globalThis as any).browserInstances)
+      ? (globalThis as any).browserInstances.get(String(focused.id))
+      : null
+    if (instance?.popoverManager) {
+      instance.popoverManager.closeAll()
+    }
+  })
+  await page.waitForTimeout(300)
+  // 重置 AddressBar 内部的焦点抑制标志，防止跨测试污染导致 popup 不打开
+  await page.evaluate(() => {
+    // suppressFocus / suppressPopover / skipCloseOnBlur 是 AddressBar 模块级 let 变量
+    // 通过闭包暴露一个 reset 入口（在 AddressBar.vue 中定义）
+    const resetFn = (window as any).__resetAddressBarPopoverState
+    if (typeof resetFn === 'function') resetFn()
+  })
+})
+
 test.beforeEach(async () => {
   await page.evaluate(async () => {
     const list = await window.browserAPI.getList()
@@ -238,10 +259,13 @@ test('proxy page is accessible via app menu', async () => {
 })
 
 test('typing wmfx://settings navigates to settings page', async () => {
-  await page.locator('.address-input').click()
+  // Cmd+L 风格聚焦（跳过低级 autocomplete 弹出层）：直接 fill + Enter
   await page.locator('.address-input').fill('wmfx://settings')
   await page.keyboard.press('Enter')
-  await expect(page.locator('.address-input')).toHaveValue('wmfx://settings/appearance')
+  await page.waitForTimeout(1000)
+  await expect(page.locator('.address-input')).toHaveValue('wmfx://settings/appearance', {
+    timeout: 10000,
+  })
 })
 
 test('proxy status can be queried via browserAPI', async () => {

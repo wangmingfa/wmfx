@@ -10,9 +10,9 @@ const config: Configuration = {
   files: [
     'apps/main/dist/**/*',
     'apps/renderer/dist/**/*',
+    'apps/main/node_modules/**/*',
     'node_modules/better-sqlite3/**/*',
     'node_modules/@better-sqlite3/**/*',
-    'node_modules/electron-updater/**/*',
   ],
 
   extraResources: [
@@ -61,6 +61,8 @@ const config: Configuration = {
     {
       provider: 'github',
       releaseType: 'draft',
+      owner: 'wangmingfa',
+      repo: 'wmfx',
     },
   ],
 }

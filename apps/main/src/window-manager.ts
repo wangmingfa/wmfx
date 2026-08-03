@@ -22,7 +22,6 @@ import { app, BrowserWindow, nativeImage, nativeTheme } from 'electron'
 import type { AdBlocker } from './ad-blocker'
 import { BookmarkManager } from './bookmark-manager'
 import { CertTrustStore } from './cert-trust-store'
-import { loadVueDevToolsForSession } from './devtools'
 import { DownloadManager } from './download-manager'
 import { HistoryManager } from './history-manager'
 import { NavigationManager } from './navigation-manager'
@@ -202,8 +201,6 @@ export function createWindow(
     },
   })
   win.webContents.setBackgroundThrottling(false)
-  // Vue 壳层 UI 运行在主窗口的默认 session，须装载 Vue DevTools 扩展
-  void loadVueDevToolsForSession(win.webContents.session)
 
   const sessionManager = getSharedSessionManager()
   const database = DatabaseManager.getInstance()

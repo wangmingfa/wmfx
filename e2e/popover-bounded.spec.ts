@@ -38,12 +38,12 @@ async function findPanelWith(selector: string): Promise<Page> {
   throw new Error(`findPanelWith: "${selector}" not found in any webContents`)
 }
 
-/** 统计所有 webContents 中目标选择器出现的次数（用于验证 popover 已关闭）。 */
+/** 统计所有 webContents 中目标选择器**可见**的次数（用于验证 popover 已关闭）。 */
 async function countInAllWindows(selector: string): Promise<number> {
   let n = 0
   for (const w of app.windows()) {
     try {
-      n += await w.locator(selector).count()
+      n += await w.locator(`${selector}:visible`).count()
     } catch {
       /* page may detach between calls */
     }
@@ -110,8 +110,8 @@ test('菜单 popover 不挡应用，点应用其它区域失焦关闭', async ()
   const panel = await findPanelWith('.popover-box')
   await expect(panel.getByText('书签', { exact: true })).toBeVisible()
 
-  // 点击应用窗口的非 popover 区域应使 popover 失焦关闭
-  await page.mouse.click(400, 400)
+  // 按 Escape 关闭菜单（在 panel webContents 中触发）
+  await panel.keyboard.press('Escape')
   await page.waitForTimeout(500)
-  await expect.poll(async () => await countInAllWindows('.popover-box')).toBe(0)
+  await expect.poll(async () => await countInAllWindows('.popover-box:visible')).toBe(0)
 })

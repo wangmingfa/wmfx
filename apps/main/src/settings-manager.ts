@@ -69,7 +69,7 @@ export const defaultSettings: SettingsSchema = {
   adBlockEnabled: true,
   adBlockCustomRules: [],
   adBlockAllowlist: [],
-  forceDark: true,
+  forceDark: false,
   tabBarPosition: 'top',
   tabBarCollapsed: false,
   interceptorEnabled: false,

@@ -83,6 +83,7 @@ export function resolveAddressBarTarget(input: string, searchEngine: string): st
 
 /** 地址栏显示 URL：将 wmfx://files/xxx 还原为原始本地路径 /xxx，其他 URL 原样返回 */
 export function formatAddressBarUrl(url: string): string {
+  if (url === 'wmfx://newtab') return ''
   const prefix = `${WMFX_SCHEME}files/`
   if (url.startsWith(prefix)) {
     const raw = url.slice(prefix.length)

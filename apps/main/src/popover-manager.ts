@@ -362,6 +362,12 @@ export class PopoverManager {
     }
   }
 
+  /** 关闭所有 popover（含 persistent），供测试清理 / 退出时兜底 */
+  closeAll(): void {
+    const ids = [...this.stack]
+    for (const id of ids) this.close(id)
+  }
+
   /** 返回 popoverView 的 webContents（仅当 popover 有焦点时） */
   getFocusedWebContents(): import('electron').WebContents | null {
     if (!this.popoverView.webContents.isFocused()) return null

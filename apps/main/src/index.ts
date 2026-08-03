@@ -3,7 +3,6 @@ import { ProxyManager, resolveProxyConfigDir, type TrafficData } from '@browser/
 import { app, BrowserWindow, Menu } from 'electron'
 import { AdBlocker } from './ad-blocker'
 import { registerDefaultBrowserHandlers } from './default-browser'
-import { initVueDevToolsPath } from './devtools'
 import { initNativeMenu, registerIpcHandlers } from './ipc/register'
 import { initLogger, startLogRotation } from './logger'
 import { RequestCapturer } from './request-interceptor'
@@ -284,8 +283,7 @@ app.whenReady().then(async () => {
     Menu.setApplicationMenu(null)
   }
 
-  initVueDevToolsPath()
-  // 启动兜底归档 + 清理（删掉已归档旧行）完成后，应用才正式可用
+  // 启动兜底归档 + 清理
   await startLogRotation()
   registerIpcHandlers()
 

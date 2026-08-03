@@ -25,20 +25,41 @@ type StorageKind =
 
 const STORAGE_MAP: Record<ClearDataType, StorageKind[]> = {
   cookies: ['cookies'],
-  cache: ['cachestorage', 'shadercache'],
+  cache: ['cachestorage'],
   localStorage: ['localstorage'],
   formData: ['indexdb'],
 }
 
 export class PrivacyManager {
   async clear(opts: ClearDataOptions): Promise<void> {
+    if (!opts || !opts.types?.length) {
+      console.warn('[PrivacyManager] clear: no valid types')
+      return
+    }
     const storages = Array.from(new Set(opts.types.flatMap((t) => STORAGE_MAP[t] ?? [])))
-    const sessions = (session as unknown as { getAllSessions(): Session[] }).getAllSessions()
+    if (!storages.length) {
+      console.warn('[PrivacyManager] clear: no storages to clear')
+      return
+    }
+    let sessions: Session[]
+    try {
+      sessions = (session as unknown as { getAllSessions(): Session[] }).getAllSessions()
+    } catch (err) {
+      console.warn('[PrivacyManager] getAllSessions failed:', err)
+      return
+    }
     console.info(
       `[PrivacyManager] clear: sessions=${sessions.length} storages=${JSON.stringify(storages)}`
     )
-    for (const sess of sessions as Session[]) {
-      await sess.clearStorageData({ storages })
+    for (const sess of sessions) {
+      try {
+        await sess.clearStorageData({ storages })
+      } catch (err) {
+        console.warn(
+          `[PrivacyManager] clearStorageData failed for session ${sess.partition}:`,
+          err instanceof Error ? err.message : String(err)
+        )
+      }
     }
     console.info(`[PrivacyManager] clear: done`)
   }

@@ -26,12 +26,12 @@ describe('PrivacyManager.clear', () => {
     expect(s2.clearStorageData).toHaveBeenCalledWith({ storages: ['cookies'] })
   })
 
-  it('cache 映射 cachestorage + shadercache', async () => {
+  it('cache 映射 cachestorage', async () => {
     const s1 = { clearStorageData: vi.fn().mockResolvedValue(undefined) }
     vi.spyOn(mockedSession, 'getAllSessions').mockReturnValue([s1] as never)
     await new PrivacyManager().clear({ types: ['cache'] })
     expect(s1.clearStorageData).toHaveBeenCalledWith({
-      storages: ['cachestorage', 'shadercache'],
+      storages: ['cachestorage'],
     })
   })
 

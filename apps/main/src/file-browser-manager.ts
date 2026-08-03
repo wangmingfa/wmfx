@@ -45,7 +45,16 @@ export class FileBrowserError extends Error {
 /** 系统敏感目录（相对路径模式，用于匹配 home/user 下不应访问的路径） */
 const SENSITIVE_DIR_PATTERNS: string[] = []
 
-const SENSITIVE_DIRS = ['/etc', '/etc/passwd', '/etc/shadow', '/root', '/boot', '/sys', '/proc', '/var/log']
+const SENSITIVE_DIRS = [
+  '/etc',
+  '/etc/passwd',
+  '/etc/shadow',
+  '/root',
+  '/boot',
+  '/sys',
+  '/proc',
+  '/var/log',
+]
 
 /** 校验路径安全：拒绝 `..` 穿越，检查敏感目录 */
 export function validatePath(rawPath: string): string {

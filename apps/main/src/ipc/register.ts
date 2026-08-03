@@ -141,6 +141,8 @@ export function registerIpcHandlers(): void {
     const inst = getInstance(event)
     if (!inst) return
     inst.tabManager.activate(tabId)
+    // 切换标签时关闭 bounded 非 persistent 弹窗（如地址栏建议）
+    inst.popoverManager.closeAll()
   })
 
   handle('page:enterReadingMode', async (event, tabId) => {
@@ -556,12 +558,21 @@ export function registerIpcHandlers(): void {
 
   handle('privacy:clearData', async (event, opts) => {
     console.info(`[IPC] privacy:clearData: types=${JSON.stringify(opts?.types)}`)
+    if (!opts || !opts.types?.length) {
+      console.warn('[IPC] privacy:clearData: no valid opts')
+      return
+    }
     const inst = getInstance(event)
     if (!inst) {
       console.debug(`[IPC] privacy:clearData: no instance`)
       return
     }
-    await inst.privacyManager.clear(opts)
+    try {
+      await inst.privacyManager.clear(opts)
+    } catch (err) {
+      console.error(`[IPC] privacy:clearData: failed`, err)
+      throw err
+    }
   })
 
   handle('bookmark:add', (event, opts) => {

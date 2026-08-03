@@ -28,7 +28,15 @@ export interface FileOperationsResult {
  * 从 FilesView.vue 完整复制，行为与重构前完全一致。
  */
 export function useFileOperations(deps: FileOperationsDeps): FileOperationsResult {
-  const { currentPath, fileEntries, selectedPaths, loadDirectory, navigateTo, startRename } = deps
+  const {
+    currentPath,
+    fileEntries,
+    selectedPaths,
+    loadDirectory,
+    navigateTo,
+    startRename,
+    openPreview,
+  } = deps
   const toast = useToast()
 
   // 删除
@@ -122,7 +130,7 @@ export function useFileOperations(deps: FileOperationsDeps): FileOperationsResul
     if (file.type === 'directory') {
       await navigateTo(file.path)
     } else {
-      await window.browserAPI.openFile(file.path)
+      await openPreview(file)
     }
   }
 

@@ -12,8 +12,6 @@
  * 最后一个无痕窗口关闭后由 clearIncognitoData() 清空存储。
  */
 import { type Session, session } from 'electron'
-import { getVueDevToolsPath, loadVueDevToolsForSession } from './devtools'
-import { logBoxSuccess } from './logger'
 
 export interface SessionConfig {
   name: string
@@ -85,15 +83,6 @@ export class SessionManager {
       opts.proxyRules = this.proxyRules
     }
     const sess = session.fromPartition(config.partition, opts)
-    // 为每个 session 装载 Vue DevTools 扩展（仅开发期配置 VUE_DEVTOOLS_PATH 时生效）
-    void loadVueDevToolsForSession(sess).then((loaded) => {
-      if (loaded) {
-        logBoxSuccess([
-          `已为 session 装载 Vue DevTools 扩展: ${config.name}`,
-          `path=${getVueDevToolsPath()}`,
-        ])
-      }
-    })
     // session 就绪后挂载广告拦截、wmfx 协议等附加能力
     for (const cb of this.onSessionReadyCallbacks) {
       cb(sess)

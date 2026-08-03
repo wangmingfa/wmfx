@@ -586,6 +586,10 @@ export interface SettingsSnapshot {
   tabBarCollapsed: boolean
   /** 键盘模式：GUI 或 VIM */
   keyboardMode: 'gui' | 'vim'
+  /** 广告拦截开关 */
+  adBlockEnabled: boolean
+  /** 当前语言 */
+  currentLang: string
 }
 
 /** 设置为默认浏览器结果（setAsDefaultProtocolClient 跨平台生效，返回是否成功） */

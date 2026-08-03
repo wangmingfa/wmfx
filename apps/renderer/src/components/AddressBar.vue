@@ -35,6 +35,7 @@
         :url="props.url"
         :favicon="props.favicon"
         @focus="onFocus"
+        @blur="closePopover"
         @keydown.enter="onEnter"
         @keydown.escape="onEscape"
       />
@@ -142,8 +143,7 @@ const activeIndex = ref(-1)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let currentPopover: Popover | null = null
 
-// Cmd+L 聚焦时跳过 popover：panel 的 applyMeasure 会 focus() 抢走键盘焦点，
-// 导致主输入框看似选中但实际无法输入。
+// Cmd+L / 新建标签页聚焦时跳过 popover：panel 的 applyMeasure 会 focus() 抢走键盘焦点
 let suppressPopover = false
 
 // 新开标签页时由创建方触发聚焦地址输入框；Cmd/Ctrl+L 也复用此机制
@@ -162,16 +162,51 @@ watch(focusNonce, () => {
 })
 
 const isBookmarked = ref(false)
-const forceDarkEnabled = ref(true)
+const forceDarkEnabled = ref(false)
 
 const ZOOM_LEVELS = [50, 75, 100, 125, 150]
 const ZOOM_FACTORS = [0.5, 0.75, 1.0, 1.25, 1.5]
 const currentZoomIndex = ref(2)
 const currentZoomLevel = ref('100%')
 
+// 防止面板 WebContentsView 失焦后浏览器“还原”焦点到本输入框 → onFocus 反复弹出
+// 在 openPopover 中设 true，closePopover 中恢复 false
+// 面板 WebContentsView 抢焦点时，input blur 先于 WebContentsView blur 触发，
+// 此时 closePopover 会提前关闭尚未 applyMeasure 完成的面板。用 skipCloseOnBlur +
+// 真实 timeout 覆盖这个窗口：openPopover 后 500ms 内不关闭，让 WebContentsView blur
+// 有机会先关闭；500ms 后如果用户没点走，自动关闭（此时 applyMeasure 已完成）。
+let skipCloseOnBlur = false
+
+/** 重置 AddressBar 内部的焦点/blur 抑制状态，供测试 afterEach 调用 */
+function resetPopoverState(): void {
+  suppressPopover = false
+  skipCloseOnBlur = false
+}
+;(window as any).__resetAddressBarPopoverState = resetPopoverState
+
+function closePopover(): void {
+  if (skipCloseOnBlur) {
+    return
+  }
+  const pop = currentPopover
+  currentPopover = null
+  pop?.close()
+  urlInput.value = formatAddressBarUrl(props.url ?? '')
+  // 防止 blur 关闭弹窗后，浏览器恢复焦点立即重新打开弹窗
+  suppressPopover = true
+  setTimeout(() => {
+    suppressPopover = false
+  }, 50)
+}
+
 function onFocus(): void {
   if (suppressPopover) {
-    console.debug('[AddressBar] onFocus: suppressed (Cmd+L focus)')
+    console.debug('[AddressBar] onFocus: suppressed (suppressPopover)')
+    return
+  }
+  // 弹窗已打开时不再重复创建，避免焦点竞争循环（blur → 浏览器恢复焦点 → focus → 重复 openPopover）
+  if (currentPopover) {
+    console.debug('[AddressBar] onFocus: popover already open, skip')
     return
   }
   console.debug('[AddressBar] onFocus: opening suggestions popover')
@@ -187,7 +222,6 @@ function onEnter(): void {
 function onEscape(): void {
   console.debug('[AddressBar] onEscape: reverting and blurring')
   closePopover()
-  urlInput.value = formatAddressBarUrl(props.url ?? '')
   inputRef.value?.blur()
 }
 
@@ -233,28 +267,25 @@ function openPopover(): void {
         urlInput.value = event.data
         navigate()
       } else if (event.name === 'close') {
-        urlInput.value = formatAddressBarUrl(props.url ?? '')
         closePopover()
       }
     },
     onDismiss: () => {
-      urlInput.value = formatAddressBarUrl(props.url ?? '')
       currentPopover = null
       suggestions.value = []
       activeIndex.value = -1
       console.debug('[AddressBar] popover dismissed: cleared suggestions')
     },
   })
-  // 面板 WebContentsView 会抢占焦点；关闭后浏览器会把焦点“还原”到本输入框，
-  // 再次触发 onFocus 导致 popover 反复弹出。这里主动 blur，打断焦点还原链。
-  setTimeout(() => inputRef.value?.blur(), 50)
+  // openPopover 后立即设 skipCloseOnBlur，用 500ms timeout 覆盖 input blur 窗口：
+  // 1) WebContentsView 抢焦点时，input blur 在 500ms 内触发，closePopover 被 skip 跳过
+  // 2) 用户点走时，WebContentsView blur 先于 input blur 关闭面板
+  // 3) 500ms 后如果面板还在，自动关闭（applyMeasure 已完成，安全）
+  skipCloseOnBlur = true
+  setTimeout(() => {
+    skipCloseOnBlur = false
+  }, 500)
   console.debug('[AddressBar] openPopover: created popover')
-}
-
-function closePopover(): void {
-  console.debug('[AddressBar] closePopover: enter')
-  currentPopover?.close()
-  currentPopover = null
 }
 
 function fetchSuggestions(): void {
@@ -272,6 +303,10 @@ function fetchSuggestions(): void {
       limit: 6,
     })
     activeIndex.value = -1
+    // 防抖完成后，如果弹窗仍开着，推送新建议让其渲染
+    if (currentPopover) {
+      currentPopover.sendData({ query: urlInput.value, suggestions: suggestions.value })
+    }
   }, 200)
 }
 
@@ -284,9 +319,12 @@ function selectSuggestion(url: string): void {
 }
 
 watch(urlInput, () => {
+  // 清空旧建议，避免防抖触发前弹窗显示过时的搜索建议（如输入"21"时仍显示"用 Google 搜索 '2'"）
+  suggestions.value = []
+  activeIndex.value = -1
   fetchSuggestions()
   if (currentPopover) {
-    currentPopover.sendData({ query: urlInput.value, suggestions: suggestions.value })
+    currentPopover.sendData({ query: urlInput.value, suggestions: [] })
   }
 })
 
@@ -334,10 +372,14 @@ function navigate(): void {
   // 识别是否为链接：是则按原流程加载，否则用默认搜索引擎搜索
   const url = resolveAddressBarTarget(raw, searchEngine.value)
   console.info('[AddressBar] navigate: raw target', raw, url)
-  closePopover()
+  // 关闭弹窗但不重置 URL（closePopover 会重置到旧 URL，watch(props.url) 会在导航完成后更新）
+  currentPopover?.close()
+  currentPopover = null
   inputRef.value!.blur()
   window.browserAPI.loadURL(props.tabId, url)
   emit('navigate', url)
+  // 在 watch(props.url) 更新前先设为目标 URL 的显示值，避免 displayUrl 不变时地址栏残留输入
+  urlInput.value = formatAddressBarUrl(url)
 }
 
 async function getZoomLevel(): Promise<number> {

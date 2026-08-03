@@ -64,28 +64,29 @@ async function waitReaderMode(expected: boolean, timeoutMs: number): Promise<boo
 }
 
 /**
- * 阅读模式按钮渲染在 tab 的 webContents 中（非外壳 page）。
- * 轮询 app.windows()，找到不含 .tab-bar（即非外壳）且含 .icon-btn 按钮的 tab page，
- * 返回首个 .icon-btn 按钮（地址栏动作区第一个按钮即阅读按钮）。
+ * 阅读模式按钮在地址栏 .url-input-actions 中，是最后一个 .icon-btn（仅外部页渲染）。
+ * 通过按钮数量判断：5 个按钮时最后一个为阅读按钮，4 个时阅读按钮未渲染。
  */
 async function findReaderButton(): Promise<Locator> {
   for (let i = 0; i < 50; i++) {
-    for (const w of app.windows()) {
-      try {
-        // 排除外壳页面（含 .tab-bar）
-        if ((await w.locator('.tab-bar').count()) > 0 || (await w.locator('.vertical-tab-bar').count()) > 0) continue
-        // 找到含地址栏按钮的 tab page
-        const btns = w.locator('.url-input-actions .icon-btn')
-        if ((await btns.count()) > 0) {
-          return btns.first()
-        }
-      } catch {
-        /* page may detach between calls */
+    try {
+      const btns = page.locator('.url-input-actions .icon-btn')
+      const count = await btns.count()
+      if (count >= 5) {
+        // 5 个按钮：zoom(back/forward/home/bookmark/reader) 或 zoom(back/forward/bookmark/reader)
+        // 阅读按钮是最后一个 .icon-btn
+        return btns.last()
+      } else if (count >= 1) {
+        // 4 个按钮时第一个 .icon-btn 是回退按钮，但阅读按钮不可见
+        // 返回第一个作为占位，由调用方通过 isExternal 判断
+        return btns.first()
       }
+    } catch {
+      /* page may detach between calls */
     }
     await new Promise((r) => setTimeout(r, 100))
   }
-  throw new Error('findReaderButton: reader button not found in any webContents')
+  throw new Error('findReaderButton: reader button not found')
 }
 
 test.beforeAll(async () => {

@@ -209,13 +209,14 @@ test('Quick Look opens on file double-click', async () => {
   await page.waitForTimeout(2000)
 
   const tabPage = await findTabPage('.file-item')
-  // Find a file item and double-click it
-  const fileItem = tabPage.locator('.file-item').first()
-  if ((await fileItem.count()) > 0) {
-    await fileItem.dblclick()
-    await page.waitForTimeout(500)
-    // Quick Look panel should appear
-    await expect(tabPage.locator('.quick-look')).toBeVisible({ timeout: 5000 })
+  // 筛选出非目录文件，取第一个双击
+  const fileItems = tabPage.locator('.file-item:not(.folder)')
+  const fileCount = await fileItems.count()
+  if (fileCount > 0) {
+    await fileItems.first().dblclick()
+    await new Promise((r) => setTimeout(r, 1000))
+    // Quick Look panel should appear (backdrop is .quick-look-backdrop)
+    await expect(tabPage.locator('.quick-look-backdrop')).toBeVisible({ timeout: 8000 })
     // Press Escape to close
     await tabPage.keyboard.press('Escape')
   }

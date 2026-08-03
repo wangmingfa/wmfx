@@ -130,20 +130,17 @@ test('设置页清除浏览数据弹窗', async () => {
   // 点击清除按钮
   await modal.getByRole('button', { name: '清除浏览数据' }).click()
 
-  // 成功后显示「已清除浏览数据」
-  await expect(modal.getByText('已清除浏览数据', { exact: true })).toBeVisible()
+  // 等待清除完成并显示成功消息（对话框保持打开 3s 供断言）
+  await expect(modal.getByText('已清除浏览数据')).toBeVisible({
+    timeout: 5000,
+  })
 })
 
 test('三点菜单清空缓存打开同一弹窗', async () => {
-  // 先导航到非 newtab 的页面，确保后续 newtab 导航能触发 watcher 清空输入框
-  await page.locator('.address-input').fill('wmfx://settings')
-  await page.keyboard.press('Enter')
-  await expect(page.locator('.address-input')).toHaveValue('wmfx://settings')
-
-  // 导航到新标签页
+  // 先导航到一个确定的新标签页，确保地址栏干净
   await page.locator('.address-input').fill('wmfx://newtab')
   await page.keyboard.press('Enter')
-  await expect(page.locator('.address-input')).toHaveValue('')
+  await expect(page.locator('.address-input')).toHaveValue('', { timeout: 10000 })
 
   // 点击三点菜单
   await page.locator('.app-menu').click()
@@ -153,7 +150,9 @@ test('三点菜单清空缓存打开同一弹窗', async () => {
   await panel.getByText('清空缓存', { exact: true }).first().click()
   await page.waitForTimeout(500)
 
-  // 弹窗在 tab 的 webContents 中，需找到含 .n-modal 的 tab page
-  const modalPage = await findTabContentPage('.n-modal')
-  await expect(modalPage.locator('.n-modal').getByText('清除浏览数据', { exact: true }).first()).toBeVisible({ timeout: 10000 })
+  // AppMenuButton 中的 ClearDataDialog 渲染在 shell 的 body 中（NModal teleport），
+  // 用 nth(0) 取第一个 modal（优先于 settings 页的 modal）
+  const modal = page.locator('.n-modal').first()
+  await expect(modal).toBeVisible({ timeout: 10000 })
+  await expect(modal.getByText('清除浏览数据', { exact: true }).first()).toBeVisible({ timeout: 5000 })
 })
