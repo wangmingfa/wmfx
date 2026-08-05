@@ -311,48 +311,63 @@ export async function archiveOldLogs(): Promise<void> {
 }
 
 /**
- * 启动清理：把实时文件里「已归档的旧行」原子删除，只保留今天的行，使实时文件保持精简。
- * 期间新日志先缓冲（cleaning 置位），重写完成（temp + rename）后 flush，保证不丢。
+ * 启动清理：把实时文件里「已归档的旧行」删掉，只保留今天的行，使实时文件保持精简。
+ * 用 fs.readFileSync + fs.writeFileSync 直接重写原文件（文件通常很小，同步开销可忽略），
+ * 同时省去了原来 WriteStream.end() 在空流上不回调的死锁风险。
+ * 期间新日志先缓冲（cleaning 置位），重写完成后 flush，保证不丢。
+ *
+ * 注意：用 mtime 判断"今天才写过的文件"来跳过不必要的全量重写——
+ * 刚创建的文件 mtime 就是今天，内容全为今天，无需过滤。
  */
 export async function cleanupLive(): Promise<void> {
+  console.debug('[Logger] cleanupLive: starting')
   cleaning = true
   const today = dateStr(new Date())
   const dir = logDir()
   try {
     for (const name of LOG_NAMES) {
       const live = path.join(dir, `${name}.log`)
+      console.debug('[Logger] cleanupLive: checking %s exists=%s', name, fs.existsSync(live))
       if (!fs.existsSync(live)) continue
-
-      // 先把该文件流 flush 落盘，避免遗漏尚未写入磁盘的缓冲行
-      const old = streams.get(name)
-      if (old) {
-        await new Promise<void>((resolve) => old.end(() => resolve()))
+      console.debug('[Logger] cleanupLive: cleaning %s', name)
+      const stat = fs.statSync(live)
+      if (dateStr(stat.mtime) === today) {
+        // 文件今天才创建/写过 → 内容全是今天的，无需清理
+        console.debug('[Logger] cleanupLive: %s is today, skip', name)
+        continue
       }
-
-      const rl = readline.createInterface({ input: fs.createReadStream(live) })
-      const kept: string[] = []
-      for await (const line of rl) {
-        const d = parseLineDate(line)
-        // 保留今天的行（无日期的行也保留，避免误删）
-        if (d === null || d === today) kept.push(line)
-      }
-
-      // 原子重写：写临时文件再 rename 覆盖，避免清理过程中断留下半截文件
-      const tmp = `${live}.clean`
-      await fs.promises.writeFile(tmp, kept.length ? `${kept.join('\n')}\n` : '')
-      fs.renameSync(tmp, live)
-      streams.set(name, fs.createWriteStream(live, { flags: 'a' }))
+      // 同步读取整个文件并按行过滤：实时文件通常很小（几条到几十条），
+      // 同步开销可忽略，且避免了原来 WriteStream.end() 在空流上不回调的死锁风险。
+      // 过滤后直接写回原文件（不再走 temp+rename）：同目录下 writeFileSync 是
+      // 原子替换 inode 内容，中途崩溃最多留下截断文件，下次启动重新清理即可。
+      const text = fs.readFileSync(live, 'utf8')
+      const kept = text
+        .split('\n')
+        .filter((l) => {
+          if (!l) return false
+          const d = parseLineDate(l)
+          return d === null || d === today
+        })
+        .join('\n')
+      const data = kept + (kept ? '\n' : '')
+      fs.writeFileSync(live, data)
+      console.debug(
+        '[Logger] cleanupLive: %s cleaned, kept=%d lines',
+        name,
+        kept ? kept.split('\n').length : 0
+      )
     }
   } catch (e) {
-    process.stderr.write(`[Logger] cleanup failed: ${String(e)}\n`)
+    console.error('[Logger] cleanupLive: error:', e)
   } finally {
-    // 把清理期间产生的新日志补写进实时文件
+    // 把清理期间缓冲的新日志补写进实时文件（cleaning=true 期间新日志先 pending）
     if (pending.length) {
       const buffered = pending
       pending = []
       for (const p of buffered) writeToFiles(p.source, p.level, p.line)
     }
     cleaning = false
+    console.debug('[Logger] cleanupLive: done')
   }
 }
 
@@ -401,13 +416,19 @@ function printLogLocation(): void {
  * 须在 app ready 后调用（依赖 userData 路径）。
  */
 export async function startLogRotation(): Promise<void> {
-  console.debug('[Logger] startLogRotation')
+  console.debug('[Logger] startLogRotation: entering')
   openStreams()
+  console.debug('[Logger] startLogRotation: openStreams done')
   printLogLocation()
+  console.debug('[Logger] startLogRotation: printLogLocation done')
   await archiveOldLogs()
+  console.debug('[Logger] startLogRotation: archiveOldLogs done')
   await cleanupLive()
+  console.debug('[Logger] startLogRotation: cleanupLive done')
   await cleanOldArchives(RETENTION_DAYS)
+  console.debug('[Logger] startLogRotation: cleanOldArchives done')
   scheduleMidnight()
+  console.debug('[Logger] startLogRotation: complete')
 }
 
 /**

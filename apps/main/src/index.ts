@@ -278,24 +278,29 @@ setOnWindowReady((instance) => {
 })
 
 app.whenReady().then(async () => {
-  console.debug('[App] whenReady: app starting')
+  console.info('[App] whenReady: app starting')
   if (process.platform !== 'darwin') {
     Menu.setApplicationMenu(null)
   }
 
-  // 启动兜底归档 + 清理
-  await startLogRotation()
+  // 日志归档异步跑在后台，不阻塞窗口创建
+  startLogRotation().catch((e) => console.error('[App] whenReady: startLogRotation failed:', e))
+
   registerIpcHandlers()
+  console.debug('[App] whenReady: after registerIpcHandlers')
 
   updater.init()
+  console.debug('[App] whenReady: after updater.init')
 
   try {
-    await proxyManager.start()
+    proxyManager
+      .start()
+      .catch((e) => console.warn('[App] whenReady: Mihomo proxy failed to start:', e))
+    console.debug('[App] whenReady: proxy start initiated')
   } catch (e) {
-    console.warn('Mihomo proxy failed to start:', e)
+    console.warn('[App] whenReady: Mihomo proxy failed to start:', e)
   }
 
-  // 广播代理流量到所有窗口
   proxyManager.onData((data: TrafficData) => {
     for (const inst of globalThis.browserInstances.values()) {
       try {
@@ -307,6 +312,7 @@ app.whenReady().then(async () => {
   })
 
   const mainWindow = createWindow({}, proxyManager)
+  console.debug('[App] whenReady: createWindow done')
   registerWmfxProtocol()
   initNativeMenu(mainWindow.window)
   mainWindow.settingsManager.setNativeTheme()

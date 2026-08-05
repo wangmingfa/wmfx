@@ -7,9 +7,36 @@
  * - 状态变更通过 onStatus 回调广播给所有渲染进程窗口（见 ipc/register.ts）
  * - GitHub Releases 作为分发源，发布需在 CI 中执行 electron-builder --publish
  */
-import type { UpdaterStatus } from '@browser/ipc-contract'
+import type { UpdateInfo, UpdaterStatus } from '@browser/ipc-contract'
 import { app } from 'electron'
+import type { ProgressInfo } from 'electron-updater'
 import { autoUpdater } from 'electron-updater'
+
+// AppUpdater.on() 在新版 electron-updater 里运行时尚存在但类型未暴露；
+// 用 as any 桥接字符串事件，并用 signals API 获取类型安全的 progress 回调。
+// biome-ignore lint/suspicious/noExplicitAny: electron-updater 未暴露 AppUpdater.on() 类型
+const au = autoUpdater as any
+
+/** 把 electron-updater 的事件载荷映射到我们的 UpdateInfo */
+function adaptInfo(raw: unknown): UpdateInfo {
+  const r = raw as {
+    version?: string
+    releaseDate?: string | Date
+    releaseName?: string | null
+    // biome-ignore lint/suspicious/noExplicitAny: releaseNotes 结构未定义，any 是合理选择
+    releaseNotes?: any
+  }
+  return {
+    version: String(r.version ?? 'unknown'),
+    releaseDate: r.releaseDate
+      ? r.releaseDate instanceof Date
+        ? r.releaseDate.toISOString()
+        : String(r.releaseDate)
+      : '',
+    releaseName: r.releaseName ?? null,
+    releaseNotes: r.releaseNotes,
+  }
+}
 
 type Listener = (status: UpdaterStatus) => void
 
@@ -30,17 +57,25 @@ class UpdaterManager {
     autoUpdater.autoInstallOnAppQuit = true
     autoUpdater.logger = null
 
-    autoUpdater.on('checking-for-update', () => this.set({ state: 'checking' }))
-    autoUpdater.on('update-available', (info) => this.set({ state: 'available', info }))
-    autoUpdater.on('update-not-available', () => this.set({ state: 'not-available' }))
-    autoUpdater.on('download-progress', (p) =>
+    // 无类型的事件直接用 on()
+    au.on('checking-for-update', () => this.set({ state: 'checking' }))
+    au.on('update-available', (raw: unknown) =>
+      this.set({ state: 'available', info: adaptInfo(raw) })
+    )
+    au.on('update-not-available', () => this.set({ state: 'not-available' }))
+    au.on('error', (e: Error) => this.set({ state: 'error', message: e.message }))
+
+    // signals API 提供类型安全的 progress
+    autoUpdater.signals.progress((p: ProgressInfo) =>
       this.set({ state: 'downloading', percent: p.percent })
     )
-    autoUpdater.on('update-downloaded', (info) => this.set({ state: 'downloaded', info }))
-    autoUpdater.on('error', (e) => this.set({ state: 'error', message: e.message }))
+    // updateDownloaded 事件体本身就是 UpdateInfo 的超集
+    au.on('update-downloaded', (raw: unknown) =>
+      this.set({ state: 'downloaded', info: adaptInfo(raw) })
+    )
 
     // 启动时静默检查，有更新则自动下载
-    autoUpdater.checkForUpdatesAndNotify().catch((e) => {
+    autoUpdater.checkForUpdatesAndNotify().catch((e: Error) => {
       console.warn('[updater] 检查更新失败:', e)
     })
   }
@@ -49,7 +84,7 @@ class UpdaterManager {
   checkForUpdates(): void {
     console.debug('[updater] checkForUpdates')
     if (!app.isPackaged) return
-    autoUpdater.checkForUpdatesAndNotify().catch((e) => {
+    autoUpdater.checkForUpdatesAndNotify().catch((e: Error) => {
       this.set({ state: 'error', message: e.message })
     })
   }

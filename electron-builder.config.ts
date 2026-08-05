@@ -7,12 +7,22 @@ const config: Configuration = {
     output: 'dist-pack',
   },
 
+  beforeBuild: './scripts/prep-build.cjs',
+
   files: [
     'apps/main/dist/**/*',
     'apps/renderer/dist/**/*',
     'apps/main/node_modules/**/*',
     'node_modules/better-sqlite3/**/*',
     'node_modules/@better-sqlite3/**/*',
+  ],
+
+  // 原生 .node addon + 其依赖的 .dylib/.so 必须以真实目录存在，否则 dlopen 找不到共享库。
+  asarUnpack: [
+    '**/*.node',
+    '**/*.dylib',
+    'apps/main/node_modules/@img/**/*',
+    'apps/main/node_modules/sharp/**/*',
   ],
 
   extraResources: [
@@ -25,6 +35,17 @@ const config: Configuration = {
       from: 'resources/',
       to: 'resources/',
       filter: ['**/*'],
+    },
+    // renderer dist 必须以真实文件存在（loadFile 走本地 filesystem，无法读取 asar 内部）。
+    {
+      from: 'apps/renderer/dist/',
+      to: 'apps/renderer/dist/',
+      filter: ['**/*'],
+    },
+    // preload.cjs 也必须真实文件：webPreferences.preload 是文件系统路径，无法从 asar 加载。
+    {
+      from: 'apps/main/dist/preload.cjs',
+      to: 'apps/main/dist/preload.cjs',
     },
   ],
 
