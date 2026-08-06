@@ -93,7 +93,10 @@
         <span class="quick-link-title">{{ link.title }}</span>
       </div>
     </div>
-    <div class="recent-history">
+    <div
+      v-if="recentHistory.length > 0"
+      class="recent-history"
+    >
       <h3>{{ t('newTab.recentHistory') }}</h3>
       <div
         v-for="item in recentHistory"
@@ -182,7 +185,7 @@ function onSearch(): void {
   let url = query
   if (!query.startsWith('http://') && !query.startsWith('https://')) {
     const engineUrl = {
-      google: 'https://www.baidu.com/s?wd=',
+      google: 'https://www.google.com/search?q=',
       baidu: 'https://www.baidu.com/s?wd=',
       bing: 'https://www.bing.com/search?q=',
     }[currentEngine.value]
