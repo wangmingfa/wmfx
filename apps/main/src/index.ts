@@ -35,6 +35,15 @@ if (!app.requestSingleInstanceLock()) {
   throw new Error('Another instance is already running')
 }
 
+/** 进程启动时刻，供启动耗时统计使用 */
+declare global {
+  // eslint-disable-next-line no-var
+  var _wmfxProcessStart: number
+}
+
+/** 入口文件加载的时刻（进程启动 → UI 可用耗时基准），用 Date.now()（performance.now() 在 Electron 下零点不稳定，会溢出到数十亿毫秒） */
+globalThis._wmfxProcessStart = Date.now()
+
 // 尽早覆写 console，使后续日志统一走文件落盘
 initLogger()
 

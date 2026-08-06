@@ -186,6 +186,13 @@ addCollection(mdi)
 import { Icon } from '@iconify/vue/dist/offline'
 ```
 
+**排查图标不显示**：离线模式下，如果某个图标渲染不出来（其他图标正常），按这个顺序排查：
+1. **图标包是否安装**：`bun list @iconify-json/<prefix>` 确认已安装；未安装则 `bun add @iconify-json/<prefix>`
+2. **main.ts 是否注册**：该图标集前缀的 JSON 是否已 `import` 并 `addCollection()`；未注册则补上（参见上面「新图标集」示例）
+3. **图标名是否存在于集合**：图标名在该集合内是否真实存在
+
+> 典型例子：`logos:google-icon` / `selfhst:baidu` / `logos:bing` 属于 `@iconify-json/logos` 和 `@iconify-json/selfhst`，这两个包必须安装并在 `main.ts` 中 `addCollection()`，否则离线模式下图标完全不可见。
+
 ## Vue 组件样式规范
 
 - Vue 单文件组件的 `<style>` **必须使用 LESS 语法**（`lang="less"`），禁止纯 CSS 写法。

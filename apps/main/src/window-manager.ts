@@ -164,6 +164,26 @@ function resolveWindowBounds(
  * 3. 窗口实例注册进全局 `browserInstances` Map（key=window.id），关闭时反注册；
  * 4. 无痕窗口 defaultSessionName='incognito'，下载监听绑在 incognito session 上。
  */
+
+/**
+ * 打印启动耗时 Box（进程启动 → UI 首次可见）
+ * 在 ready-to-show 和 10s 超时两个时机各打一次，一眼看出主线程到前端显示的耗时。
+ *
+ * 直接复用 logger.ts 的 logBoxInfo：它负责 stdout + 日志文件双路输出、CJK 显示宽度对齐、
+ * 时间戳边框，避免重复造轮子或自己拼 box 导致终端错位。
+ */
+function printStartupBox(startMs: number, trigger: string): void {
+  const ms = Math.round(Date.now() - startMs)
+  const s = (ms / 1000).toFixed(2)
+  const status = trigger === 'ready-to-show' ? 'OK' : 'TIMEOUT'
+  const { logBoxInfo } = require('./logger')
+  logBoxInfo([
+    '[WMFX] Launch: entry -> UI visible  [' + status + ']',
+    '   ' + String(ms).padStart(5, ' ') + ' ms  (' + s.padStart(5, ' ') + ' s)',
+    `   trigger: ${trigger}`,
+  ])
+}
+
 export function createWindow(
   options: CreateWindowOptions = {},
   proxyManager: ProxyManager
@@ -254,6 +274,7 @@ export function createWindow(
     win.show()
     win.focus()
     shown = true
+    printStartupBox(globalThis._wmfxProcessStart, 'ready-to-show')
   })
   // 兜底：10s 后未 ready-to-show 也强制显示（防止 renderer 渲染异常导致窗口永不可见）
   const showFallback = setTimeout(() => {
@@ -261,6 +282,7 @@ export function createWindow(
       console.warn('[WindowManager] ready-to-show timeout, force showing windowId=%s', win.id)
       win.show()
       win.focus()
+      printStartupBox(globalThis._wmfxProcessStart, 'ready-to-show TIMEOUT')
     }
   }, 10_000)
   win.once('closed', () => clearTimeout(showFallback))

@@ -88,6 +88,9 @@ const BUILTIN_BLOCKLIST: readonly string[] = [
   'px.cloud.net',
 ]
 
+/** 内置规则的 lowercase Set（供 shouldBlock 热路径使用，无需每次构造） */
+const BUILTIN_BLOCKLIST_LOWER = new Set(BUILTIN_BLOCKLIST.map((s) => s.toLowerCase()))
+
 export class AdBlocker {
   private static instance: AdBlocker
   private settings: SettingsManager
@@ -103,6 +106,7 @@ export class AdBlocker {
   private constructor(settings: SettingsManager) {
     this.settings = settings
     this.enabled = Boolean(this.settings.get('adBlockEnabled'))
+    this.refreshRulesCache()
     console.debug('[AdBlocker] constructor: enabled', this.enabled)
   }
 
@@ -139,41 +143,49 @@ export class AdBlocker {
 
   /** 规则总数（内置 + 自定义黑名单 - 白名单交集外的） */
   getRuleCount(): number {
-    const custom = this.getCustomRules()
-    const allow = new Set(this.getAllowlist())
-    const builtin = BUILTIN_BLOCKLIST.filter((d) => !allow.has(d))
-    return builtin.length + custom.filter((d) => !allow.has(d)).length
+    const allow = this.allowListCache
+    const builtin = BUILTIN_BLOCKLIST.filter((d) => !allow.has(d.toLowerCase())).length
+    const custom = [...this.customRulesCache].filter((d) => !allow.has(d)).length
+    return builtin + custom
   }
 
   /** 返回全部规则（供 UI 展示），标记来源：builtin(内置)/custom(自定义黑名单)/allow(白名单) */
   getRules(): { host: string; source: 'builtin' | 'custom' | 'allow' }[] {
-    const allow = new Set(this.getAllowlist().map((d) => d.toLowerCase()))
     const rules: { host: string; source: 'builtin' | 'custom' | 'allow' }[] = []
     for (const d of BUILTIN_BLOCKLIST) {
-      rules.push({ host: d, source: allow.has(d.toLowerCase()) ? 'allow' : 'builtin' })
+      rules.push({
+        host: d,
+        source: this.allowListCache.has(d.toLowerCase()) ? 'allow' : 'builtin',
+      })
     }
-    for (const d of this.getCustomRules()) {
-      rules.push({ host: d, source: allow.has(d.toLowerCase()) ? 'allow' : 'custom' })
+    for (const d of this.customRulesCache) {
+      rules.push({ host: d, source: this.allowListCache.has(d) ? 'allow' : 'custom' })
     }
-    for (const d of this.getAllowlist()) {
-      if (!rules.some((r) => r.host.toLowerCase() === d.toLowerCase())) {
+    for (const d of this.allowListCache) {
+      if (!rules.some((r) => r.host === d)) {
         rules.push({ host: d, source: 'allow' })
       }
     }
     return rules.sort((a, b) => a.host.localeCompare(b.host))
   }
 
-  private getCustomRules(): string[] {
-    const v = this.settings.get('adBlockCustomRules')
-    return Array.isArray(v) ? (v.filter((x) => typeof x === 'string') as string[]) : []
+  /** 已缓存的白名单 Set（热路径，避免每次 shouldBlock 都读 settings） */
+  private allowListCache = new Set<string>()
+  /** 已缓存的自定义黑名单 Set */
+  private customRulesCache = new Set<string>()
+
+  /** 重建缓存规则集合（构造 / 设置变更时调用，不在热路径上使用） */
+  refreshRulesCache(): void {
+    this.allowListCache = this.safeToSet(this.settings.get('adBlockAllowlist'))
+    this.customRulesCache = this.safeToSet(this.settings.get('adBlockCustomRules'))
   }
 
-  private getAllowlist(): string[] {
-    const v = this.settings.get('adBlockAllowlist')
-    return Array.isArray(v) ? (v.filter((x) => typeof x === 'string') as string[]) : []
+  private safeToSet(v: unknown): Set<string> {
+    if (!Array.isArray(v)) return new Set()
+    return new Set(v.filter((x) => typeof x === 'string').map((s) => s.toLowerCase()))
   }
 
-  /** 判断某 URL 是否应被拦截 */
+  /** 判断某 URL 是否应被拦截（热路径，仅查缓存 Set，零 I/O） */
   shouldBlock(url: string): boolean {
     if (!this.enabled) return false
     let hostname: string
@@ -182,15 +194,14 @@ export class AdBlocker {
     } catch {
       return false
     }
-    const allow = new Set(this.getAllowlist().map((d) => d.toLowerCase()))
-    if (allow.has(hostname)) return false
-    const blocked = new Set([
-      ...BUILTIN_BLOCKLIST.map((d) => d.toLowerCase()),
-      ...this.getCustomRules().map((d) => d.toLowerCase()),
-    ])
-    if (blocked.has(hostname)) return true
+    if (this.allowListCache.has(hostname)) return false
+    if (this.customRulesCache.has(hostname)) return true
+    if (BUILTIN_BLOCKLIST_LOWER.has(hostname)) return true
     // 子域后缀匹配：hostname 以 .rule 结尾
-    for (const rule of blocked) {
+    for (const rule of this.customRulesCache) {
+      if (hostname.endsWith(`.${rule}`)) return true
+    }
+    for (const rule of BUILTIN_BLOCKLIST_LOWER) {
       if (hostname.endsWith(`.${rule}`)) return true
     }
     return false
