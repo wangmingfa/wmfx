@@ -19,6 +19,7 @@ export function startViteServer(pm: ProcessManager, devPort: number): Promise<st
   const vite = execa('node', [VITE_BIN], {
     cwd: resolve(ROOT, 'apps/renderer'),
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
     env: { ...process.env, VITE_DEV_PORT: String(devPort) },
   })
   pm.track(vite)

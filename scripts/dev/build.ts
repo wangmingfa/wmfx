@@ -1,8 +1,11 @@
 import { existsSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
-import path from 'node:path'
+import path, { resolve } from 'node:path'
 import { CYAN, delay, GREEN, RED, RESET, ROOT } from './constants.ts'
 import type { ProcessManager } from './process-manager.ts'
+
+/** tsup CLI 入口路径（直接用 node 运行，避免 bun x 的 segfault 和 Windows 控制台窗口问题） */
+const TSUP_CLI = resolve(ROOT, 'node_modules/tsup/dist/cli-default.js')
 
 /**
  * 每个包的初次构建产物清单，用于「等所有 watch 首次构建完成」的轮询检查。
@@ -67,15 +70,18 @@ export async function startWatchesAndWait(pm: ProcessManager): Promise<void> {
   const timeoutMs = 60_000
 
   console.log(`${CYAN}[dev]${RESET} 📦 并发启动依赖包 tsup --watch（shared/ipc/database/proxy）`)
-  pm.spawn('bun x tsup --watch', path.join(ROOT, 'packages/shared'))
-  pm.spawn('bun x tsup --watch', path.join(ROOT, 'packages/ipc-contract'))
-  pm.spawn('bun x tsup --watch', path.join(ROOT, 'packages/database'))
-  pm.spawn('bun x tsup --watch', path.join(ROOT, 'packages/proxy'))
+  // 用 node 直接运行 tsup CLI，不用 bun x：
+  //  - bun x 在 Windows 上创建 .exe shim，在非 TTY 环境下容易 segfault
+  //  - bun x + detached 会在 Windows 上为每个进程分配独立控制台窗口
+  pm.spawn(`node "${TSUP_CLI}" --watch`, path.join(ROOT, 'packages/shared'))
+  pm.spawn(`node "${TSUP_CLI}" --watch`, path.join(ROOT, 'packages/ipc-contract'))
+  pm.spawn(`node "${TSUP_CLI}" --watch`, path.join(ROOT, 'packages/database'))
+  pm.spawn(`node "${TSUP_CLI}" --watch`, path.join(ROOT, 'packages/proxy'))
   await waitForOutputs(DEP_PACKAGE_OUTPUTS, timeoutMs)
   console.log(`${CYAN}[dev]${RESET} ${GREEN}✅${RESET} 依赖包初次构建完成`)
 
   console.log(`${CYAN}[dev]${RESET} 📦 启动主进程 tsup --watch（依赖已就绪）`)
-  pm.spawn('bun x tsup --watch', path.join(ROOT, 'apps/main'))
+  pm.spawn(`node "${TSUP_CLI}" --watch`, path.join(ROOT, 'apps/main'))
   await waitForOutputs(MAIN_OUTPUTS, timeoutMs)
   console.log(`${CYAN}[dev]${RESET} ${GREEN}✅${RESET} 主进程初次构建完成`)
 }
