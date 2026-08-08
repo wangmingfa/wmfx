@@ -26,7 +26,7 @@
     "dev": "bun run scripts/check-deps.ts && bun run download:cores && bun run scripts/dev.ts",
     "download:cores": "bun scripts/download-cores.ts",
     "postinstall": "bun run scripts/rebuild-native.ts --postinstall",
-    "prepare": "husky",
+    "prepare": "bun run scripts/prepare.ts",
     "lint": "bun run lint:ts && bun run lint:vue && bun run lint:typecheck",
     "lint:ts": "bun x biome check .",
     "lint:vue": "bun x eslint .",
