@@ -53,6 +53,16 @@ async function handleSignal(): Promise<void> {
 process.on('SIGINT', handleSignal)
 process.on('SIGTERM', handleSignal)
 
+/**
+ * 进程退出兜底：父 shell（bun → bun run）收到 Ctrl+C 后可能直接杀掉 dev.ts，
+ * 导致 shutdown() 中的 await 来不及执行。此处理器在进程即将退出时同步强杀
+ * Electron 进程树，防止 detached 的 Electron 成为孤儿继续运行。
+ */
+process.on('exit', () => {
+  electron.forceKill()
+  pm.killAll('SIGKILL')
+})
+
 async function main(): Promise<void> {
   // 1. 准备 .env.local（创建 + 确保端口），再交互选择日志等级
   ensureEnvLocal()

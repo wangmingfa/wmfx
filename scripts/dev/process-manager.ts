@@ -1,15 +1,27 @@
+import { execSync } from 'node:child_process'
 import { execaCommand, type ResultPromise } from 'execa'
 
 /**
- * 强制回收子进程：detached 子进程是独立进程组 leader，用负 PID 对整组发信号，
- * 连带杀掉 electron → mihomo 等孙进程；进程组已不存在时退回单进程 kill。
+ * 强制回收子进程树。
  *
- * Windows 上 process.kill(-pid) 不支持，退回到 execa 的 .kill()。
+ * - macOS/Linux：detached 子进程是独立进程组 leader，用负 PID 对整组发信号，
+ *   连带杀掉 electron → mihomo 等孙进程。
+ * - Windows：process.kill(-pid) 不支持，p.kill() 只杀父进程不杀子进程树。
+ *   改用 taskkill /PID <pid> /T /F 递归杀整棵进程树（含 Mihomo 等孙进程）。
  */
 export function killTree(p: ResultPromise | null, signal: NodeJS.Signals = 'SIGTERM'): void {
-  if (!p || p.killed || typeof p.pid !== 'number') return
-  const isWindows = process.platform === 'win32'
-  if (!isWindows) {
+  if (!p || typeof p.pid !== 'number') return
+  if (p.killed && signal === 'SIGTERM') return
+
+  if (process.platform === 'win32') {
+    // Windows: taskkill /T 递归杀进程树，/F 强制终止
+    try {
+      execSync(`taskkill /PID ${p.pid} /T /F`, { stdio: 'ignore', windowsHide: true })
+      return
+    } catch {
+      /* 进程已退出 */
+    }
+  } else {
     try {
       process.kill(-p.pid, signal)
       return

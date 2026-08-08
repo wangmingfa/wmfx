@@ -103,6 +103,7 @@ export class ElectronController {
       cwd: ROOT,
       stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
       detached: true,
+      windowsHide: true,
       env: {
         ...process.env,
         VITE_DEV_SERVER_URL: this.devServerUrl,
@@ -207,16 +208,18 @@ export class ElectronController {
   }
 
   /**
-   * 同步发起优雅关闭：立即（不 await）通知 Electron 收尾。
+   * 同步发起关闭：立即（不 await）通知 Electron 收尾。
    *
    * 为什么同步：dev.ts 经多层 shell（bun shim → mvm run → 嵌套 bun）启动，
    * 是孙子进程，父层收到 Ctrl+C 后可能在我们 await 期间就把 dev.ts 拆掉，
    * 导致 detached 的 Electron 变成孤儿。因此终止信号必须在任何 await 之前同步发出。
    *
-   * 双保险：
-   * - proc.send('dev:shutdown')：Bun 下 execa 的 ipc 有时被静默丢弃，尽力而为。
-   * - process.kill(pid, 'SIGTERM')：向 Electron 主进程发 SIGTERM，其信号处理器
-   *   会调用 app.quit() 做 session 保存 / 代理停止 / 连带清理 Mihomo。
+   * 关闭策略：
+   * - 先尝试 IPC proc.send('dev:shutdown')，让 Electron 走 app.quit() 优雅关闭
+   *   （保存 session / 停止代理 / 清理 Mihomo）。
+   * - 不使用 process.kill(pid, 'SIGTERM')：Windows 上它实际是 TerminateProcess
+   *   硬杀，不会触发 Electron 的 process.on('SIGTERM') 处理器。
+   * - 实际的进程树回收由 waitAndForceKill() 中的 killTree → taskkill /T /F 完成。
    */
   beginGracefulShutdown(): void {
     this.shuttingDown = true
@@ -227,26 +230,21 @@ export class ElectronController {
 
     const proc = this.process
     if (proc && !proc.killed) {
+      // 尽力发送 IPC 优雅关闭信号（Bun 下可能不可靠）
       try {
         proc.send('dev:shutdown')
       } catch {
         /* IPC 通道已不可用 */
       }
-      if (proc.pid) {
-        try {
-          process.kill(proc.pid, 'SIGTERM')
-        } catch {
-          /* 进程已退出 */
-        }
-      }
     }
   }
 
   /**
-   * 等待 Electron 自行退出，超时后按进程组强杀（连带 Mihomo）。
+   * 等待 Electron 自行退出（IPC 触发的 app.quit()），超时后 taskkill /T /F 强杀
+   * 整棵进程树（含 Mihomo 等孙进程）。
    * 需在 beginGracefulShutdown() 之后调用。
    */
-  async waitAndForceKill(timeoutMs = 1500): Promise<void> {
+  async waitAndForceKill(timeoutMs = 3000): Promise<void> {
     const proc = this.process
     this.process = null
     if (proc && !proc.killed) {
@@ -258,6 +256,7 @@ export class ElectronController {
         delay(timeoutMs),
       ])
     }
+    // Windows 上用 taskkill /T /F 递归杀整棵进程树
     killTree(proc, 'SIGKILL')
   }
 
