@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { startWatchesAndWait } from './dev/build.ts'
+import { cleanAllDists, startWatchesAndWait } from './dev/build.ts'
 import { devLog, GREEN, RESET } from './dev/constants.ts'
 import { ElectronController } from './dev/electron-controller.ts'
 import { ensureEnvLocal, readDevPort } from './dev/env.ts'
@@ -72,7 +72,9 @@ async function main(): Promise<void> {
   await ensureNativeModule()
   generateIconTypes()
 
-  // 6. 启动 Vite（后台就绪）与全部 tsup --watch（等待首次构建完成）
+  // 6. 先清理 dist（必须在 Vite 之前，否则 Vite 检测到 dist 删除会重启导致端口冲突）
+  //    再启动 Vite（后台就绪）与全部 tsup --watch（等待首次构建完成）
+  await cleanAllDists()
   const viteReady = startViteServer(pm, devPort)
   await startWatchesAndWait(pm)
 

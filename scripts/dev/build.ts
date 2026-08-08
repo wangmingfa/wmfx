@@ -42,21 +42,29 @@ async function waitForOutputs(outputs: string[], timeoutMs: number): Promise<voi
 }
 
 /**
- * 启动开发期构建编排：
- *  1. 清理所有 dist（避免旧产物被误判为「已构建」）
- *  2. 并发启动 4 个依赖包 watch，等它们首次构建全部完成
- *  3. 再启动 apps/main watch（此时依赖产物已就绪，主进程 build 不会解析失败），等其完成
- *
- * 主进程依赖前面四个包，因此分两阶段顺序等待：先依赖、后主进程。
- * 任意时刻同一 dist/ 最多一个 tsup 实例在写，消除 ENOENT / 解析失败竞争。
+ * 清理所有 dist 目录，避免旧产物被误判为「已构建」。
+ * 必须在 Vite 启动之前执行：若 Vite 启动后被 cleanDist 删除工作区包 dist/，
+ * Vite 的依赖预构建会触发服务重启，导致新实例绑定端口时与旧实例冲突（EBUSY）。
  */
-export async function startWatchesAndWait(pm: ProcessManager): Promise<void> {
-  const timeoutMs = 60_000
+export async function cleanAllDists(): Promise<void> {
   console.log(`${CYAN}[dev]${RESET} 🧹 清理所有 dist 目录...`)
-  // 并发删除各 dist 目录（Promise 版 rm），任一不存在则忽略
   await Promise.all(
     BUILD_OUTPUTS.map((out) => rm(path.dirname(out), { recursive: true, force: true }))
   )
+}
+
+/**
+ * 启动开发期构建编排：
+ *  1. 并发启动 4 个依赖包 watch，等它们首次构建全部完成
+ *  2. 再启动 apps/main watch（此时依赖产物已就绪，主进程 build 不会解析失败），等其完成
+ *
+ * 主进程依赖前面四个包，因此分两阶段顺序等待：先依赖、后主进程。
+ * 任意时刻同一 dist/ 最多一个 tsup 实例在写，消除 ENOENT / 解析失败竞争。
+ *
+ * 注意：dist 清理已抽离为 cleanAllDists()，调用方须在 Vite 启动前调用。
+ */
+export async function startWatchesAndWait(pm: ProcessManager): Promise<void> {
+  const timeoutMs = 60_000
 
   console.log(`${CYAN}[dev]${RESET} 📦 并发启动依赖包 tsup --watch（shared/ipc/database/proxy）`)
   pm.spawn('bun x tsup --watch', path.join(ROOT, 'packages/shared'))
