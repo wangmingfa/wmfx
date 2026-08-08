@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const PROJECT_ROOT = join(import.meta.dir, '..')
@@ -47,8 +48,9 @@ async function download() {
   console.log(`Downloading mihomo from ${url}...`)
 
   if (process.platform === 'win32') {
-    const tmpZip = join('/tmp', 'mihomo.zip')
-    execSync(`curl -L "${url}" -o "${tmpZip}"`, { stdio: 'inherit' })
+    const tmpZip = join(tmpdir(), 'mihomo.zip')
+    // --ssl-no-revoke 绕过 Windows schannel 吊销检查（CRYPT_E_REVOCATION_OFFLINE）
+    execSync(`curl -L --ssl-no-revoke "${url}" -o "${tmpZip}"`, { stdio: 'inherit' })
     execSync(
       `powershell -Command "Expand-Archive -Path '${tmpZip.replace(/\//g, '\\')}' -DestinationPath '${dir.replace(/\//g, '\\')}' -Force"`,
       { stdio: 'inherit' }
