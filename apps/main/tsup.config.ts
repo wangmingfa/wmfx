@@ -37,7 +37,9 @@ export default defineConfig({
     '@iconify/utils',
     /@iconify-json\/.*/,
   ],
-  // esbuild alias 直接指向源码，本地文件自动被 bundle，无需 noExternal
+  // workspace 包在 node_modules 中有软链接，esbuild 默认视为 external。
+  // 必须用 noExternal 强制 bundle，配合 esbuild alias 指向源码 TS 文件。
+  noExternal: [/@browser\//, /@wmfx\//],
   esbuildOptions: (options) => {
     options.alias = { ...options.alias, ...workspaceAliases }
   },

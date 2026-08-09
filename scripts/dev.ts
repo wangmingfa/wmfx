@@ -67,7 +67,7 @@ async function main(): Promise<void> {
   ensureEnvLocal()
   electron.setLogLevel(await promptLogLevel())
 
-  // 2. 检查端口占用（packages 源码由 bundler alias 直接读取，无需软链接）
+  // 2. 第一次端口检查：尽早 kill 旧进程（packages 源码由 bundler alias 直接读取，无需软链接）
   const devPort = readDevPort()
   await ensurePortFree(devPort)
 
@@ -79,12 +79,14 @@ async function main(): Promise<void> {
   generateIconTypes()
 
   // 5. 先清理 dist（必须在 Vite 之前，否则 Vite 检测到 dist 删除会重启导致端口冲突）
-  //    再启动 Vite（后台就绪）与 main tsup --watch（等待首次构建完成）
   await cleanAllDists()
+
+  // 6. 第二次端口检查：前两步可能耗时，消除 Vite 启动前的竞态窗口
+  await ensurePortFree(devPort)
   const viteReady = startViteServer(pm, devPort)
   await startWatchesAndWait(pm)
 
-  // 6. Vite 就绪后启动 Electron，并延迟启用产物监听（避免初次构建触发重启）
+  // 7. Vite 就绪后启动 Electron，并延迟启用产物监听（避免初次构建触发重启）
   viteReady
     .then(async (url) => {
       electron.setDevServerUrl(url)

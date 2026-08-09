@@ -178,8 +178,8 @@ function printStartupBox(startMs: number, trigger: string): void {
   const status = trigger === 'ready-to-show' ? 'OK' : 'TIMEOUT'
   const { logBoxInfo } = require('./logger')
   logBoxInfo([
-    '[WMFX] Launch: entry -> UI visible  [' + status + ']',
-    '   ' + String(ms).padStart(5, ' ') + ' ms  (' + s.padStart(5, ' ') + ' s)',
+    `[WMFX] Launch: entry -> UI visible  [${status}]`,
+    `   ${String(ms).padStart(5, ' ')} ms  (${s.padStart(5, ' ')} s)`,
     `   trigger: ${trigger}`,
   ])
 }

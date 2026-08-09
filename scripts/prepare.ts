@@ -5,13 +5,15 @@
  * 沙箱等环境中 bun 不在子进程 PATH 里。这里直接调用 husky 的 bin.js（Node.js
  * 脚本），绕过 bun 依赖。
  */
-import { execaSync } from 'execa'
+
 import { resolve } from 'node:path'
+import { execaSync } from 'execa'
 
 const HUSKY_BIN = resolve(import.meta.dirname, '..', 'node_modules/husky/bin.js')
 
 try {
   execaSync('node', [HUSKY_BIN], { stdio: 'inherit' })
-} catch (e: any) {
-  console.warn('[prepare] husky init skipped:', e.message?.slice(0, 80))
+} catch (e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e)
+  console.warn('[prepare] husky init skipped:', msg.slice(0, 80))
 }

@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { resolve } from 'node:path'
 /**
  * 重建 better-sqlite3 原生模块（适配 Electron ABI）。
  *
@@ -12,6 +11,7 @@ import { resolve } from 'node:path'
  * 此脚本在启动 electron-rebuild 前清除这两个环境变量，使子进程不受 shim 影响。
  */
 import { existsSync, rmSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { execaSync } from 'execa'
 
 const ROOT = resolve(import.meta.dirname, '..')
@@ -37,16 +37,34 @@ delete cleanEnv.PYTHONPATH
 function findVcvars64(): string | null {
   const candidates = [
     // VS 2022 BuildTools
-    resolve(String(process.env['ProgramFiles'] || 'C:\\Program Files'), 'Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvars64.bat'),
+    resolve(
+      String(process.env.ProgramFiles || 'C:\\Program Files'),
+      'Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvars64.bat'
+    ),
     // VS 2022 Community/Professional
-    resolve(String(process.env['ProgramFiles'] || 'C:\\Program Files'), 'Microsoft Visual Studio/2022/Community/VC/Auxiliary/Build/vcvars64.bat'),
-    resolve(String(process.env['ProgramFiles'] || 'C:\\Program Files'), 'Microsoft Visual Studio/2022/Professional/VC/Auxiliary/Build/vcvars64.bat'),
+    resolve(
+      String(process.env.ProgramFiles || 'C:\\Program Files'),
+      'Microsoft Visual Studio/2022/Community/VC/Auxiliary/Build/vcvars64.bat'
+    ),
+    resolve(
+      String(process.env.ProgramFiles || 'C:\\Program Files'),
+      'Microsoft Visual Studio/2022/Professional/VC/Auxiliary/Build/vcvars64.bat'
+    ),
     // VS 2022 Enterprise
-    resolve(String(process.env['ProgramFiles'] || 'C:\\Program Files'), 'Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars64.bat'),
+    resolve(
+      String(process.env.ProgramFiles || 'C:\\Program Files'),
+      'Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars64.bat'
+    ),
     // VS 2019 BuildTools
-    resolve(String(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)'), 'Microsoft Visual Studio/2019/BuildTools/VC/Auxiliary/Build/vcvars64.bat'),
+    resolve(
+      String(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)'),
+      'Microsoft Visual Studio/2019/BuildTools/VC/Auxiliary/Build/vcvars64.bat'
+    ),
     // VS 2017 BuildTools
-    resolve(String(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)'), 'Microsoft Visual Studio/2017/BuildTools/VC/Auxiliary/Build/vcvars64.bat'),
+    resolve(
+      String(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)'),
+      'Microsoft Visual Studio/2017/BuildTools/VC/Auxiliary/Build/vcvars64.bat'
+    ),
     // 自定义路径（如用户装在 D 盘）
     'D:\\Apps\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat',
     'D:\\Apps\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat',
@@ -88,7 +106,7 @@ function runOnWindows(vcvars: string | null): void {
       // 可能不传递 VCINSTALLDIR 等 MSVC 环境变量，导致 node-gyp 找不到 VS）。
       `"${process.execPath}" "${resolve(ROOT, 'node_modules/@electron/rebuild/lib/cli.js')}" ${electronRebuildArgs.join(' ')}`,
     ]
-    writeFileSync(tmpBat, lines.join('\r\n') + '\r\n')
+    writeFileSync(tmpBat, `${lines.join('\r\n')}\r\n`)
     console.debug('[rebuild-native] vcvars=%s bat=%s', vcvars, tmpBat)
 
     execaSync('cmd', ['/d', '/c', tmpBat], {
@@ -97,7 +115,11 @@ function runOnWindows(vcvars: string | null): void {
       env: cleanEnv,
     })
   } finally {
-    try { rmSync(tmpBat) } catch { /* cleanup best-effort */ }
+    try {
+      rmSync(tmpBat)
+    } catch {
+      /* cleanup best-effort */
+    }
   }
 }
 
