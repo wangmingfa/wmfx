@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { defineConfig } from 'tsup'
 import {
   isInstrumentEnabled,
@@ -6,6 +7,17 @@ import {
 } from '../../scripts/source-location'
 
 const devPlugins = isInstrumentEnabled() ? [sourceLocationEsbuildPlugin(REPO_ROOT)] : []
+
+/**
+ * 直接指向 packages 源码的 TS 文件，跳过 packages 的 tsup 构建步骤。
+ * 这样只需要 build apps/main 一个包，dev 启动更快。
+ */
+const workspaceAliases: Record<string, string> = {
+  '@browser/shared': resolve(REPO_ROOT, 'packages/shared/src/index.ts'),
+  '@browser/ipc-contract': resolve(REPO_ROOT, 'packages/ipc-contract/src/index.ts'),
+  '@browser/proxy': resolve(REPO_ROOT, 'packages/proxy/src/index.ts'),
+  '@wmfx/database': resolve(REPO_ROOT, 'packages/database/src/index.ts'),
+}
 
 export default defineConfig({
   entry: {
@@ -20,11 +32,14 @@ export default defineConfig({
     'electron',
     'better-sqlite3',
     'sharp',
-    '@wmfx/database',
+    'ws',
     'electron-updater',
     '@iconify/utils',
     /@iconify-json\/.*/,
   ],
-  noExternal: ['@browser/ipc-contract', '@browser/shared', '@browser/proxy'],
+  // esbuild alias 直接指向源码，本地文件自动被 bundle，无需 noExternal
+  esbuildOptions: (options) => {
+    options.alias = { ...options.alias, ...workspaceAliases }
+  },
   esbuildPlugins: devPlugins,
 })

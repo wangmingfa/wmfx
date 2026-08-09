@@ -9,7 +9,6 @@ import { ensureNativeModule, generateIconTypes } from './dev/prepare.ts'
 import { ProcessManager } from './dev/process-manager.ts'
 import { promptLogLevel } from './dev/prompt.ts'
 import { startViteServer } from './dev/vite.ts'
-import { linkWorkspacePackages } from './dev/workspace.ts'
 
 const pm = new ProcessManager()
 const electron = new ElectronController({ onFatal: () => shutdown() })
@@ -68,27 +67,24 @@ async function main(): Promise<void> {
   ensureEnvLocal()
   electron.setLogLevel(await promptLogLevel())
 
-  // 2. 创建 workspace 软链接，否则 Electron 无法导入 workspace 包（如 @wmfx/database）
-  linkWorkspacePackages()
-
-  // 3. 检查端口占用
+  // 2. 检查端口占用（packages 源码由 bundler alias 直接读取，无需软链接）
   const devPort = readDevPort()
   await ensurePortFree(devPort)
 
-  // 4. 开发期开启 console 源码位置注入（仅 dev，生产构建不设此变量）
+  // 3. 开发期开启 console 源码位置注入（仅 dev，生产构建不设此变量）
   process.env.WMFX_DEV_INSTRUMENT = '1'
 
-  // 5. 原生模块检查 + 图标类型生成
+  // 4. 原生模块检查 + 图标类型生成
   await ensureNativeModule()
   generateIconTypes()
 
-  // 6. 先清理 dist（必须在 Vite 之前，否则 Vite 检测到 dist 删除会重启导致端口冲突）
-  //    再启动 Vite（后台就绪）与全部 tsup --watch（等待首次构建完成）
+  // 5. 先清理 dist（必须在 Vite 之前，否则 Vite 检测到 dist 删除会重启导致端口冲突）
+  //    再启动 Vite（后台就绪）与 main tsup --watch（等待首次构建完成）
   await cleanAllDists()
   const viteReady = startViteServer(pm, devPort)
   await startWatchesAndWait(pm)
 
-  // 7. Vite 就绪后启动 Electron，并延迟启用产物监听（避免初次构建触发重启）
+  // 6. Vite 就绪后启动 Electron，并延迟启用产物监听（避免初次构建触发重启）
   viteReady
     .then(async (url) => {
       electron.setDevServerUrl(url)

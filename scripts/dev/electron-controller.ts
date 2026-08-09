@@ -2,7 +2,7 @@ import { statSync, watch } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { execa, type ResultPromise } from 'execa'
-import { delay, devLog, type LogLevel, RED, RESET, ROOT } from './constants.ts'
+import { cleanShimEnv, delay, devLog, type LogLevel, RED, RESET, ROOT } from './constants.ts'
 import { killTree } from './process-manager.ts'
 
 const require = createRequire(import.meta.url)
@@ -105,7 +105,7 @@ export class ElectronController {
       detached: true,
       windowsHide: true,
       env: {
-        ...process.env,
+        ...cleanShimEnv(process.env),
         VITE_DEV_SERVER_URL: this.devServerUrl,
         WMFX_LOG_LEVEL: this.logLevel,
       },

@@ -1,6 +1,6 @@
-import { execa } from 'execa'
 import { resolve } from 'node:path'
-import { devLog, ROOT } from './constants.ts'
+import { execa } from 'execa'
+import { cleanShimEnv, devLog, ROOT } from './constants.ts'
 import type { ProcessManager } from './process-manager.ts'
 
 const VITE_BIN = resolve(ROOT, 'node_modules/vite/bin/vite.js')
@@ -20,7 +20,7 @@ export function startViteServer(pm: ProcessManager, devPort: number): Promise<st
     cwd: resolve(ROOT, 'apps/renderer'),
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
-    env: { ...process.env, VITE_DEV_PORT: String(devPort) },
+    env: { ...cleanShimEnv(process.env), VITE_DEV_PORT: String(devPort) },
   })
   pm.track(vite)
 

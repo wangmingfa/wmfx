@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process'
 import { execaCommand, type ResultPromise } from 'execa'
+import { cleanShimEnv } from './constants.ts'
 
 /**
  * 强制回收子进程树。
@@ -54,7 +55,8 @@ export interface SpawnOptions {
 export class ProcessManager {
   private readonly children: ResultPromise[] = []
 
-  /** 以 stdio:inherit 启动命令并纳入管理。默认非 detached（Windows 上不开新控制台窗口）。 */
+  /** 以 stdio:inherit 启动命令并纳入管理。默认非 detached（Windows 上不开新控制台窗口）。
+   *  自动清除 NODE_OPTIONS / PYTHONPATH 避免 safe-delete shim 干扰。 */
   spawn(command: string, cwd: string, opts: SpawnOptions = {}): ResultPromise {
     const { detached = false, env = {} } = opts
     const p = execaCommand(command, {
@@ -62,7 +64,7 @@ export class ProcessManager {
       stdio: 'inherit',
       detached,
       windowsHide: true,
-      env: { ...process.env, ...env },
+      env: { ...cleanShimEnv(process.env), ...env },
     })
     this.track(p)
     return p
