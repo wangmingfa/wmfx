@@ -72,9 +72,14 @@ export function useFileNavigation(deps: FileNavigationDeps): FileNavigationResul
   const { t } = useI18n()
   const toast = useToast()
 
+  /** Windows 盘符路径匹配（如 D:/code、C:\Users）。这类路径已为绝对路径，不应再补前导 /。 */
+  const WIN_DRIVE = /^[A-Za-z]:[/\\]/
+
   /**
    * 把内部路由的 hash 路径（/files/<encodedPath>）转换为渲染端使用的绝对本地路径。
-   * hash 中可能含编码字符（%2F / 空格等），统一解码；结果为绝对路径（补前导 /）。
+   * hash 中可能含编码字符（%2F / 空格等），统一解码；结果为绝对路径。
+   * Unix 路径补前导 /（如 home/user → /home/user）；
+   * Windows 盘符路径不补（如 D:/code 保持不变，否则 /D:/code 会变成 D:\D:\code）。
    */
   function toLocalPath(encoded: string): string {
     let decoded = encoded
@@ -83,7 +88,10 @@ export function useFileNavigation(deps: FileNavigationDeps): FileNavigationResul
     } catch {
       /* 非编码字符串，原样使用 */
     }
-    return decoded.startsWith('/') ? decoded : `/${decoded}`
+    if (decoded.startsWith('/') || WIN_DRIVE.test(decoded)) {
+      return decoded
+    }
+    return `/${decoded}`
   }
 
   // 内部状态（不通过 deps 共享）
