@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { execaCommand, type ResultPromise } from 'execa'
 import { cleanShimEnv } from './constants.ts'
 
@@ -9,15 +9,20 @@ import { cleanShimEnv } from './constants.ts'
  *   连带杀掉 electron → mihomo 等孙进程。
  * - Windows：process.kill(-pid) 不支持，p.kill() 只杀父进程不杀子进程树。
  *   改用 taskkill /PID <pid> /T /F 递归杀整棵进程树（含 Mihomo 等孙进程）。
+ *
+ * 用 spawnSync 而非 execSync：execSync 走 cmd.exe shell，
+ * 在信号/退出处理器中 spawn shell 可能静默失败；spawnSync 直接启动进程更可靠。
  */
 export function killTree(p: ResultPromise | null, signal: NodeJS.Signals = 'SIGTERM'): void {
   if (!p || typeof p.pid !== 'number') return
   if (p.killed && signal === 'SIGTERM') return
 
   if (process.platform === 'win32') {
-    // Windows: taskkill /T 递归杀进程树，/F 强制终止
     try {
-      execSync(`taskkill /PID ${p.pid} /T /F`, { stdio: 'ignore', windowsHide: true })
+      spawnSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      })
       return
     } catch {
       /* 进程已退出 */
