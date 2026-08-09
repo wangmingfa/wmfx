@@ -20,7 +20,7 @@
     "build:main": "bun run --filter @browser/main build",
     "build:renderer": "bun run --filter @browser/renderer build",
     "build:readability": "bun run scripts/build-readability.ts",
-    "build": "bun run build:readability && bun run build:renderer && bun run build:main",
+    "build": "bun scripts/clean-dist-pack.ts && bun run build:readability && bun run build:renderer && bun run build:main",
     "clean": "bun run scripts/clean.ts",
     "generate-icon": "bun run scripts/generate-icon.ts",
     "dev": "bun run scripts/check-deps.ts && bun run download:cores && bun run scripts/dev.ts",
@@ -37,10 +37,10 @@
     "test:unit": "bun x vitest run",
     "test:e2e": "bun run build && bun x playwright test",
     "typecheck": "bun run --filter '*' typecheck",
-    "package": "bun run build && node scripts/clean-dist-pack.cjs && electron-builder --config electron-builder.config.ts",
-    "package:linux": "bun run build && node scripts/clean-dist-pack.cjs && electron-builder --linux --config electron-builder.config.ts",
-    "package:mac": "bun run build && node scripts/clean-dist-pack.cjs && electron-builder --mac --config electron-builder.config.ts",
-    "package:win": "bun run build && node scripts/clean-dist-pack.cjs && electron-builder --win --config electron-builder.config.ts"
+    "package": "bun run build && electron-builder --config electron-builder.config.ts",
+    "package:linux": "bun run build && electron-builder --linux --config electron-builder.config.ts",
+    "package:mac": "bun run build && electron-builder --mac --config electron-builder.config.ts",
+    "package:win": "bun run build && electron-builder --win --config electron-builder.config.ts"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.1.0",
