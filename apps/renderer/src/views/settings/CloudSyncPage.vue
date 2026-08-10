@@ -480,9 +480,7 @@ onMounted(loadState)
 }
 .placeholder-note ul {
   margin: 0;
-  padding-left: 18px;
   font-size: 12px;
   line-height: 1.7;
-  color: var(--text-muted);
 }
 </style>
