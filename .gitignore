@@ -23,6 +23,7 @@ tsup.config.bundled_*.mjs
 
 # Build tool artifacts
 {}
+.rebuild.bat
 
 # Test coverage
 coverage/

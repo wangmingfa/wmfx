@@ -26,3 +26,19 @@ export function delay(ms: number): Promise<void> {
 
 export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const
 export type LogLevel = (typeof LOG_LEVELS)[number]
+
+/**
+ * 清除 WorkBuddy 沙箱注入的 safe-delete shim 环境变量。
+ * 这些 shim 会拦截 fs.unlink 尝试移入回收站（沙箱中不可用），
+ * 导致 tsup/vite/electron 等子进程的临时文件清理失败。
+ *
+ * 用法:
+ *   const env = cleanShimEnv(process.env)
+ *   execa('node', [...], { env })
+ */
+export function cleanShimEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const cleaned = { ...env }
+  delete cleaned.NODE_OPTIONS
+  delete cleaned.PYTHONPATH
+  return cleaned
+}

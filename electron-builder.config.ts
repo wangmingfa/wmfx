@@ -64,6 +64,7 @@ const config: Configuration = {
   win: {
     target: ['nsis'],
     icon: 'resources/icons/windows/icon.ico',
+    artifactName: '${productName}-Setup-${version}.${ext}',
   },
 
   nsis: {

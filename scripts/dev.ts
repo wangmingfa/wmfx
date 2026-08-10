@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
-import { startWatchesAndWait } from './dev/build.ts'
+import { spawnSync } from 'node:child_process'
+import { cleanAllDists, startWatchesAndWait } from './dev/build.ts'
 import { devLog, GREEN, RESET } from './dev/constants.ts'
 import { ElectronController } from './dev/electron-controller.ts'
 import { ensureEnvLocal, readDevPort } from './dev/env.ts'
@@ -9,7 +10,6 @@ import { ensureNativeModule, generateIconTypes } from './dev/prepare.ts'
 import { ProcessManager } from './dev/process-manager.ts'
 import { promptLogLevel } from './dev/prompt.ts'
 import { startViteServer } from './dev/vite.ts'
-import { linkWorkspacePackages } from './dev/workspace.ts'
 
 const pm = new ProcessManager()
 const electron = new ElectronController({ onFatal: () => shutdown() })
@@ -29,10 +29,8 @@ let shuttingDown = false
 async function shutdown(code = 0): Promise<void> {
   if (shuttingDown) return
   shuttingDown = true
+  // 全部同步——不依赖 Bun await async handler
   electron.beginGracefulShutdown()
-  pm.terminate()
-  // 立即强杀 vite/tsup 等所有子进程，防止 await 期间 dev.ts 被上层 shell 拆掉，
-  // 留下孤儿进程继续监听文件变化
   pm.killAll('SIGKILL')
   await electron.waitAndForceKill()
   console.log()
@@ -41,38 +39,87 @@ async function shutdown(code = 0): Promise<void> {
 
 // 记录收到的中断次数：第二次 Ctrl+C 直接强杀退出，不再等待优雅关闭
 let signalCount = 0
-async function handleSignal(): Promise<void> {
+/**
+ * 信号处理器——故意不是 async。
+ * Bun 收到 SIGINT 后调用 handler 但不一定 await 返回的 Promise，
+ * 因此所有 kill 操作必须在同步路径中完成。
+ */
+function handleSignal(): void {
   signalCount += 1
   if (signalCount >= 2) {
+    // 第二次 Ctrl+C：立即同步强杀一切
     electron.forceKill()
     pm.killAll('SIGKILL')
     process.exit(1)
   }
-  await shutdown()
+  // 第一次 Ctrl+C：同步强杀 vite/tsup，再走 async 路径等 Electron 退出
+  pm.killAll('SIGKILL')
+  shutdown()
 }
 process.on('SIGINT', handleSignal)
 process.on('SIGTERM', handleSignal)
 
+/**
+ * 进程退出兜底：父 shell（bun → bun run）收到 Ctrl+C 后可能直接杀掉 dev.ts，
+ * 导致 shutdown() 中的 await 来不及执行。此处理器在进程即将退出时同步强杀
+ * 所有子进程（killTree 内部用 spawnSync 不经过 shell，在 exit handler 中可靠）。
+ */
+process.on('exit', () => {
+  electron.forceKill()
+  pm.killAll('SIGKILL')
+})
+
+/**
+ * 清理上次 dev 残留的 Electron 进程。
+ * Electron 是 detached 启动的，Ctrl+C 时如果信号处理器没来得及执行，
+ * Electron 会成为孤儿继续运行。用命令行匹配项目路径来精确杀掉。
+ */
+function killLeftoverElectron(): void {
+  if (process.platform === 'win32') {
+    // PowerShell 精确匹配命令行含 wmfx 项目路径的 electron.exe
+    spawnSync(
+      'powershell',
+      [
+        '-NoProfile',
+        '-Command',
+        `Get-CimInstance Win32_Process -Filter "name='electron.exe'" | Where-Object { $_.CommandLine -like '*wmfx*' } | ForEach-Object { Stop-Process $_.ProcessId -Force -ErrorAction SilentlyContinue }`,
+      ],
+      { stdio: 'ignore', windowsHide: true }
+    )
+  } else {
+    // macOS/Linux: pkill -f 匹配命令行
+    try {
+      spawnSync('pkill', ['-f', 'wmfx.*electron'], { stdio: 'ignore' })
+    } catch {
+      /* 没有匹配进程 */
+    }
+  }
+}
+
 async function main(): Promise<void> {
+  // 0. 清理上次 Ctrl+C 可能残留的 Electron 进程（detached 进程不共享信号组）
+  killLeftoverElectron()
+
   // 1. 准备 .env.local（创建 + 确保端口），再交互选择日志等级
   ensureEnvLocal()
   electron.setLogLevel(await promptLogLevel())
 
-  // 2. 创建 workspace 软链接，否则 Electron 无法导入 workspace 包（如 @wmfx/database）
-  linkWorkspacePackages()
-
-  // 3. 检查端口占用
+  // 2. 第一次端口检查：尽早 kill 旧进程（packages 源码由 bundler alias 直接读取，无需软链接）
   const devPort = readDevPort()
   await ensurePortFree(devPort)
 
-  // 4. 开发期开启 console 源码位置注入（仅 dev，生产构建不设此变量）
+  // 3. 开发期开启 console 源码位置注入（仅 dev，生产构建不设此变量）
   process.env.WMFX_DEV_INSTRUMENT = '1'
 
-  // 5. 原生模块检查 + 图标类型生成
+  // 4. 原生模块检查 + 图标类型生成
   await ensureNativeModule()
   generateIconTypes()
 
-  // 6. 启动 Vite（后台就绪）与全部 tsup --watch（等待首次构建完成）
+  // 5. 先清理 dist（必须在 Vite 之前，否则 Vite 检测到 dist 删除会重启导致端口冲突）
+  await cleanAllDists()
+
+  // 6. 第二次端口检查：前两步可能耗时，消除 Vite 启动前的竞态窗口
+  await ensurePortFree(devPort)
   const viteReady = startViteServer(pm, devPort)
   await startWatchesAndWait(pm)
 

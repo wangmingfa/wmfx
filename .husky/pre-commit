@@ -20,8 +20,10 @@ if detect_termux; then
   exit 0
 fi
 
+# --no-stash 禁用 autostash：Bun + Windows 下 git stash/pop 会导致
+# .git/objects/ 和 .git/index 损坏，改为直接格式化 staged 文件本身
 if [ -x node_modules/.bin/lint-staged ]; then
-  ./node_modules/.bin/lint-staged
+  ./node_modules/.bin/lint-staged --no-stash
 else
-  bun x lint-staged
+  bun x lint-staged --no-stash
 fi

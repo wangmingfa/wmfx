@@ -211,6 +211,7 @@ export function createWindow(
     icon: resolveAppIcon(),
     backgroundColor: resolveBackgroundColor(settingsManager.get('theme'), isIncognito),
     show: false,
+    frame: false,
     titleBarStyle: process.platform === 'win32' ? undefined : 'hidden',
     trafficLightPosition: { x: 12, y: 11 },
     webPreferences: {

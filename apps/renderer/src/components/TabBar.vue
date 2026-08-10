@@ -804,7 +804,7 @@ onUnmounted(() => {
   align-items: center;
   height: 100%;
   gap: 0;
-  margin-left: 8px;
+  margin-left: auto;
   -webkit-app-region: no-drag;
   flex-shrink: 0;
 }

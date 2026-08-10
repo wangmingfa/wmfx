@@ -1,40 +1,75 @@
+import { spawnSync } from 'node:child_process'
 import { execaCommand, type ResultPromise } from 'execa'
+import { cleanShimEnv } from './constants.ts'
 
 /**
- * 强制回收子进程：detached 子进程是独立进程组 leader，用负 PID 对整组发信号，
- * 连带杀掉 bun x → tsup → esbuild、electron → mihomo 等孙进程；
- * 进程组已不存在时退回单进程 kill。
+ * 强制回收子进程树。
+ *
+ * - macOS/Linux：detached 子进程是独立进程组 leader，用负 PID 对整组发信号，
+ *   连带杀掉 electron → mihomo 等孙进程。
+ * - Windows：process.kill(-pid) 不支持，p.kill() 只杀父进程不杀子进程树。
+ *   改用 taskkill /PID <pid> /T /F 递归杀整棵进程树（含 Mihomo 等孙进程）。
+ *
+ * 用 spawnSync 而非 execSync：execSync 走 cmd.exe shell，
+ * 在信号/退出处理器中 spawn shell 可能静默失败；spawnSync 直接启动进程更可靠。
  */
 export function killTree(p: ResultPromise | null, signal: NodeJS.Signals = 'SIGTERM'): void {
-  if (!p || p.killed || typeof p.pid !== 'number') return
-  try {
-    process.kill(-p.pid, signal)
-  } catch {
+  if (!p || typeof p.pid !== 'number') return
+  if (p.killed && signal === 'SIGTERM') return
+
+  if (process.platform === 'win32') {
     try {
-      p.kill(signal)
+      spawnSync('taskkill', ['/PID', String(p.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      })
+      return
     } catch {
-      /* ignore already-dead */
+      /* 进程已退出 */
+    }
+  } else {
+    try {
+      process.kill(-p.pid, signal)
+      return
+    } catch {
+      /* fall through to p.kill */
     }
   }
+  try {
+    p.kill(signal)
+  } catch {
+    /* ignore already-dead */
+  }
+}
+
+/** spawn() 的额外选项 */
+export interface SpawnOptions {
+  /** 是否以 detached 进程组模式运行（默认 false）。
+   *  Windows 上 detached 进程会分配独立控制台窗口，仅 Electron 等特殊场景需要。 */
+  detached?: boolean
+  /** 额外环境变量 */
+  env?: NodeJS.ProcessEnv
 }
 
 /**
  * 后台子进程（vite / tsup --watch 等）的生命周期管理。
  *
- * 所有子进程均以 detached 方式启动，成为独立进程组 leader —— 终端的 Ctrl+C(SIGINT)
- * 不会直接投递给它们，改由本管理器统一按进程组回收，避免 `bun x → tsup → esbuild`
- * 之类孙进程变成孤儿继续往终端打印（这正是"需要多次 Ctrl+C 才能停干净"的根因）。
+ * 默认不以 detached 启动：tsup 等子进程作为普通子进程运行，Ctrl+C 会自然终止它们。
+ * Electron 才需要 detached（独立的进程组 + 自己的生命周期管理），见 electron-controller.ts。
  */
 export class ProcessManager {
   private readonly children: ResultPromise[] = []
 
-  /** 以 detached + stdio:inherit 方式启动命令并纳入管理 */
-  spawn(command: string, cwd: string, env: NodeJS.ProcessEnv = {}): ResultPromise {
+  /** 以 stdio:inherit 启动命令并纳入管理。默认非 detached（Windows 上不开新控制台窗口）。
+   *  自动清除 NODE_OPTIONS / PYTHONPATH 避免 safe-delete shim 干扰。 */
+  spawn(command: string, cwd: string, opts: SpawnOptions = {}): ResultPromise {
+    const { detached = false, env = {} } = opts
     const p = execaCommand(command, {
       cwd,
       stdio: 'inherit',
-      detached: true,
-      env: { ...process.env, ...env },
+      detached,
+      windowsHide: true,
+      env: { ...cleanShimEnv(process.env), ...env },
     })
     this.track(p)
     return p

@@ -20,7 +20,7 @@ export async function ensureNativeModule(): Promise<void> {
 export function generateIconTypes(): void {
   console.log(`${CYAN}[dev]${RESET} 🎨 生成图标类型文件...`)
   try {
-    execaCommandSync('bunx tsx scripts/generate-icon-types.ts', { cwd: ROOT, stdio: 'inherit' })
+    execaCommandSync('bun scripts/generate-icon-types.ts', { cwd: ROOT, stdio: 'inherit' })
   } catch {
     console.log(`${RED}✗${RESET} 图标类型生成失败（非致命，继续启动）`)
   }
