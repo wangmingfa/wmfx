@@ -1,4 +1,5 @@
 import type {
+  CloudSyncConfig,
   InterceptorRule,
   QuickLink,
   SearchEngine,
@@ -42,6 +43,8 @@ interface SettingsSchema {
   interceptorRules: InterceptorRule[]
   commandPaletteRecentActions: string[]
   keyboardMode: 'gui' | 'vim'
+  /** 云端同步配置（WebDAV），单独存进 settings-manager，schema 不参与运行时校验 */
+  cloudConfig?: CloudSyncConfig
 }
 
 export const defaultSettings: SettingsSchema = {

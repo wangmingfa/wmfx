@@ -16,6 +16,7 @@ import PageLayout from '@/components/PageLayout.vue'
 import { useI18n } from '@/composables/useI18n'
 import AboutView from './AboutView.vue'
 import AppearanceView from './AppearanceView.vue'
+import CloudSyncPage from './CloudSyncPage.vue'
 import DownloadsView from './DownloadsView.vue'
 import GeneralView from './GeneralView.vue'
 import PrivacyView from './PrivacyView.vue'
@@ -33,6 +34,7 @@ const pages = {
   about: { component: markRaw(AboutView), labelKey: 'settings.navAbout' as const },
   privacy: { component: markRaw(PrivacyView), labelKey: 'settings.navPrivacy' as const },
   shortcuts: { component: markRaw(ShortcutsView), labelKey: 'settings.navShortcuts' as const },
+  cloud: { component: markRaw(CloudSyncPage), labelKey: 'settings.navCloud' as const },
 }
 
 // 依据当前路由段选取子页面；未知路由回退到 appearance

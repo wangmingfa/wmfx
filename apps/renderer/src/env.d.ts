@@ -307,6 +307,27 @@ declare global {
       getActiveWorkspace: () => Promise<Workspace | null>
       reorderWorkspaces: (ids: string[]) => Promise<void>
       onWorkspaceSwitched: (handler: (workspace: Workspace) => void) => () => void
+      // Cloud Sync
+      cloudSync: {
+        getConfig: () => Promise<unknown>
+        setConfig: (config: unknown) => Promise<void>
+        syncState: () => Promise<{
+          connected: boolean
+          config: {
+            recentRecords?: Array<{
+              timestamp: number
+              action: string
+              ok: boolean
+              message: string
+              bytes?: number
+            }>
+          }
+        }>
+        testConnection: () => Promise<{ ok: boolean; message: string; status: number }>
+        performSync: (key: number[]) => Promise<{ ok: boolean; message: string; bytes: number }>
+        performRestore: (key: number[]) => Promise<{ ok: boolean; message: string; bytes: number }>
+        clearRecords: () => Promise<void>
+      }
     }
   }
 }

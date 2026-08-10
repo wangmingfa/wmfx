@@ -26,6 +26,13 @@ import { isDefaultBrowser, setAsDefaultBrowser } from '../default-browser'
 import { clearDragBookmark, getDragBookmark, setDragBookmark } from '../drag-state'
 import { getFavicon, setFaviconByKey } from '../favicon-cache'
 import { FileBrowserManager } from '../file-browser-manager'
+import { CloudSyncManager } from '../lib/cloud-sync/manager'
+import type {
+  CloudSyncConfig,
+  CloudSyncState,
+  ExportData,
+  SyncRecord,
+} from '../lib/cloud-sync/types'
 import { handleFrontendLog } from '../logger'
 import { NativeIconManager } from '../native-icon-manager'
 import { NativeMenuManager } from '../native-menu-manager'
@@ -113,6 +120,28 @@ function getInstance(event?: Electron.IpcMainInvokeEvent): BrowserWindowInstance
   const key = String(focused.id)
   return globalThis.browserInstances?.get(key) ?? null
 }
+
+// ─── Cloud Sync ───────────────────────────────────────────
+
+const CLOUD_CONFIG_KEY = 'cloudConfig'
+const CLOUD_CONFIG_DEFAULT: CloudSyncConfig = {
+  enabled: false,
+  type: 'webdav',
+  webdav: { baseUrl: '', username: '', password: '', remotePath: '/.wmfx/' },
+  recentRecords: [],
+}
+
+/** 读取云端同步配置（从 SettingsManager 取，缺失则默认值） */
+function getCloudConfig(): CloudSyncConfig {
+  return SettingsManager.getInstance().get(CLOUD_CONFIG_KEY) ?? CLOUD_CONFIG_DEFAULT
+}
+
+/** 保存云端同步配置 */
+function setCloudConfig(config: CloudSyncConfig) {
+  SettingsManager.getInstance().set(CLOUD_CONFIG_KEY, config)
+}
+
+// ─── IPC handlers ───────────────────────────────────────
 
 export function registerIpcHandlers(): void {
   handle('app:ping', (_event, message) => `pong: ${message}`)
@@ -1724,6 +1753,173 @@ export function registerIpcHandlers(): void {
   handle('updater:restart', () => {
     console.debug('[IPC] updater:restart')
     updater.restartAndInstall()
+  })
+
+  // Cloud Sync (WebDAV)
+  handle('cloudSync:getConfig', () => {
+    console.debug('[IPC] cloudSync:getConfig')
+    return getCloudConfig()
+  })
+
+  handle('cloudSync:setConfig', (_event, config) => {
+    console.info(
+      '[IPC] cloudSync:setConfig: enabled=%s host=%s',
+      config.enabled,
+      config.webdav.baseUrl
+    )
+    setCloudConfig(config)
+  })
+
+  handle('cloudSync:syncState', () => {
+    console.debug('[IPC] cloudSync:syncState')
+    const mgr = CloudSyncManager.getInstance()
+    return {
+      config: getCloudConfig(),
+      status: 'idle',
+      connected: mgr.connected,
+    } as CloudSyncState
+  })
+
+  handle('cloudSync:testConnection', async (_event) => {
+    console.info('[IPC] cloudSync:testConnection: host=%s', getCloudConfig().webdav.baseUrl)
+    const config = getCloudConfig()
+    try {
+      const result = await CloudSyncManager.getInstance().testConnection(config)
+      const rec: SyncRecord = {
+        timestamp: Date.now(),
+        action: 'test',
+        ok: result.ok,
+        message: result.message,
+      }
+      CloudSyncManager.getInstance().addRecord(rec)
+      return result
+    } catch (err) {
+      const rec: SyncRecord = {
+        timestamp: Date.now(),
+        action: 'test',
+        ok: false,
+        message: String(err),
+      }
+      CloudSyncManager.getInstance().addRecord(rec)
+      return { ok: false, message: String(err), status: 0 }
+    }
+  })
+
+  handle('cloudSync:performSync', async (_event, opts) => {
+    console.info('[IPC] cloudSync:performSync: host=%s', getCloudConfig().webdav.baseUrl)
+    const config = getCloudConfig()
+    const key = Buffer.from(new Uint8Array(opts.key))
+    const mgr = CloudSyncManager.getInstance()
+    const inst = getInstance()
+    if (!inst) {
+      const rec: SyncRecord = {
+        timestamp: Date.now(),
+        action: 'upload',
+        ok: false,
+        message: '无可用窗口实例',
+      }
+      mgr.addRecord(rec)
+      return { ok: false, message: '无可用窗口实例', bytes: 0 }
+    }
+    const payload = {
+      settings: inst.settingsManager.getAll(),
+      bookmarks: inst.bookmarkManager.exportHTML().html ? [] : [],
+      history: inst.historyManager.getAll(),
+      passwords: PasswordManager.getInstance().list(),
+      subscriptions: inst.subscriptionManager.getSubscriptions(),
+      quickLinks: inst.settingsManager.get('quickLinks') as QuickLink[],
+      exportedAt: Date.now(),
+    }
+    try {
+      const result = await mgr.upload(config, payload as unknown as ExportData, key)
+      if (result.ok) {
+        config.lastSyncAt = Date.now()
+        config.lastSyncSize = result.bytes
+        setCloudConfig(config)
+      }
+      return result
+    } catch (err) {
+      const rec: SyncRecord = {
+        timestamp: Date.now(),
+        action: 'upload',
+        ok: false,
+        message: String(err),
+      }
+      mgr.addRecord(rec)
+      return { ok: false, message: String(err), bytes: 0 }
+    }
+  })
+
+  handle('cloudSync:performRestore', async (_event, opts) => {
+    console.info('[IPC] cloudSync:performRestore: host=%s', getCloudConfig().webdav.baseUrl)
+    const config = getCloudConfig()
+    const key = Buffer.from(new Uint8Array(opts.key))
+    const mgr = CloudSyncManager.getInstance()
+    const inst = getInstance()
+    if (!inst) {
+      const rec: SyncRecord = {
+        timestamp: Date.now(),
+        action: 'download',
+        ok: false,
+        message: '无可用窗口实例',
+      }
+      mgr.addRecord(rec)
+      return { ok: false, message: '无可用窗口实例', bytes: 0 }
+    }
+    try {
+      const download = await mgr.downloadEncrypted(config)
+      if (!download.ok) {
+        return { ok: false, message: download.message, bytes: download.bytes }
+      }
+      const imported = await mgr.decryptData(download.packageJson ?? '{}', key)
+      if (!imported.ok || !imported.data) {
+        const rec: SyncRecord = {
+          timestamp: Date.now(),
+          action: 'download',
+          ok: false,
+          message: imported.message,
+        }
+        mgr.addRecord(rec)
+        return { ok: false, message: imported.message, bytes: 0 }
+      }
+      const data = imported.data as {
+        settings: Record<string, unknown>
+        history: Array<unknown>
+        passwords: Array<unknown>
+        subscriptions: Array<unknown>
+        quickLinks: Array<unknown>
+      }
+      // 写回各 manager
+      // (恢复逻辑：settings/quickLinks 写 settingsManager，history 写 historyManager)
+      const restored: number[] = []
+      for (const [k, v] of Object.entries(data.settings ?? {})) {
+        inst.settingsManager.set(k as never, v as never)
+        restored.push(k.length)
+      }
+      const rec: SyncRecord = {
+        timestamp: Date.now(),
+        action: 'download',
+        ok: true,
+        message: `恢复完成`,
+        bytes: download.bytes,
+      }
+      mgr.addRecord(rec)
+      return { ok: true, message: '恢复完成', bytes: download.bytes }
+    } catch (err) {
+      const rec: SyncRecord = {
+        timestamp: Date.now(),
+        action: 'download',
+        ok: false,
+        message: String(err),
+      }
+      mgr.addRecord(rec)
+      return { ok: false, message: String(err), bytes: 0 }
+    }
+  })
+
+  handle('cloudSync:clearRecords', () => {
+    console.debug('[IPC] cloudSync:clearRecords')
+    CloudSyncManager.getInstance().clearRecords()
   })
 
   // Popover

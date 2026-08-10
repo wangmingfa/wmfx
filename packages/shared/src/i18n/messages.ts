@@ -181,6 +181,45 @@ export interface Message {
     navAbout: string
     navPrivacy: string
     navShortcuts: string
+    navCloud: string
+    cloudSync: {
+      provider: string
+      enabled: string
+      baseUrl: string
+      remotePath: string
+      username: string
+      password: string
+      syncPasswordTitle: string
+      syncPasswordPlaceholder: string
+      syncPasswordNote: string
+      keyDerived: string
+      keyNotDerived: string
+      actions: string
+      testConnection: string
+      syncNow: string
+      restoreNow: string
+      status: string
+      connected: string
+      yes: string
+      no: string
+      lastSyncAt: string
+      lastSyncSize: string
+      lastSyncMessage: string
+      recentRecords: string
+      actionUpload: string
+      actionDownload: string
+      actionTest: string
+      placeholderTitle: string
+      placeholder1: string
+      placeholder2: string
+      placeholder3: string
+      testSuccess: string
+      testFailed: string
+      syncSuccess: string
+      syncFailed: string
+      restoreSuccess: string
+      restoreFailed: string
+    }
     openClearDialog: string
     clearDataDesc: string
     clearDataTitle: string
@@ -496,6 +535,11 @@ export interface I18nParams {
   'workspace.deleteConfirm': { name: string }
   'workspace.switch': { name: string }
   'workspace.tabs': { count: number | string }
+  'settings.cloudSync.testSuccess': { host: string }
+  'settings.cloudSync.testFailed': { msg: string }
+  'settings.cloudSync.syncSuccess': { bytes: number | string }
+  'settings.cloudSync.syncFailed': { msg: string }
+  'settings.cloudSync.restoreFailed': { msg: string }
 }
 
 export const messages: Record<string, Message> = {
@@ -731,6 +775,48 @@ export const messages: Record<string, Message> = {
       scopeShell: '外壳级',
       scopePage: '页面级',
       navShortcuts: '快捷键',
+      navCloud: '云同步',
+      cloudSync: {
+        provider: '云端同步配置',
+        enabled: '启用云同步',
+        baseUrl: 'WebDAV 地址',
+        remotePath: '远程路径',
+        username: '用户名',
+        password: '密码',
+        syncPasswordTitle: '同步密码',
+        syncPasswordPlaceholder: '输入同步密码',
+        syncPasswordNote:
+          '此密码用于加密/解密云端数据，请在所有设备上使用相同密码。密码不会上传到云端。',
+        keyDerived: '密钥已派生，可进行同步/恢复操作',
+        keyNotDerived: '请先输入同步密码以派生加密密钥',
+        actions: '操作',
+        testConnection: '测试连接',
+        syncNow: '立即同步',
+        restoreNow: '从云端恢复',
+        status: '同步状态',
+        connected: '连接状态',
+        yes: '已连接',
+        no: '未连接',
+        lastSyncAt: '上次同步',
+        lastSyncSize: '上次大小',
+        lastSyncMessage: '上次状态',
+        recentRecords: '最近记录',
+        actionUpload: '上传',
+        actionDownload: '下载',
+        actionTest: '测试',
+        placeholderTitle: '说明',
+        placeholder1:
+          '当前仅支持 WebDAV 协议的云盘（如坚果云、自建 Nextcloud、通过 rclone 挂载的网盘）。',
+        placeholder2:
+          '云端加密密钥在本地通过 PBKDF2 派生，主进程只接触加密后的密钥，不接触明文密码。',
+        placeholder3: '同步/恢复功能仍在完善中，书签导出和完整的数据写回将后续补充。',
+        testSuccess: '连接成功（{host}）',
+        testFailed: '连接失败：{msg}',
+        syncSuccess: '同步成功，上传 {bytes} 字节',
+        syncFailed: '同步失败：{msg}',
+        restoreSuccess: '恢复成功',
+        restoreFailed: '恢复失败：{msg}',
+      },
     },
     shortcuts: {
       navGroupNavigation: '导航',
@@ -1188,6 +1274,49 @@ export const messages: Record<string, Message> = {
       scopeShell: 'Shell',
       scopePage: 'Page',
       navShortcuts: 'Shortcuts',
+      navCloud: 'Cloud Sync',
+      cloudSync: {
+        provider: 'Cloud Sync Settings',
+        enabled: 'Enable Cloud Sync',
+        baseUrl: 'WebDAV URL',
+        remotePath: 'Remote Path',
+        username: 'Username',
+        password: 'Password',
+        syncPasswordTitle: 'Sync Password',
+        syncPasswordPlaceholder: 'Enter sync password',
+        syncPasswordNote:
+          'This password encrypts/decrypts cloud data. Use the same password across all devices. The password is never uploaded to the cloud.',
+        keyDerived: 'Key derived — sync/restore ready',
+        keyNotDerived: 'Enter a sync password to derive the encryption key',
+        actions: 'Actions',
+        testConnection: 'Test Connection',
+        syncNow: 'Sync Now',
+        restoreNow: 'Restore from Cloud',
+        status: 'Sync Status',
+        connected: 'Connected',
+        yes: 'Yes',
+        no: 'No',
+        lastSyncAt: 'Last Sync',
+        lastSyncSize: 'Last Size',
+        lastSyncMessage: 'Last Result',
+        recentRecords: 'Recent Records',
+        actionUpload: 'Upload',
+        actionDownload: 'Download',
+        actionTest: 'Test',
+        placeholderTitle: 'Notes',
+        placeholder1:
+          'Currently supports WebDAV-compatible providers (e.g. Nutstore, Nextcloud, rclone-mounted clouds).',
+        placeholder2:
+          'Encryption key is derived locally via PBKDF2; the main process only handles the encrypted key, never the plaintext password.',
+        placeholder3:
+          'Sync/restore is a work in progress — bookmark export and full data write-back will follow.',
+        testSuccess: 'Connected ({host})',
+        testFailed: 'Connection failed: {msg}',
+        syncSuccess: 'Synced {bytes} bytes',
+        syncFailed: 'Sync failed: {msg}',
+        restoreSuccess: 'Restored successfully',
+        restoreFailed: 'Restore failed: {msg}',
+      },
     },
     shortcuts: {
       navGroupNavigation: 'Navigation',

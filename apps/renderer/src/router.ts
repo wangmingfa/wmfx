@@ -28,6 +28,7 @@ export const router = createRouter({
     { path: '/settings/about', component: SettingsView },
     { path: '/settings/privacy', component: SettingsView },
     { path: '/settings/shortcuts', component: SettingsView },
+    { path: '/settings/cloud', component: SettingsView },
     { path: '/history', component: HistoryView },
     { path: '/bookmarks', component: BookmarkView },
     { path: '/passwords', component: PasswordsView },

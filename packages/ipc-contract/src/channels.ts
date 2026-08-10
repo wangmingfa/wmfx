@@ -6,6 +6,73 @@
 
 import type { NativeMenuItemDescriptor } from './menu'
 
+// ─── 云同步（IPC 共享契约） ─────────────────────────────────
+
+/** 同步状态 */
+export type CloudSyncStatus = 'idle' | 'syncing' | 'restoring' | 'connected' | 'error'
+
+/** 同步记录 */
+export interface SyncRecord {
+  /** unix ms */
+  timestamp: number
+  action: 'upload' | 'download' | 'test'
+  ok: boolean
+  message: string
+  bytes?: number
+}
+
+/** 云端同步配置，存进 SettingsManager */
+export interface CloudSyncConfig {
+  enabled: boolean
+  type: 'webdav'
+  webdav: {
+    /** 例如 https://dav.jianguoyun.com/dav/ */
+    baseUrl: string
+    username: string
+    password: string
+    /** 云端存储路径（相对于 baseUrl），默认 /.wmfx/ */
+    remotePath: string
+    timeout?: number
+    followRedirect?: boolean
+  }
+  lastSyncAt?: number
+  lastSyncSize?: number
+  lastSyncMessage?: string
+  recentRecords: SyncRecord[]
+}
+
+/** 同步状态（给 UI） */
+export interface CloudSyncState {
+  config: CloudSyncConfig
+  status: CloudSyncStatus
+  connected: boolean
+}
+
+/** 本地导出数据：主进程组装，交给 crypto 加密后上传 */
+export interface ExportData {
+  settings: Record<string, unknown>
+  bookmarks: {
+    id: string
+    title: string
+    url?: string
+    parent_id?: string
+    position?: number
+    createdAt: number
+  }[]
+  history: {
+    id: string
+    url: string
+    title?: string
+    favicon?: string
+    visitTime: number
+    visitCount: number
+  }[]
+  passwords: { id: string; domain: string; username: string; note?: string; createdAt: number }[]
+  subscriptions: { id: string; title: string; url: string; enabled: boolean }[]
+  quickLinks: { id: string; title: string; url: string }[]
+  exportedAt: number
+}
+
 // ─── 文件类型系统 ─────────────────────────────────────────
 
 /** 文件类型枚举 */
@@ -883,6 +950,22 @@ export interface IpcContract {
   'workspace:switchTo': (id: string) => void
   'workspace:getActive': () => Workspace | null
   'workspace:reorder': (ids: string[]) => void
+  // Cloud Sync (WebDAV + AES-256-GCM)
+  'cloudSync:getConfig': () => CloudSyncConfig
+  'cloudSync:setConfig': (config: CloudSyncConfig) => void
+  'cloudSync:syncState': () => CloudSyncState
+  'cloudSync:testConnection': () => { ok: boolean; message: string; status: number }
+  'cloudSync:performSync': (opts: { key: number[] }) => {
+    ok: boolean
+    message: string
+    bytes: number
+  }
+  'cloudSync:performRestore': (opts: { key: number[] }) => {
+    ok: boolean
+    message: string
+    bytes: number
+  }
+  'cloudSync:clearRecords': () => void
 }
 
 export type IpcChannel = keyof IpcContract
@@ -1088,6 +1171,13 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'workspace:switchTo',
   'workspace:getActive',
   'workspace:reorder',
+  'cloudSync:getConfig',
+  'cloudSync:setConfig',
+  'cloudSync:syncState',
+  'cloudSync:testConnection',
+  'cloudSync:performSync',
+  'cloudSync:performRestore',
+  'cloudSync:clearRecords',
 ] as const
 
 export function isIpcChannel(name: string): name is IpcChannel {

@@ -664,4 +664,15 @@ const api: {
   },
 }
 
-contextBridge.exposeInMainWorld('browserAPI', api)
+/** 云端同步 API（WebDAV） */
+const cloudSyncApi = {
+  getConfig: () => ipcRenderer.invoke('cloudSync:getConfig'),
+  setConfig: (config: unknown) => ipcRenderer.invoke('cloudSync:setConfig', config),
+  syncState: () => ipcRenderer.invoke('cloudSync:syncState'),
+  testConnection: () => ipcRenderer.invoke('cloudSync:testConnection'),
+  performSync: (key: number[]) => ipcRenderer.invoke('cloudSync:performSync', { key }),
+  performRestore: (key: number[]) => ipcRenderer.invoke('cloudSync:performRestore', { key }),
+  clearRecords: () => ipcRenderer.invoke('cloudSync:clearRecords'),
+}
+
+contextBridge.exposeInMainWorld('browserAPI', { ...api, cloudSync: cloudSyncApi })

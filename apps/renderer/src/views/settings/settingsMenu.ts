@@ -28,4 +28,5 @@ export const settingsSideMenu: SideMenuItem[] = [
     to: '/settings/shortcuts',
   },
   { key: 'about', labelKey: 'settings.navAbout', icon: 'mdi:information', to: '/settings/about' },
+  { key: 'cloud', labelKey: 'settings.navCloud', icon: 'mdi:cloud', to: '/settings/cloud' },
 ]
