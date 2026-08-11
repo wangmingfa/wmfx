@@ -22,6 +22,7 @@
       <SectionItem :label="t('settings.cloudSync.baseUrl')">
         <NInput
           v-model:value="config.webdav.baseUrl"
+          :disabled="!config.enabled"
           placeholder="https://dav.jianguoyun.com/dav/"
           @input="save"
         />
@@ -30,6 +31,7 @@
       <SectionItem :label="t('settings.cloudSync.remotePath')">
         <NInput
           v-model:value="config.webdav.remotePath"
+          :disabled="!config.enabled"
           placeholder="/.wmfx/"
           @input="save"
         />
@@ -38,6 +40,8 @@
       <SectionItem :label="t('settings.cloudSync.username')">
         <NInput
           v-model:value="config.webdav.username"
+          :disabled="!config.enabled"
+          placeholder="WebDAV 用户名"
           @input="save"
         />
       </SectionItem>
@@ -45,6 +49,8 @@
       <SectionItem :label="t('settings.cloudSync.password')">
         <NInput
           v-model:value="config.webdav.password"
+          :disabled="!config.enabled"
+          placeholder="WebDAV 密码"
           type="password"
           show-password-on="mousedown"
           @input="save"
@@ -58,6 +64,7 @@
         <div class="sync-pass-wrap">
           <NInput
             v-model:value="localSyncPassword"
+            :disabled="!config.enabled"
             :type="showPass ? 'text' : 'password'"
             :placeholder="t('settings.cloudSync.syncPasswordPlaceholder')"
             show-password-on="mousedown"
@@ -87,7 +94,7 @@
         <div class="actions-row">
           <NButton
             type="default"
-            :disabled="!config.webdav.baseUrl"
+            :disabled="!config.enabled || !config.webdav.baseUrl"
             :loading="testing"
             @click="onTest"
           >
@@ -99,7 +106,7 @@
 
           <NButton
             type="primary"
-            :disabled="!derived || syncing"
+            :disabled="!config.enabled || !derived || syncing"
             :loading="syncing"
             @click="onSync"
           >
@@ -111,7 +118,7 @@
 
           <NButton
             type="warning"
-            :disabled="!derived || restoring"
+            :disabled="!config.enabled || !derived || restoring"
             :loading="restoring"
             @click="onRestore"
           >
@@ -263,7 +270,7 @@ const lastSyncSizeText = computed(() => {
 })
 
 function save() {
-  void window.browserAPI.cloudSync.setConfig(config.value)
+  void window.browserAPI.cloudSync.setConfig(JSON.parse(JSON.stringify(config.value)))
 }
 
 async function loadState() {

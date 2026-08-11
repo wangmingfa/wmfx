@@ -2,6 +2,7 @@ import type { SideMenuItem } from '@/components/side-menu'
 
 /** 设置页左侧悬浮菜单配置（复用 PageLayout 的 sideMenu 能力，替代原 SettingsLayout 的内联 nav） */
 export const settingsSideMenu: SideMenuItem[] = [
+  { key: 'cloud', labelKey: 'settings.navCloud', icon: 'mdi:cloud', to: '/settings/cloud' },
   {
     key: 'appearance',
     labelKey: 'settings.navAppearance',
@@ -28,5 +29,4 @@ export const settingsSideMenu: SideMenuItem[] = [
     to: '/settings/shortcuts',
   },
   { key: 'about', labelKey: 'settings.navAbout', icon: 'mdi:information', to: '/settings/about' },
-  { key: 'cloud', labelKey: 'settings.navCloud', icon: 'mdi:cloud', to: '/settings/cloud' },
 ]
