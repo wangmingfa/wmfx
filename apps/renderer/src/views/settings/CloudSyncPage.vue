@@ -219,6 +219,8 @@ import SectionBlock from '@/components/SectionBlock.vue'
 import SectionItem from '@/components/SectionItem.vue'
 import { useI18n } from '@/composables/useI18n'
 
+const PBKDF2_SALT = new Uint8Array(16)
+
 const { t } = useI18n()
 
 const config = ref<{
@@ -290,10 +292,8 @@ async function deriveKey() {
   try {
     const enc = new TextEncoder()
     const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey'])
-    const salt = new Uint8Array(16)
-    crypto.getRandomValues(salt)
     const key = await crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+      { name: 'PBKDF2', salt: PBKDF2_SALT, iterations: 100000, hash: 'SHA-256' },
       keyMaterial,
       { name: 'AES-GCM', length: 256 },
       false,
@@ -337,14 +337,14 @@ async function onSync() {
   lastStatus.value = 'warning'
   lastMessage.value = ''
   try {
-    const result = await window.browserAPI.cloudSync.performSync(keyRef.value)
+    const result = await window.browserAPI.cloudSync.performSync({ key: keyRef.value })
     if (result.ok) {
       lastStatus.value = 'success'
       lastMessage.value = t('settings.cloudSync.syncSuccess', { bytes: result.bytes ?? 0 })
       config.value.lastSyncAt = Date.now()
       config.value.lastSyncSize = result.bytes
       config.value.lastSyncMessage = '成功'
-      void window.browserAPI.cloudSync.setConfig(config.value)
+      void window.browserAPI.cloudSync.setConfig(JSON.parse(JSON.stringify(config.value)))
     } else {
       lastStatus.value = 'error'
       lastMessage.value = t('settings.cloudSync.syncFailed', { msg: result.message })
@@ -363,7 +363,7 @@ async function onRestore() {
   lastStatus.value = 'warning'
   lastMessage.value = ''
   try {
-    const result = await window.browserAPI.cloudSync.performRestore(keyRef.value)
+    const result = await window.browserAPI.cloudSync.performRestore({ key: keyRef.value })
     if (result.ok) {
       lastStatus.value = 'success'
       lastMessage.value = t('settings.cloudSync.restoreSuccess')

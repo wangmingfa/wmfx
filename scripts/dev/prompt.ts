@@ -16,6 +16,12 @@ export async function promptLogLevel(): Promise<LogLevel> {
     { name: 'error  (仅 error)', value: 'error' },
   ]
   const defaultIdx = choices.findIndex((c) => c.value === lastLevel)
+
+  // 非 TTY 环境（CI / 非交互 wrapper）不跑交互 prompt，直接沿用上次等级
+  if (!process.stdin.isTTY) {
+    console.log(`${CYAN}[dev]${RESET} 📋 非交互环境，日志等级: ${GREEN}${lastLevel}${RESET}`)
+    return lastLevel
+  }
   console.log(`${CYAN}[dev]${RESET} 选择日志等级:`)
   choices.forEach((c, i) => {
     console.log(`  ${i + 1}. ${i === defaultIdx ? GREEN : ''}${c.name}${RESET}`)

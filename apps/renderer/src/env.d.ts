@@ -324,8 +324,12 @@ declare global {
           }
         }>
         testConnection: () => Promise<{ ok: boolean; message: string; status: number }>
-        performSync: (key: number[]) => Promise<{ ok: boolean; message: string; bytes: number }>
-        performRestore: (key: number[]) => Promise<{ ok: boolean; message: string; bytes: number }>
+        performSync: (opts: {
+          key: number[]
+        }) => Promise<{ ok: boolean; message: string; bytes: number }>
+        performRestore: (opts: {
+          key: number[]
+        }) => Promise<{ ok: boolean; message: string; bytes: number }>
         clearRecords: () => Promise<void>
       }
     }

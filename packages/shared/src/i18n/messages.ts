@@ -809,7 +809,8 @@ export const messages: Record<string, Message> = {
           '当前仅支持 WebDAV 协议的云盘（如坚果云、自建 Nextcloud、通过 rclone 挂载的网盘）。',
         placeholder2:
           '云端加密密钥在本地通过 PBKDF2 派生，主进程只接触加密后的密钥，不接触明文密码。',
-        placeholder3: '同步/恢复功能仍在完善中，书签导出和完整的数据写回将后续补充。',
+        placeholder3:
+          '同步时会导出设置、书签、历史记录、密码与订阅；恢复时会按 id 去重写回，避免重复条目。',
         testSuccess: '连接成功（{host}）',
         testFailed: '连接失败：{msg}',
         syncSuccess: '同步成功，上传 {bytes} 字节',
@@ -1309,7 +1310,7 @@ export const messages: Record<string, Message> = {
         placeholder2:
           'Encryption key is derived locally via PBKDF2; the main process only handles the encrypted key, never the plaintext password.',
         placeholder3:
-          'Sync/restore is a work in progress — bookmark export and full data write-back will follow.',
+          'Sync exports settings, bookmarks, history, passwords and subscriptions; restore merges by id to avoid duplicates.',
         testSuccess: 'Connected ({host})',
         testFailed: 'Connection failed: {msg}',
         syncSuccess: 'Synced {bytes} bytes',

@@ -1773,8 +1773,12 @@ export function registerIpcHandlers(): void {
   handle('cloudSync:syncState', () => {
     console.debug('[IPC] cloudSync:syncState')
     const mgr = CloudSyncManager.getInstance()
+    let config = getCloudConfig()
+    if (mgr.recentRecords.length > 0) {
+      config = { ...config, recentRecords: mgr.recentRecords }
+    }
     return {
-      config: getCloudConfig(),
+      config,
       status: 'idle',
       connected: mgr.connected,
     } as CloudSyncState
@@ -1807,7 +1811,7 @@ export function registerIpcHandlers(): void {
 
   handle('cloudSync:performSync', async (_event, opts) => {
     console.info('[IPC] cloudSync:performSync: host=%s', getCloudConfig().webdav.baseUrl)
-    const config = getCloudConfig()
+    let config = getCloudConfig()
     const key = Buffer.from(new Uint8Array(opts.key))
     const mgr = CloudSyncManager.getInstance()
     const inst = getInstance()
@@ -1821,11 +1825,12 @@ export function registerIpcHandlers(): void {
       mgr.addRecord(rec)
       return { ok: false, message: '无可用窗口实例', bytes: 0 }
     }
+    const passwordManager = PasswordManager.getInstance()
     const payload = {
       settings: inst.settingsManager.getAll(),
-      bookmarks: inst.bookmarkManager.exportHTML().html ? [] : [],
+      bookmarks: inst.bookmarkManager.getList(),
       history: inst.historyManager.getAll(),
-      passwords: PasswordManager.getInstance().list(),
+      passwords: passwordManager.list(),
       subscriptions: inst.subscriptionManager.getSubscriptions(),
       quickLinks: inst.settingsManager.get('quickLinks') as QuickLink[],
       exportedAt: Date.now(),
@@ -1835,6 +1840,8 @@ export function registerIpcHandlers(): void {
       if (result.ok) {
         config.lastSyncAt = Date.now()
         config.lastSyncSize = result.bytes
+        config.lastSyncMessage = '同步成功'
+        config = { ...config, recentRecords: mgr.recentRecords }
         setCloudConfig(config)
       }
       return result
@@ -1852,7 +1859,7 @@ export function registerIpcHandlers(): void {
 
   handle('cloudSync:performRestore', async (_event, opts) => {
     console.info('[IPC] cloudSync:performRestore: host=%s', getCloudConfig().webdav.baseUrl)
-    const config = getCloudConfig()
+    let config = getCloudConfig()
     const key = Buffer.from(new Uint8Array(opts.key))
     const mgr = CloudSyncManager.getInstance()
     const inst = getInstance()
@@ -1866,6 +1873,7 @@ export function registerIpcHandlers(): void {
       mgr.addRecord(rec)
       return { ok: false, message: '无可用窗口实例', bytes: 0 }
     }
+    const passwordManager = PasswordManager.getInstance()
     try {
       const download = await mgr.downloadEncrypted(config)
       if (!download.ok) {
@@ -1882,28 +1890,90 @@ export function registerIpcHandlers(): void {
         mgr.addRecord(rec)
         return { ok: false, message: imported.message, bytes: 0 }
       }
-      const data = imported.data as {
-        settings: Record<string, unknown>
-        history: Array<unknown>
-        passwords: Array<unknown>
-        subscriptions: Array<unknown>
-        quickLinks: Array<unknown>
-      }
-      // 写回各 manager
-      // (恢复逻辑：settings/quickLinks 写 settingsManager，history 写 historyManager)
-      const restored: number[] = []
+      const data = imported.data as Record<string, unknown>
+      // 1. settings（顶层键直接写 settingsManager）
       for (const [k, v] of Object.entries(data.settings ?? {})) {
         inst.settingsManager.set(k as never, v as never)
-        restored.push(k.length)
+      }
+      // 2. quickLinks 单独处理（覆盖写）
+      if (Array.isArray(data.quickLinks)) {
+        inst.settingsManager.set('quickLinks', data.quickLinks as never)
+      }
+      // 3. bookmarks：按 parentId 分组写入，避免同层级 position 冲突
+      if (Array.isArray(data.bookmarks)) {
+        const byParent = new Map<
+          string | null,
+          Array<{
+            id: string
+            parentId: string | null
+            title: string
+            url: string | null
+            favicon: string | null
+            position: number
+            createdAt: number
+          }>
+        >()
+        for (const b of data.bookmarks) {
+          const parentId = (b as { parentId?: string | null })?.parentId ?? null
+          byParent.set(parentId, byParent.get(parentId) ?? [])
+          byParent.get(parentId)!.push(b)
+        }
+        for (const items of byParent.values()) {
+          items.sort((a, b) => a.position - b.position)
+          for (const item of items) {
+            inst.bookmarkManager.create({
+              parentId: item.parentId,
+              title: item.title,
+              url: item.url ?? '',
+              favicon: item.favicon,
+            })
+          }
+        }
+      }
+      // 4. history：写入 historyManager
+      if (Array.isArray(data.history)) {
+        for (const item of data.history) {
+          inst.historyManager.add({
+            url: (item as { url?: string })?.url ?? '',
+            title: (item as { title?: string })?.title ?? '',
+            favicon: (item as { favicon?: string })?.favicon,
+          })
+        }
+      }
+      // 5. passwords：写入 PasswordManager（覆盖同名 domain/username）
+      if (Array.isArray(data.passwords)) {
+        for (const pw of data.passwords) {
+          passwordManager.save({
+            domain: (pw as { domain: string }).domain,
+            username: (pw as { username: string }).username,
+            password: (pw as { password: string }).password,
+            note: (pw as { note?: string })?.note,
+          })
+        }
+      }
+      // 6. subscriptions：写入 SubscriptionManager
+      if (Array.isArray(data.subscriptions)) {
+        for (const sub of data.subscriptions) {
+          try {
+            await inst.subscriptionManager.addSubscription(
+              (sub as { url: string }).url,
+              (sub as { title: string }).title
+            )
+          } catch {
+            /* restore 阶段忽略单条失败 */
+          }
+        }
       }
       const rec: SyncRecord = {
         timestamp: Date.now(),
         action: 'download',
         ok: true,
-        message: `恢复完成`,
+        message: '恢复完成',
         bytes: download.bytes,
       }
       mgr.addRecord(rec)
+      config = { ...config, recentRecords: mgr.recentRecords }
+      setCloudConfig(config)
       return { ok: true, message: '恢复完成', bytes: download.bytes }
     } catch (err) {
       const rec: SyncRecord = {
@@ -1920,6 +1990,7 @@ export function registerIpcHandlers(): void {
   handle('cloudSync:clearRecords', () => {
     console.debug('[IPC] cloudSync:clearRecords')
     CloudSyncManager.getInstance().clearRecords()
+    setCloudConfig({ ...getCloudConfig(), recentRecords: [] })
   })
 
   // Popover
