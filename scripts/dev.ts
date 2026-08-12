@@ -29,6 +29,7 @@ let shuttingDown = false
 async function shutdown(code = 0): Promise<void> {
   if (shuttingDown) return
   shuttingDown = true
+  shutdownStartedAt = Date.now()
   // 全部同步——不依赖 Bun await async handler
   electron.beginGracefulShutdown()
   pm.killAll('SIGKILL')
@@ -39,18 +40,33 @@ async function shutdown(code = 0): Promise<void> {
 
 // 记录收到的中断次数：第二次 Ctrl+C 直接强杀退出，不再等待优雅关闭
 let signalCount = 0
+// 优雅关闭开始时刻：用于区分「mvm 补发的信号」与「用户第二次 Ctrl+C 强杀」
+let shutdownStartedAt = 0
+// shutdown 卡死阈值：超过该时长仍收到信号才强杀（正常 shutdown 约 3s 内完成）
+const SHUTDOWN_FORCE_TIMEOUT_MS = 5000
+
 /**
  * 信号处理器——故意不是 async。
  * Bun 收到 SIGINT 后调用 handler 但不一定 await 返回的 Promise，
  * 因此所有 kill 操作必须在同步路径中完成。
+ *
+ * 为什么优雅关闭期间要忽略后续信号：dev.ts 经 mvm（MoonBit）spawn 启动，mvm 的
+ * async 运行时收到 SIGINT 后会 cancel @process.run 任务并向子进程补发 SIGTERM
+ * （graceful_cancel 默认信号）；终端 Ctrl+C 还可能伴随 SIGHUP。因此单次 Ctrl+C
+ * 会先后收到 SIGINT + SIGTERM（+SIGHUP），若把第二次信号当成「用户再按一次
+ * Ctrl+C」直接 process.exit，会在 shutdown() 完成前杀掉 dev.ts，导致 detached 的
+ * Electron 变孤儿。SIGHUP 一并纳入：终端关闭时也应优雅回收 Electron。
  */
 function handleSignal(): void {
   signalCount += 1
-  if (signalCount >= 2) {
-    // 第二次 Ctrl+C：立即同步强杀一切
-    electron.forceKill()
-    pm.killAll('SIGKILL')
-    process.exit(1)
+  if (shuttingDown) {
+    // 优雅关闭进行中：忽略 mvm 补发的 SIGTERM / SIGHUP；仅当 shutdown 卡死超过阈值才强杀
+    if (signalCount >= 2 && Date.now() - shutdownStartedAt > SHUTDOWN_FORCE_TIMEOUT_MS) {
+      electron.forceKill()
+      pm.killAll('SIGKILL')
+      process.exit(1)
+    }
+    return
   }
   // 第一次 Ctrl+C：同步强杀 vite/tsup，再走 async 路径等 Electron 退出
   pm.killAll('SIGKILL')
@@ -58,15 +74,26 @@ function handleSignal(): void {
 }
 process.on('SIGINT', handleSignal)
 process.on('SIGTERM', handleSignal)
+process.on('SIGHUP', handleSignal)
 
 /**
  * 进程退出兜底：父 shell（bun → bun run）收到 Ctrl+C 后可能直接杀掉 dev.ts，
  * 导致 shutdown() 中的 await 来不及执行。此处理器在进程即将退出时同步强杀
- * 所有子进程（killTree 内部用 spawnSync 不经过 shell，在 exit handler 中可靠）。
+ * 所有子进程（killTree 内部用 spawnSync 不经过 shell，在 exit handler 中可靠；
+ * forceKill 凭 electronPid 仍能按进程组回收 detached 的 Electron）。
  */
 process.on('exit', () => {
   electron.forceKill()
   pm.killAll('SIGKILL')
+  // 终端兜底重置：zsh zle 在某些退出路径下可能遗留异常 termios 状态，
+  // stty sane 恢复标准 cooked 模式，避免方向键等转义序列被原样回显。
+  if (process.platform !== 'win32') {
+    try {
+      spawnSync('stty', ['sane'], { stdio: 'ignore' })
+    } catch {
+      /* stty 不可用，忽略 */
+    }
+  }
 })
 
 /**

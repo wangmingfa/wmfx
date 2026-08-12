@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { statSync, watch } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -24,6 +25,9 @@ interface ElectronControllerOptions {
  */
 export class ElectronController {
   private process: ResultPromise | null = null
+  /** 实际 Electron 进程 pid（进程组 leader）。waitAndForceKill 会把 this.process 置空，
+   *  但强制回收（如 exit handler）仍须能按此 pid 对整组发信号，故单独持久保存 */
+  private electronPid: number | null = null
   private restartTimer: ReturnType<typeof setTimeout> | null = null
   private isRestarting = false
   private startupComplete = false
@@ -117,6 +121,7 @@ export class ElectronController {
       if (!this.shuttingDown) process.stderr.write(chunk)
     })
     this.process = proc
+    this.electronPid = typeof proc.pid === 'number' ? proc.pid : null
 
     proc.catch((err: Error & { killed?: boolean }) => {
       // SIGTERM 是正常重启信号（旧进程被 kill），不视为错误
@@ -215,11 +220,11 @@ export class ElectronController {
    * 导致 detached 的 Electron 变成孤儿。因此终止信号必须在任何 await 之前同步发出。
    *
    * 关闭策略：
-   * - 先尝试 IPC proc.send('dev:shutdown')，让 Electron 走 app.quit() 优雅关闭
-   *   （保存 session / 停止代理 / 清理 Mihomo）。
-   * - 不使用 process.kill(pid, 'SIGTERM')：Windows 上它实际是 TerminateProcess
-   *   硬杀，不会触发 Electron 的 process.on('SIGTERM') 处理器。
-   * - 实际的进程树回收由 waitAndForceKill() 中的 killTree → taskkill /T /F 完成。
+   * - macOS/Linux：同时发送 IPC 和 SIGTERM。IPC 用于 bun 内部通信，SIGTERM 直接触发
+   *   Electron 的 process.on('SIGTERM') 处理器（gracefulExit → app.quit()），确保即使
+   *   IPC 在 Bun 下不可靠也能让 Electron 开始优雅退出（will-quit → proxyManager.stop）。
+   * - Windows：IPC 是唯一可靠路径，因为 Windows 上 process.kill(pid, SIGTERM) 实际是
+   *   TerminateProcess 硬杀，不会触发 Electron 的 process.on('SIGTERM') 处理器。
    */
   beginGracefulShutdown(): void {
     this.shuttingDown = true
@@ -235,6 +240,18 @@ export class ElectronController {
         proc.send('dev:shutdown')
       } catch {
         /* IPC 通道已不可用 */
+      }
+      // macOS/Linux 上直接用 SIGTERM 触发 Electron 的 gracefulExit → app.quit()
+      //（见 apps/main/src/index.ts:362-363）。Windows 上 SIGTERM = TerminateProcess 硬杀，跳过。
+      if (process.platform !== 'win32') {
+        const pid = this.electronPid
+        if (pid !== null) {
+          try {
+            process.kill(pid, 'SIGTERM')
+          } catch {
+            /* 进程已退出 */
+          }
+        }
       }
     }
   }
@@ -260,8 +277,31 @@ export class ElectronController {
     killTree(proc, 'SIGKILL')
   }
 
-  /** 立即强杀（用于第二次 Ctrl+C 的即时退出路径） */
+  /** 立即强杀（用于第二次 Ctrl+C 的即时退出路径 / exit handler 兜底）。
+   *  this.process 可能已被 waitAndForceKill 置空，此时退回按 electronPid 对
+   *  detached 进程组发 SIGKILL，确保 Electron 及 Mihomo 孙进程仍被回收。 */
   forceKill(): void {
-    killTree(this.process, 'SIGKILL')
+    if (this.process) {
+      killTree(this.process, 'SIGKILL')
+      return
+    }
+    const pid = this.electronPid
+    if (pid === null) return
+    if (process.platform === 'win32') {
+      try {
+        spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+          stdio: 'ignore',
+          windowsHide: true,
+        })
+      } catch {
+        /* 进程已退出 */
+      }
+    } else {
+      try {
+        process.kill(-pid, 'SIGKILL')
+      } catch {
+        /* 进程已退出 */
+      }
+    }
   }
 }
