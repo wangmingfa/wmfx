@@ -1551,17 +1551,6 @@ export function registerIpcHandlers(): void {
     else console.debug('[IPC] window:close: no window')
   })
 
-  handle('window:setTrafficLightVisible', (event, visible) => {
-    console.debug('[IPC] window:setTrafficLightVisible: visible', visible)
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win) return
-    if (visible) {
-      win.setWindowButtonPosition({ x: 12, y: 11 })
-    } else {
-      win.setWindowButtonPosition({ x: -100, y: -100 })
-    }
-  })
-
   // Shell — 下载闭环
   handle('shell:showInFolder', (_event, filePath) => {
     console.info('[IPC] shell:showInFolder: path', filePath)

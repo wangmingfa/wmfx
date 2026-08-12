@@ -178,6 +178,8 @@
   --warning-bg: #fff6e6;
   /* 地址栏输入框背景色 */
   --url-input-bg: #eaf0f9;
+  /* 地址栏（AddressBar）固定高度，与 vtab-header 共用 */
+  --addressbar-height: 40px;
   /* hover / 激活态背景色（明显深于 bg-secondary 以便区分） */
   --bg-hover: #e8e8e8;
   /* 更淡的 hover 背景色（列表行等大面积 hover 用，弱于 --bg-hover） */
@@ -216,6 +218,8 @@
   --vtab-width-collapsed: 48px;
   /* macOS 左置垂直标签栏折叠时，地址栏左侧为系统交通灯预留的避让留白 */
   --mac-trafficlight-gap: 20px;
+  /* macOS 左置垂直标签栏折叠时，工作区按钮避开交通灯的顶部留白 */
+  --mac-trafficlight-height: 44px;
   /* overlay 浮层（如命令面板）半透明遮罩颜色：压暗背景、突出浮层 */
   --overlay-mask: rgba(0, 0, 0, 0.35);
   /* overlay 浮层遮罩背景模糊强度（px），0 表示不模糊 */

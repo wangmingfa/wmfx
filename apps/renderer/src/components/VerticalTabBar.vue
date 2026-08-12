@@ -6,6 +6,7 @@
   >
     <div class="vtab-header">
       <IconButton
+        v-show="isExpanded"
         class="vtab-toggle"
         :icon="{ name: isExpanded ? 'ic:baseline-chevron-left' : 'ic:baseline-menu', size: 18 }"
         :btn-size="32"
@@ -15,15 +16,15 @@
         variant="accent"
         @click="toggleExpand"
       />
-    </div>
-    <div
-      v-if="currentWorkspace"
-      class="vtab-workspace-btn"
-      :style="{ background: currentWorkspace.color }"
-      :title="currentWorkspace.name"
-      @click="openWorkspacePanel"
-    >
-      {{ currentWorkspace.name.charAt(0) }}
+      <div
+        v-if="currentWorkspace"
+        class="vtab-workspace-btn"
+        :style="{ background: currentWorkspace.color }"
+        :title="currentWorkspace.name"
+        @click="openWorkspacePanel"
+      >
+        {{ currentWorkspace.name.charAt(0) }}
+      </div>
     </div>
     <div class="vtab-list">
       <template
@@ -176,14 +177,10 @@ function createNewTab(): void {
 function toggleExpand(): void {
   isExpanded.value = !isExpanded.value
   console.debug('[VerticalTabBar] toggleExpand: expanded', isExpanded.value)
-  // 持久化折叠状态
   void window.browserAPI.setSetting({ key: 'tabBarCollapsed', value: !isExpanded.value })
-  // macOS 展开时显示交通灯，折叠时隐藏
-  if (isMacOS) {
-    void window.browserAPI.setTrafficLightVisible(isExpanded.value)
-  }
-  // 通知 Viewport 在展开/收起动画期间逐帧同步 WebContentsView 边界，避免遮挡
   window.dispatchEvent(new Event('vtab:resizing'))
+  // 通知父级：折叠状态变化（ChromeUI 据此在 AddressBar 侧显示/隐藏 toggle）
+  window.dispatchEvent(new CustomEvent('vtab:collapsed-changed', { detail: { collapsed: !isExpanded.value } }))
 }
 
 // 宽度过渡结束：通知 Viewport 停止逐帧同步并做最终对齐
@@ -401,22 +398,22 @@ async function openWorkspacePanel(e: MouseEvent): Promise<void> {
 onMounted(async () => {
   setup()
   void loadTabs().then(applyOrder)
-  // 读取持久化的折叠状态
   const collapsed = await window.browserAPI.getSetting('tabBarCollapsed')
   if (typeof collapsed === 'boolean') {
     isExpanded.value = !collapsed
   }
-  // macOS 初始时按折叠状态同步交通灯
-  if (isMacOS) {
-    void window.browserAPI.setTrafficLightVisible(isExpanded.value)
-  }
-  // 工作区状态
   const ws = await window.browserAPI.getActiveWorkspace()
   if (ws) {
     currentWorkspace.value = ws
   }
   window.browserAPI.onWorkspaceSwitched((ws) => {
     currentWorkspace.value = ws
+  })
+  // 折叠时 toggle 已移到 AddressBar 左侧，点击后在此展开
+  window.addEventListener('vtab:toggle-from-addressbar', () => {
+    if (!isExpanded.value) {
+      toggleExpand()
+    }
   })
 })
 
@@ -441,20 +438,18 @@ onUnmounted(() => {
   border-right: 1px solid var(--border);
   overflow: hidden;
   flex-shrink: 0;
-  transition: width 150ms ease;
+  transition: all 150ms ease;
   user-select: none;
+  margin-top: var(--addressbar-height);
 
   &.mac-os {
-    /* macOS 无系统标题栏：展开时顶部留交通灯空间 */
+    /* macOS 无系统标题栏：允许拖拽整个栏区 */
     -webkit-app-region: drag;
-
-    &.vertical-tab-bar--expanded {
-      padding-top: 28px;
-    }
   }
 
   &--expanded {
     width: var(--vtab-width-expanded);
+    margin-top: 0;
   }
 
   &:not(&--expanded) .vtab-favicon {
@@ -471,14 +466,28 @@ onUnmounted(() => {
 
 .vtab-header {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  padding: 4px 4px 0;
+  justify-content: space-between;
+  min-height: var(--addressbar-height);
   flex-shrink: 0;
   -webkit-app-region: no-drag;
+  position: relative;
+  gap: 4px;
+  padding: 0 4px 0 70px;
+  transition: all 150ms ease;
 }
 
-.vtab-toggle {
-  margin: 0 auto 8px;
+/* macOS 折叠时：背景与 AddressBar 一致，隐藏 toggle，工作区按钮绝对定位避交通灯 */
+.vertical-tab-bar.mac-os:not(.vertical-tab-bar--expanded) {
+  .vtab-header {
+    justify-content: center;
+    padding: 0;
+  }
+  .vtab-toggle {
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 .vtab-workspace-btn {
@@ -495,7 +504,6 @@ onUnmounted(() => {
   -webkit-app-region: no-drag;
   border-radius: 8px;
   background: var(--accent-color);
-  margin: 0 auto;
 
   &:hover {
     opacity: 0.85;
@@ -503,7 +511,8 @@ onUnmounted(() => {
 }
 
 .vtab-toggle {
-  margin: 0 auto 8px;
+  margin: 0;
+  transition: all 150ms ease;
 }
 
 .vtab-item {

@@ -20,6 +20,8 @@
           :security-state="activeTab.navigation.securityState"
           :favicon="activeTab.favicon"
           :is-reader-mode="activeTab.isReaderMode"
+          :show-left-toggle="isMacOS && tabBarPosition === 'left' && vtabCollapsed"
+          @left-toggle-click="handleAddressBarToggleClick"
         />
         <BookmarkBar v-if="showBookmarkBar && !isHtmlFullscreen" />
         <Viewport
@@ -67,15 +69,13 @@ const isIncognito = ref(false)
 /** 当前活跃标签是否处于 HTML 全屏（Fullscreen API）状态，隐藏所有 UI chrome */
 const isHtmlFullscreen = computed(() => activeTab.value?.isHtmlFullscreen === true)
 const tabBarPosition = ref<'top' | 'left'>('top')
+/** macOS 左置垂直标签栏是否折叠（展开 toggle 从 vtab-header 移到 AddressBar 左侧） */
+const vtabCollapsed = ref(true)
 
 function syncTabBarPosition(): void {
   void window.browserAPI.getSetting('tabBarPosition').then((v) => {
     const pos = (v as 'top' | 'left') ?? 'top'
     tabBarPosition.value = pos
-    // macOS 切换到顶部标签栏时恢复交通灯显示
-    if (isMacOS && pos === 'top') {
-      void window.browserAPI.setTrafficLightVisible(true)
-    }
   })
 }
 
@@ -114,6 +114,12 @@ let cleanupFocusAddressBar: (() => void) | null = null
 let cleanupTabBarPositionChanged: (() => void) | null = null
 let cleanupOpenCommandPalette: (() => void) | null = null
 let commandPalettePopover: Popover | null = null
+let cleanupVtabCollapsed: (() => void) | null = null
+
+/** 折叠时 AddressBar 左侧 toggle 被点击：派发事件让 VerticalTabBar 展开 */
+function handleAddressBarToggleClick(): void {
+  window.dispatchEvent(new CustomEvent('vtab:toggle-from-addressbar'))
+}
 
 onMounted(() => {
   console.debug('[ChromeUI] onMounted: initializing')
@@ -157,6 +163,21 @@ onMounted(() => {
       },
     })
   })
+
+  // 初始读取垂直标签栏折叠状态
+  void window.browserAPI.getSetting('tabBarCollapsed').then((v) => {
+    vtabCollapsed.value = Boolean(v)
+    console.debug('[ChromeUI] vtabCollapsed init:', vtabCollapsed.value)
+  })
+
+  const onCollapsedChanged = (e: CustomEvent<{ collapsed: boolean }>) => {
+    vtabCollapsed.value = e.detail.collapsed
+    console.debug('[ChromeUI] vtab collapsed changed:', vtabCollapsed.value)
+  }
+  window.addEventListener('vtab:collapsed-changed', onCollapsedChanged as EventListener)
+  cleanupVtabCollapsed = () => {
+    window.removeEventListener('vtab:collapsed-changed', onCollapsedChanged as EventListener)
+  }
 })
 
 onUnmounted(() => {
@@ -174,6 +195,8 @@ onUnmounted(() => {
   commandPalettePopover = null
   cleanupTabBarPositionChanged?.()
   cleanupTabBarPositionChanged = null
+  cleanupVtabCollapsed?.()
+  cleanupVtabCollapsed = null
 })
 </script>
 

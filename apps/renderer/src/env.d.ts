@@ -186,7 +186,6 @@ declare global {
       maximizeWindow: IpcInvoke['window:maximize']
       closeWindow: IpcInvoke['window:close']
       createNewWindow: IpcInvoke['window:new']
-      setTrafficLightVisible: IpcInvoke['window:setTrafficLightVisible']
       getWindowInfo: IpcInvoke['window:getInfo']
       // Subscription
       getSubscriptions: () => Promise<

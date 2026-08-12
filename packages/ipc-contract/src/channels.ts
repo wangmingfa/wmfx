@@ -849,8 +849,6 @@ export interface IpcContract {
   'window:minimize': () => void
   'window:maximize': () => void
   'window:close': () => void
-  /** macOS 交通灯显示/隐藏（null 隐藏，坐标显示） */
-  'window:setTrafficLightVisible': (visible: boolean) => void
   // Shell (download closure)
   /** 打开设置页（主进程快捷键回调经 focused 窗口广播，渲染进程据此导航到 wmfx://settings） */
   'shell:openSettings': () => void
@@ -1110,7 +1108,6 @@ export const IPC_CHANNELS: readonly IpcChannel[] = [
   'window:minimize',
   'window:maximize',
   'window:close',
-  'window:setTrafficLightVisible',
   // Shell (download closure)
   'shell:showInFolder',
   'shell:openFile',

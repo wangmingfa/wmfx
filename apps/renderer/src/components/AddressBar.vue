@@ -1,5 +1,14 @@
 <template>
   <div class="address-bar">
+    <!-- macOS 折叠垂直标签栏时，展开按钮放在地址栏最左侧（在 back/forward 之前） -->
+    <IconButton
+      v-if="showLeftToggle"
+      icon="ic:baseline-menu"
+      :btn-size="28"
+      :rounded="false"
+      :tooltip="t('settings.tabBarExpand')"
+      @click="emit('leftToggleClick')"
+    />
     <IconButton
       icon="ic:round-arrow-back"
       :disabled="!canGoBack"
@@ -92,9 +101,12 @@ const props = defineProps<{
   securityState?: 'secure' | 'insecure' | 'internal'
   favicon?: string | null
   isReaderMode?: boolean
+  /** macOS 折叠垂直标签栏时，在地址栏最左侧显示展开 toggle */
+  showLeftToggle?: boolean
 }>()
 
 const emit = defineEmits<{
+  leftToggleClick: []
   navigate: [url: string]
 }>()
 
@@ -485,7 +497,7 @@ onMounted(async () => {
      保证 .url-input-wrap 内容区为偶数 → 28px 输入框居中后顶部落在整数像素，
      避免 popover 锚点亚像素偏差导致的抖动 */
   box-sizing: border-box;
-  height: 40px;
+  height: var(--addressbar-height);
   background: var(--chrome-bg);
   padding: 0 8px;
   gap: 4px;

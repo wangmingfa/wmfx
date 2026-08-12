@@ -183,7 +183,6 @@ const api: {
   maximizeWindow: () => Promise<void>
   closeWindow: () => Promise<void>
   createNewWindow: (opts?: { url?: string; incognito?: boolean }) => Promise<void>
-  setTrafficLightVisible: (visible: boolean) => Promise<void>
   // Shell (download closure)
   showInFolder: (filePath: string) => Promise<void>
   openFile: (filePath: string) => Promise<void>
@@ -493,7 +492,6 @@ const api: {
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
   createNewWindow: (opts) => ipcRenderer.invoke('window:new', opts),
-  setTrafficLightVisible: (visible) => ipcRenderer.invoke('window:setTrafficLightVisible', visible),
   // Shell (download closure)
   showInFolder: (filePath) => ipcRenderer.invoke('shell:showInFolder', filePath),
   openFile: (filePath) => ipcRenderer.invoke('shell:openFile', filePath),
