@@ -39,6 +39,10 @@
   - `*.vue` → `eslint --fix` + `eslint`
 - Termux/Android environments auto-skip
 
+## Git 提交信息
+- 提交信息正文使用中文（与项目历史保持一致）
+- **不要**在提交信息末尾添加任何 AI 署名 trailer（如 `Co-Authored-By: ...`），不限于本仓库当前使用的 agent，其它 agent 生成的提交同样不添加
+
 ## Build
 - `bun run build` → builds all packages (shared → ipc-contract → renderer → main)
 - `bun run build:main` → only main process (CJS)

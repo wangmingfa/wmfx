@@ -436,8 +436,11 @@ function onMouseLeave(): void {
 }
 function onHover(itemId: string): void {
   const item = findItem(menuItems.value, itemId)
-  // 禁用项不响应 hover：保持当前高亮，避免 selectableIndexOf 返回 -1 时高亮跳回首项
+  // hover 到禁用项/未知项：清除之前菜单项的高亮（含已展开的子菜单路径），
+  // 避免上一个菜单项的 hover 样式残留
   if (!item || item.disabled) {
+    activeIndex.value = -1
+    activePath.value = []
     return
   }
   const path = pathToItem(menuItems.value, itemId)
