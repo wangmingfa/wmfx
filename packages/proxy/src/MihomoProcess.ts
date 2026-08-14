@@ -56,25 +56,33 @@ export class MihomoProcess {
     }
 
     /** spawn 独立进程，-d 指定配置目录 */
-    this.process = spawn(binaryPath, ['-d', this.configManager.configDir], {
+    const child = spawn(binaryPath, ['-d', this.configManager.configDir], {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
+    this.process = child
 
-    this.process.stdout?.on('data', (data: Buffer) => {
+    child.stdout?.on('data', (data: Buffer) => {
       this.onLog?.(data.toString().trim())
     })
 
-    this.process.stderr?.on('data', (data: Buffer) => {
+    child.stderr?.on('data', (data: Buffer) => {
       this.onError?.(data.toString().trim())
     })
 
-    this.process.on('error', (err) => {
+    child.on('error', (err) => {
+      // 仅在仍是本进程时清引用，避免误清后续 start() 新建的进程
+      if (this.process === child) {
+        this.process = null
+      }
       console.debug(`[MihomoProcess] spawn error: ${err.message}`)
       this.onError?.(`Process error: ${err.message}`)
     })
 
-    this.process.on('exit', (code) => {
-      this.process = null
+    child.on('exit', (code) => {
+      // 仅在仍是本进程时清引用，避免误清 stop()/start() 竞态下新建的进程
+      if (this.process === child) {
+        this.process = null
+      }
       console.debug(
         `[MihomoProcess] exit: code=${code}, stopRequested=${this.stopRequested}, restartCount=${this.restartCount}`
       )
@@ -88,7 +96,7 @@ export class MihomoProcess {
     })
 
     this.restartCount = 0
-    console.debug(`[MihomoProcess] start: spawned pid=${this.process.pid}`)
+    console.debug(`[MihomoProcess] start: spawned pid=${child.pid}`)
     this.onLog?.('Mihomo started')
   }
 
@@ -96,11 +104,16 @@ export class MihomoProcess {
    * 优雅停止 Mihomo
    * 1. 先调 REST API POST /stop 让 Mihomo 清理连接
    * 2. 再 SIGTERM 兜底 kill（API 不可用时也能强制终止）
+   *
+   * 注意：stop() 是同步返回的（fetch 在后台进行），调用方可能紧接着 start() 新建进程。
+   * 因此这里捕获发起停止时的进程引用，异步回调只操作该旧进程，
+   * 不会误杀 stop 之后 start() 的新进程。
    */
   stop(): void {
     this.stopRequested = true
-    if (!this.process) return
-    const pid = this.process.pid
+    const proc = this.process
+    if (!proc) return
+    const pid = proc.pid
     const secret = this.configManager.getSecret()
     const url = `${this.configManager.getControllerUrl()}/stop`
     console.debug(`[MihomoProcess] stop: attempting API stop at ${url}`)
@@ -112,7 +125,7 @@ export class MihomoProcess {
         console.debug('[MihomoProcess] stop: API stop failed, falling back to SIGTERM')
       })
       .finally(() => {
-        if (this.process) {
+        if (proc) {
           console.debug(`[MihomoProcess] stop: sending SIGTERM to pid=${pid}`)
           // 杀掉整个进程组（mihomo 可能 fork 子进程），防止 Ctrl+C 后残留
           if (process.platform !== 'win32' && pid) {
@@ -122,7 +135,10 @@ export class MihomoProcess {
               /* already dead */
             }
           }
-          this.process.kill('SIGTERM')
+          proc.kill('SIGTERM')
+        }
+        // 仅在仍是本进程时清引用，避免清掉 stop() 后 start() 新建的进程
+        if (this.process === proc) {
           this.process = null
         }
       })

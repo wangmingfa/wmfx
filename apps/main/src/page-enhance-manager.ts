@@ -1,13 +1,17 @@
 /**
- * 页面增强管理器 — 暗色注入 + 阅读模式正文提取（主进程侧）
+ * 页面增强管理器 — 强制暗色 + 阅读模式正文提取（主进程侧）
  *
- * - 按全局主题给外部 http(s) 页注入/移除暗色 CSS（CSS 滤镜反色方案）
+ * - 强制暗色：外部 http(s) 页通过 executeJavaScript 注入 resources/darkreader.js
+ *   （esbuild 打包的 IIFE，暴露全局 DarkReader），再调用 DarkReader.enable()/disable()
+ *   开关。相比 CSS 反色滤镜，Dark Reader 逐色映射站点样式表：
+ *   媒体保持原样、色相不偏、已支持暗色的站点不会二次反转，且内部监听 DOM
+ *   变化自动适配动态内容。
  * - 阅读模式：在 PageView 的 webContents 内执行 Readability IIFE 提取正文，
  *   返回结构化文章；视图切换由 TabManager 控制，原网页不销毁。
  *
- * 注意：外部页不挂 preload，故提取脚本必须是自包含纯 JS 字符串。
- * Readability 已由 esbuild 打包为 IIFE（resources/readability.js），
- * 运行时用 fs.readFile 读取，再 executeJavaScript 注入 PageView。
+ * 注意：外部页不挂 preload，故注入脚本必须是自包含纯 JS 字符串。
+ * Readability / DarkReader 已由 esbuild 打包为 IIFE（resources/*.js），
+ * 运行时用 fs.readFile 读取，再 executeJavaScript 注入。
  */
 
 import { readFile } from 'node:fs/promises'
@@ -23,17 +27,16 @@ export interface ExtractedArticle {
 }
 
 export class PageEnhanceManager {
-  private static readonly DARK_CSS = `
-html { background: #0d0d0d !important; }
-html, body, *:not(img):not(video):not(canvas) {
-  filter: invert(1) hue-rotate(180deg) !important;
-  background-color: #0d0d0d !important;
-}
-img, video, canvas { filter: invert(1) hue-rotate(180deg) !important; }
-`
-  /** 追踪每个外部 wc 注入的 CSS key（Promise<string>），用于精确移除。 */
-  private darkCss = new Map<number, Promise<string>>()
+  /** 已生效（注入完成）的 webContents id 集合（幂等去重用） */
+  private darkEnabled = new Set<number>()
+  /** 每个 wc 的期望暗色状态（最新点击意图；串行链上每个操作执行时复查它） */
+  private darkDesired = new Map<number, boolean>()
+  /** 每个 wc 的暗色操作串行链：enable/disable 严格按提交顺序执行，杜绝过期脚本交错 */
+  private darkOps = new Map<number, Promise<void>>()
+  /** 已注册 destroyed 清理的 wc id（避免重复注册监听） */
+  private darkTracked = new Set<number>()
   private readabilitySrc = ''
+  private darkreaderSrc = ''
 
   /** 页面实际 URL 是否是内部页 wmfx://（dev 走 http://...#/path，prod 走 file://...#/path）。 */
   private isInternal(wc: WebContents): boolean {
@@ -49,6 +52,15 @@ img, video, canvas { filter: invert(1) hue-rotate(180deg) !important; }
     return this.readabilitySrc
   }
 
+  /** 懒加载 Dark Reader IIFE 脚本字符串 */
+  private async loadDarkReader(): Promise<string> {
+    if (!this.darkreaderSrc) {
+      this.darkreaderSrc = await readFile(resolveFromRoot('resources/darkreader.js'), 'utf-8')
+      console.debug(`[PageEnhanceManager] loadDarkReader: len=${this.darkreaderSrc.length}`)
+    }
+    return this.darkreaderSrc
+  }
+
   applyDark(wc: WebContents, isDark: boolean): void {
     const url = wc.getURL()
     const isExternal =
@@ -57,54 +69,97 @@ img, video, canvas { filter: invert(1) hue-rotate(180deg) !important; }
       `[PageEnhanceManager] applyDark: isDark=${isDark} url=${url} isExternal=${isExternal}`
     )
     if (!isExternal) return
-    if (isDark) {
-      if (this.darkCss.has(wc.id)) {
-        console.debug(`[PageEnhanceManager] applyDark: 已注入，跳过 wcId=${wc.id}`)
-        return
-      }
-      const p = wc.insertCSS(PageEnhanceManager.DARK_CSS)
-      this.darkCss.set(wc.id, p)
-      wc.once('destroyed', () => {
-        this.darkCss.delete(wc.id)
+    // 记录最新意图后入链：快速连续 toggle 时只有最后一次意图生效，
+    // 链上早先排队但已过期的操作会在执行时复查 darkDesired 自动跳过
+    this.darkDesired.set(wc.id, isDark)
+    this.enqueueDarkOp(wc, isDark ? () => this.enableDark(wc) : () => this.disableDark(wc))
+  }
+
+  /** 把暗色操作挂到该 wc 的串行链尾部，严格按提交顺序执行（前序失败不阻塞后续） */
+  private enqueueDarkOp(wc: WebContents, op: () => Promise<void>): void {
+    const prev = this.darkOps.get(wc.id) ?? Promise.resolve()
+    const next = prev
+      .catch(() => {})
+      .then(op)
+      .catch((err) => {
+        console.error(`[PageEnhanceManager] dark op failed wcId=${wc.id}`, err)
       })
-    } else {
-      this.removeDark(wc)
+    this.darkOps.set(wc.id, next)
+    if (!this.darkTracked.has(wc.id)) {
+      this.darkTracked.add(wc.id)
+      wc.once('destroyed', () => {
+        this.darkTracked.delete(wc.id)
+        this.darkOps.delete(wc.id)
+        this.darkEnabled.delete(wc.id)
+        this.darkDesired.delete(wc.id)
+      })
     }
   }
 
-  /** 移除单个 webContents 的暗色 CSS。 */
-  private removeDark(wc: WebContents): void {
-    const p = this.darkCss.get(wc.id)
-    if (p) {
-      this.darkCss.delete(wc.id)
-      void p.then((key) => wc.removeInsertedCSS(key)).catch(() => {})
+  /** 注入 Dark Reader 并启用暗色（在串行链中执行；失败仅记录，不抛给上层） */
+  private async enableDark(wc: WebContents): Promise<void> {
+    // 执行时复查：排队期间可能已被后续点击关闭
+    if (this.darkDesired.get(wc.id) !== true) return
+    if (this.darkEnabled.has(wc.id)) return // 已生效，幂等跳过
+    const src = await this.loadDarkReader()
+    if (wc.isDestroyed()) return
+    // 注入前复查：加载脚本期间可能已被关闭
+    if (this.darkDesired.get(wc.id) !== true) return
+    try {
+      await wc.executeJavaScript(
+        `${src}
+        ;DarkReader.enable({
+          mode: 1,
+          brightness: 100,
+          contrast: 90,
+          sepia: 0,
+          grayscale: 0
+        });`
+      )
+    } catch (err) {
+      console.error(`[PageEnhanceManager] enableDark: execute failed wcId=${wc.id}`, err)
+      return
     }
+    // 注入后复查：若期间被关闭，立即禁用避免残留暗色
+    if (this.darkDesired.get(wc.id) !== true) {
+      await wc
+        .executeJavaScript('if (typeof DarkReader !== "undefined") { DarkReader.disable(); }')
+        .catch(() => {})
+      return
+    }
+    this.darkEnabled.add(wc.id)
+    console.debug(`[PageEnhanceManager] enableDark: ok wcId=${wc.id}`)
   }
 
-  /** 批量移除指定 webContents 列表的暗色 CSS。 */
+  /** 移除单个 webContents 的暗色（在串行链中执行）。 */
+  private async disableDark(wc: WebContents): Promise<void> {
+    // 执行时复查：排队期间可能已被后续点击重新开启
+    if (this.darkDesired.get(wc.id) !== false) return
+    this.darkEnabled.delete(wc.id)
+    await wc
+      .executeJavaScript('if (typeof DarkReader !== "undefined") { DarkReader.disable(); }')
+      .catch(() => {})
+  }
+
+  /** 批量关闭指定 webContents 列表的暗色（每个 wc 入链，最后意图生效）。 */
   removeDarkBatch(wcs: WebContents[]): void {
-    const ids = new Set(wcs.map((w) => w.id))
-    for (const [wcId, p] of this.darkCss) {
-      if (!ids.has(wcId)) continue
-      const w = wcs.find((x) => x.id === wcId)
-      if (!w) {
-        this.darkCss.delete(wcId)
-        continue
-      }
-      this.darkCss.delete(wcId)
-      void p.then((key) => w.removeInsertedCSS(key)).catch(() => {})
+    for (const w of wcs) {
+      if (w.isDestroyed()) continue
+      this.darkDesired.set(w.id, false)
+      this.enqueueDarkOp(w, () => this.disableDark(w))
     }
   }
 
   /**
-   * 忘记某 webContents 追踪的暗色 key（不调用 removeInsertedCSS）。
-   * 用于全量导航（did-navigate）：Chromium 已随旧文档丢弃已注入的 CSS，
-   * 但 darkCss map 仍持有过期 key，会让幂等 guard 误判为"已注入"而跳过新页注入。
-   * 页内导航（did-navigate-in-page）文档不变、CSS 仍在，切勿调用本方法。
+   * 忘记某 webContents 追踪的暗色状态（不调用 DarkReader.disable）。
+   * 用于全量导航（did-navigate）：旧文档已随导航销毁，注入的脚本随之失效，
+   * 若不清除 darkEnabled 会让幂等 guard 误判为"已启用"而跳过新页注入。
+   * 页内导航（did-navigate-in-page）文档不变、脚本仍在，切勿调用本方法。
    */
   resetDark(wc: WebContents): void {
     console.debug(`[PageEnhanceManager] resetDark: wcId=${wc.id}`)
-    this.darkCss.delete(wc.id)
+    this.darkEnabled.delete(wc.id)
+    this.darkDesired.delete(wc.id)
   }
 
   async extractArticle(wc: WebContents): Promise<ExtractedArticle | null> {

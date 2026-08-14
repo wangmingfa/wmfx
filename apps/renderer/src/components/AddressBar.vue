@@ -57,9 +57,9 @@
         </button>
         <IconButton
           icon="mdi:invert-colors"
-          :active="forceDarkEnabled"
-          :tooltip="forceDarkEnabled ? t('settings.forceDarkOff') : t('settings.forceDarkOn')"
-          @click="toggleForceDark(!forceDarkEnabled)"
+          :active="forceDarkDisplayed"
+          :tooltip="forceDarkDisplayed ? t('settings.forceDarkOff') : t('settings.forceDarkOn')"
+          @click="toggleForceDark"
         />
         <IconButton
           icon="ic:round-print"
@@ -82,7 +82,7 @@
 
 <script setup lang="ts">
 import { ADDRESS_BAR_PLACEHOLDER, formatAddressBarUrl, isWmfxUrl, resolveAddressBarTarget } from '@browser/shared'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useAddressBarFocus } from '../composables/useAddressBarFocus'
 import { useI18n } from '../composables/useI18n'
@@ -175,6 +175,13 @@ watch(focusNonce, () => {
 
 const isBookmarked = ref(false)
 const forceDarkEnabled = ref(false)
+/** 用户点击意图（立即翻转，不等 IPC 返回），防抖后统一提交 */
+const forceDarkTarget = ref<boolean | null>(null)
+/** 按钮展示状态：有未提交意图时展示意图，否则展示已生效状态（点击即时反馈） */
+const forceDarkDisplayed = computed(() => forceDarkTarget.value ?? forceDarkEnabled.value)
+let forceDarkTimer: ReturnType<typeof setTimeout> | null = null
+/** 串行化 setSetting，避免快速连点时并发 IPC 乱序 */
+let forceDarkApplying: Promise<void> = Promise.resolve()
 
 const ZOOM_LEVELS = [50, 75, 100, 125, 150]
 const ZOOM_FACTORS = [0.5, 0.75, 1.0, 1.25, 1.5]
@@ -422,15 +429,55 @@ function printPage(): void {
   window.browserAPI.printPage({ tabId: props.tabId })
 }
 
-async function toggleForceDark(value: boolean): Promise<void> {
-  console.info('[AddressBar] toggleForceDark: tabId', props.tabId, 'to', value)
-  await window.browserAPI.setSetting({ key: 'forceDark', value })
-  forceDarkEnabled.value = value
+/**
+ * 切换强制暗色（防抖 + 意图取反）：
+ * 快速连点时基于"意图状态"取反并合并为最后一次，避免 IPC 返回前的
+ * forceDarkEnabled 过期导致目标值错乱 / 连点产生并发 IPC 乱序。
+ */
+function toggleForceDark(): void {
+  const base = forceDarkTarget.value ?? forceDarkEnabled.value
+  const target = !base
+  console.info('[AddressBar] toggleForceDark: tabId', props.tabId, 'target', target)
+  // 先更新意图（按钮即时反馈），防抖后统一提交
+  forceDarkTarget.value = target
+  if (forceDarkTimer) {
+    clearTimeout(forceDarkTimer)
+  }
+  forceDarkTimer = setTimeout(() => {
+    void applyForceDark(target)
+  }, 250)
+}
+
+async function applyForceDark(value: boolean): Promise<void> {
+  // 串行化：等前一次 setSetting 完成再发下一次，避免 IPC 乱序
+  forceDarkApplying = forceDarkApplying
+    .then(() => window.browserAPI.setSetting({ key: 'forceDark', value }))
+    .then(() => {
+      forceDarkEnabled.value = value
+      // 只有提交值仍等于当前意图时才清意图，防止旧提交覆盖新点击
+      if (forceDarkTarget.value === value) {
+        forceDarkTarget.value = null
+      }
+      console.debug('[AddressBar] applyForceDark: applied value=%s', value)
+    })
+    .catch((err) => {
+      console.error('[AddressBar] applyForceDark: failed value=%s', value, err)
+      // 失败回滚：重新读取服务端真实状态
+      forceDarkTarget.value = null
+      void window.browserAPI
+        .getSetting('forceDark')
+        .then((v) => {
+          forceDarkEnabled.value = v === true
+        })
+        .catch(() => {})
+    })
+  await forceDarkApplying
 }
 
 async function initForceDark(): Promise<void> {
   const v = (await window.browserAPI.getSetting('forceDark')) as boolean
   forceDarkEnabled.value = v === true
+  forceDarkTarget.value = null
   console.debug('[AddressBar] initForceDark: value', v)
 }
 
@@ -485,6 +532,13 @@ onMounted(async () => {
   await initForceDark()
   await syncBookmarkStatus()
   console.debug('[AddressBar] onMounted: done')
+})
+
+onBeforeUnmount(() => {
+  // 清理强制暗色防抖定时器，避免卸载后仍提交意图
+  if (forceDarkTimer) {
+    clearTimeout(forceDarkTimer)
+  }
 })
 </script>
 

@@ -39,6 +39,11 @@ export class ApiClient {
     const res = await fetch(url, options)
     console.debug(`[ApiClient] request: ${method} ${path} → ${res.status}`)
     if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+    // 204 No Content / 205 Reset Content 无响应体，直接返回，避免 res.json() 解析空串抛错
+    // （Mihomo 的 PUT /proxies/{group}、PUT/PATCH /configs 成功时返回 204）
+    if (res.status === 204 || res.status === 205) {
+      return undefined as T
+    }
     return res.json() as Promise<T>
   }
 

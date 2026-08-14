@@ -13,14 +13,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "build:shared": "bun run --filter @browser/shared build",
-    "build:ipc": "bun run --filter @browser/ipc-contract build",
-    "build:database": "bun run --filter @wmfx/database build",
-    "build:proxy": "bun run --filter @browser/proxy build",
     "build:main": "bun run --filter @browser/main build",
     "build:renderer": "bun run --filter @browser/renderer build",
     "build:readability": "bun run scripts/build-readability.ts",
-    "build": "bun scripts/clean-dist-pack.ts && bun run build:readability && bun run build:renderer && bun run build:main",
+    "build:darkreader": "bun run scripts/build-darkreader.ts",
+    "build": "bun scripts/clean-dist-pack.ts && bun run build:readability && bun run build:darkreader && bun run build:renderer && bun run build:main",
     "clean": "bun run scripts/clean.ts",
     "generate-icon": "bun run scripts/generate-icon.ts",
     "dev": "bun run scripts/check-deps.ts && bun run download:cores && bun run scripts/dev.ts",
@@ -86,6 +83,7 @@
     "@iconify/vue": "^5.0.1",
     "@mozilla/readability": "^0.6.0",
     "better-sqlite3": "^12.11.1",
+    "darkreader": "^4.9.128",
     "electron-store": "^11.0.2",
     "motion-v": "^2.3.0"
   }

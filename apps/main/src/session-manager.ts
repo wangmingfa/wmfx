@@ -66,6 +66,7 @@ export class SessionManager {
    * 如果设置了 proxyRules，会传递给 session.fromPartition
    */
   getSession(name: string): Session {
+    const existed = this.sessions.has(name)
     let config = this.sessions.get(name)
     if (!config) {
       config = {
@@ -83,6 +84,13 @@ export class SessionManager {
       opts.proxyRules = this.proxyRules
     }
     const sess = session.fromPartition(config.partition, opts)
+    // 已存在的分区不会重新读取 fromPartition 的 options（Electron 仅在首次创建时应用），
+    // 这里需显式 setProxy 才能让代理规则对存量分区生效；新建分区则由 options 应用
+    if (existed && this.proxyRules) {
+      sess.setProxy({ proxyRules: this.proxyRules }).catch((err) => {
+        console.error(`[SessionManager] getSession: setProxy failed for name=${name}`, err)
+      })
+    }
     // session 就绪后挂载广告拦截、wmfx 协议等附加能力
     for (const cb of this.onSessionReadyCallbacks) {
       cb(sess)

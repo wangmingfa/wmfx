@@ -237,6 +237,14 @@ export function createWindow(
 
   // 无痕窗口强制 defaultSessionName=incognito，新建标签默认走内存分区
   const defaultSessionName = isIncognito ? 'incognito' : 'default'
+
+  /**
+   * 配置 Electron session 代理
+   * 所有 WebContents 的流量通过 getProxyRules() 路由到本地 Mihomo (127.0.0.1:7890)
+   * 必须在 getSession() 之前调用，确保首次创建分区时就带上 proxyRules
+   */
+  sessionManager.setProxyRules(proxyManager.getProxyRules())
+
   const pageEnhanceManager = new PageEnhanceManager()
   const tabManager = new TabManager(
     win,
