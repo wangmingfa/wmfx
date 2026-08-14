@@ -28,6 +28,8 @@ export class SessionManager {
   private proxyRules?: string
   /** session 创建完成后的钩子数组（广告拦截器、wmfx 协议等），由主进程注入 */
   private onSessionReadyCallbacks: ((sess: Session) => void)[] = []
+  /** 已注入 stylesheet CORS 头的 session partition（避免重复注册 webRequest 监听） */
+  private corsInjectedPartitions = new Set<string>()
 
   /** 注册 session 就绪钩子（支持多个订阅者，幂等挂载广告拦截、协议等） */
   onSessionReady(cb: (sess: Session) => void): void {
@@ -90,6 +92,23 @@ export class SessionManager {
       sess.setProxy({ proxyRules: this.proxyRules }).catch((err) => {
         console.error(`[SessionManager] getSession: setProxy failed for name=${name}`, err)
       })
+    }
+    // 允许页面 fetch 跨域读取样式表：Dark Reader 动态暗色需抓取站点的 CDN 样式表，
+    // 而页面内 fetch 受 CORS 限制读不到跨域 CSS → 纯白背景站点失效。
+    // 仅对 stylesheet 资源注入 ACAO 头，不放宽脚本/数据等其他资源。
+    if (!this.corsInjectedPartitions.has(config.partition)) {
+      this.corsInjectedPartitions.add(config.partition)
+      sess.webRequest.onHeadersReceived(
+        { urls: ['http://*/*', 'https://*/*'], types: ['stylesheet'] },
+        (details, callback) => {
+          const responseHeaders = {
+            ...(details.responseHeaders ?? {}),
+            'Access-Control-Allow-Origin': ['*'],
+          }
+          callback({ responseHeaders })
+        }
+      )
+      console.debug(`[SessionManager] getSession: stylesheet CORS injected partition=${config.partition}`)
     }
     // session 就绪后挂载广告拦截、wmfx 协议等附加能力
     for (const cb of this.onSessionReadyCallbacks) {

@@ -106,9 +106,34 @@ export class PageEnhanceManager {
     // 注入前复查：加载脚本期间可能已被关闭
     if (this.darkDesired.get(wc.id) !== true) return
     try {
+      // 先屏蔽全局 define/exports/module 再注入：darkreader 是 UMD 产物，
+      // 若页面存在 AMD 加载器（如百度首页的全局 define），UMD 会走 AMD/CJS 分支
+      // 把模块注册到加载器而非挂到 window.DarkReader，导致后续 enable 抛 undefined。
+      // 屏蔽后 UMD 强制走浏览器分支挂到全局，注入完恢复原值。
       await wc.executeJavaScript(
-        `${src}
-        ;DarkReader.enable({
+        `;(function() {
+          const __saved = { define: window.define, exports: window.exports, module: window.module };
+          let __restored = false;
+          const __restore = () => {
+            if (__restored) return;
+            __restored = true;
+            window.define = __saved.define;
+            window.exports = __saved.exports;
+            window.module = __saved.module;
+          };
+          try {
+            window.define = undefined;
+            window.exports = undefined;
+            window.module = undefined;
+          } catch (e) { /* 只读全局，忽略 */ }
+          try {
+            ${src}
+          } finally {
+            __restore();
+          }
+        })();
+        ;DarkReader.setFetchMethod((url) => fetch(url));
+        DarkReader.enable({
           mode: 1,
           brightness: 100,
           contrast: 90,
