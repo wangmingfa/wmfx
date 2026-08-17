@@ -315,9 +315,6 @@ export async function archiveOldLogs(): Promise<void> {
  * 用 fs.readFileSync + fs.writeFileSync 直接重写原文件（文件通常很小，同步开销可忽略），
  * 同时省去了原来 WriteStream.end() 在空流上不回调的死锁风险。
  * 期间新日志先缓冲（cleaning 置位），重写完成后 flush，保证不丢。
- *
- * 注意：用 mtime 判断"今天才写过的文件"来跳过不必要的全量重写——
- * 刚创建的文件 mtime 就是今天，内容全为今天，无需过滤。
  */
 export async function cleanupLive(): Promise<void> {
   console.debug('[Logger] cleanupLive: starting')
@@ -330,14 +327,10 @@ export async function cleanupLive(): Promise<void> {
       console.debug('[Logger] cleanupLive: checking %s exists=%s', name, fs.existsSync(live))
       if (!fs.existsSync(live)) continue
       console.debug('[Logger] cleanupLive: cleaning %s', name)
-      const stat = fs.statSync(live)
-      if (dateStr(stat.mtime) === today) {
-        // 文件今天才创建/写过 → 内容全是今天的，无需清理
-        console.debug('[Logger] cleanupLive: %s is today, skip', name)
-        continue
-      }
       // 同步读取整个文件并按行过滤：实时文件通常很小（几条到几十条），
       // 同步开销可忽略，且避免了原来 WriteStream.end() 在空流上不回调的死锁风险。
+      // 注意：不能用 mtime 判断跳过——mtime 是今天 ≠ 内容全是今天的行，
+      // 归档测试/跨天写入时旧行可能残留，必须始终按行过滤。
       // 过滤后直接写回原文件（不再走 temp+rename）：同目录下 writeFileSync 是
       // 原子替换 inode 内容，中途崩溃最多留下截断文件，下次启动重新清理即可。
       const text = fs.readFileSync(live, 'utf8')
