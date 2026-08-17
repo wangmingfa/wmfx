@@ -16,7 +16,8 @@ describe('NavigationManager', () => {
 
   function createMockWebContents() {
     return {
-      loadURL: vi.fn(),
+      // loadURL 返回 Promise（与真实 Electron 一致），供 navigation-manager 的 .catch 链使用
+      loadURL: vi.fn().mockResolvedValue(undefined),
       reload: vi.fn(),
       stop: vi.fn(),
       navigationHistory: {

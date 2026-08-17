@@ -395,6 +395,15 @@ async function openWorkspacePanel(e: MouseEvent): Promise<void> {
 }
 
 // --- Lifecycle ---
+/** onWorkspaceSwitched 的取消函数，卸载时调用避免泄漏 */
+let disposeWorkspaceSwitched: (() => void) | null = null
+/** vtab:toggle-from-addressbar 具名 handler，卸载时按引用移除 */
+function onVtabToggleFromAddressbar(): void {
+  if (!isExpanded.value) {
+    toggleExpand()
+  }
+}
+
 onMounted(async () => {
   setup()
   void loadTabs().then(applyOrder)
@@ -406,15 +415,11 @@ onMounted(async () => {
   if (ws) {
     currentWorkspace.value = ws
   }
-  window.browserAPI.onWorkspaceSwitched((ws) => {
+  disposeWorkspaceSwitched = window.browserAPI.onWorkspaceSwitched((ws) => {
     currentWorkspace.value = ws
   })
   // 折叠时 toggle 已移到 AddressBar 左侧，点击后在此展开
-  window.addEventListener('vtab:toggle-from-addressbar', () => {
-    if (!isExpanded.value) {
-      toggleExpand()
-    }
-  })
+  window.addEventListener('vtab:toggle-from-addressbar', onVtabToggleFromAddressbar)
 })
 
 onUnmounted(() => {
@@ -425,6 +430,10 @@ onUnmounted(() => {
   if (hoverLeaveTimer) {
     clearTimeout(hoverLeaveTimer)
   }
+  // 注销监听：避免切换标签栏布局（top↔left）卸载/重挂时累积监听器
+  disposeWorkspaceSwitched?.()
+  disposeWorkspaceSwitched = null
+  window.removeEventListener('vtab:toggle-from-addressbar', onVtabToggleFromAddressbar)
   hoverPopover?.close()
 })
 </script>

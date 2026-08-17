@@ -31,8 +31,9 @@ registerWmfxSchemePrivileged()
 // 由 second-instance 在已有实例中接管并打开链接；无锁则无法正确接收链接。
 if (!app.requestSingleInstanceLock()) {
   app.quit()
-  // 阻止后续逻辑在已退出实例上继续执行
-  throw new Error('Another instance is already running')
+  // 阻止后续逻辑在已退出实例上继续执行；用 process.exit 干净退出，
+  // 避免顶层 throw 触发 uncaught exception（开发态弹错误框/打印堆栈）
+  process.exit(0)
 }
 
 /** 进程启动时刻，供启动耗时统计使用 */
@@ -286,56 +287,64 @@ setOnWindowReady((instance) => {
   wireWindowShortcuts(instance)
 })
 
-app.whenReady().then(async () => {
-  console.info('[App] whenReady: app starting')
-  if (process.platform !== 'darwin') {
-    Menu.setApplicationMenu(null)
-  }
+app
+  .whenReady()
+  .then(async () => {
+    console.info('[App] whenReady: app starting')
+    if (process.platform !== 'darwin') {
+      Menu.setApplicationMenu(null)
+    }
 
-  // 日志归档异步跑在后台，不阻塞窗口创建
-  startLogRotation().catch((e) => console.error('[App] whenReady: startLogRotation failed:', e))
+    // 日志归档异步跑在后台，不阻塞窗口创建
+    startLogRotation().catch((e) => console.error('[App] whenReady: startLogRotation failed:', e))
 
-  registerIpcHandlers()
-  console.debug('[App] whenReady: after registerIpcHandlers')
+    registerIpcHandlers()
+    console.debug('[App] whenReady: after registerIpcHandlers')
 
-  updater.init()
-  console.debug('[App] whenReady: after updater.init')
+    updater.init()
+    console.debug('[App] whenReady: after updater.init')
 
-  try {
-    proxyManager
-      .start()
-      .catch((e) => console.warn('[App] whenReady: Mihomo proxy failed to start:', e))
-    console.debug('[App] whenReady: proxy start initiated')
-  } catch (e) {
-    console.warn('[App] whenReady: Mihomo proxy failed to start:', e)
-  }
+    try {
+      proxyManager
+        .start()
+        .catch((e) => console.warn('[App] whenReady: Mihomo proxy failed to start:', e))
+      console.debug('[App] whenReady: proxy start initiated')
+    } catch (e) {
+      console.warn('[App] whenReady: Mihomo proxy failed to start:', e)
+    }
 
-  proxyManager.onData((data: TrafficData) => {
-    for (const inst of globalThis.browserInstances.values()) {
-      try {
-        inst.window.webContents.send('proxy:traffic', data)
-      } catch {
-        /* webContents 已销毁 */
+    proxyManager.onData((data: TrafficData) => {
+      for (const inst of globalThis.browserInstances.values()) {
+        try {
+          inst.window.webContents.send('proxy:traffic', data)
+        } catch {
+          /* webContents 已销毁 */
+        }
       }
-    }
-  })
+    })
 
-  const mainWindow = createWindow({}, proxyManager)
-  console.debug('[App] whenReady: createWindow done')
-  registerWmfxProtocol()
-  initNativeMenu(mainWindow.window)
-  mainWindow.settingsManager.setNativeTheme()
-  bootstrapWindow(mainWindow)
-  wireWindowShortcuts(mainWindow)
+    const mainWindow = createWindow({}, proxyManager)
+    console.debug('[App] whenReady: createWindow done')
+    registerWmfxProtocol()
+    initNativeMenu(mainWindow.window)
+    mainWindow.settingsManager.setNativeTheme()
+    bootstrapWindow(mainWindow)
+    wireWindowShortcuts(mainWindow)
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      const win = createWindow({}, proxyManager)
-      bootstrapWindow(win)
-      wireWindowShortcuts(win)
-    }
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        const win = createWindow({}, proxyManager)
+        bootstrapWindow(win)
+        wireWindowShortcuts(win)
+      }
+    })
   })
-})
+  // 启动主流程兜底错误处理：任一同步/异步步骤抛错都记录并退出，
+  // 避免应用停留在无 UI 状态（unhandled rejection）
+  .catch((err) => {
+    console.error('[App] whenReady: fatal startup error:', err)
+    app.exit(1)
+  })
 
 app.on('before-quit', () => {
   saveAllSessionStates()

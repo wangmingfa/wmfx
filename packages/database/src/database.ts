@@ -1,15 +1,12 @@
-import path from 'node:path'
 import Database from 'better-sqlite3'
-import { app } from 'electron'
 
 class DatabaseManager {
   private static instance: DatabaseManager | null = null
   private _db: Database.Database
 
-  private constructor() {
-    console.debug('[DatabaseManager] constructor: init start')
-    const dbPath = path.join(app.getPath('userData'), 'wmfx.db')
-    console.debug('[DatabaseManager] constructor: dbPath', dbPath)
+  /** 构造时传入 dbPath，避免包顶层依赖 electron（可脱离 Electron 使用/测试） */
+  private constructor(dbPath: string) {
+    console.debug('[DatabaseManager] constructor: init start dbPath=%s', dbPath)
     this._db = new Database(dbPath)
     this._db.pragma('journal_mode = WAL')
     this._db.pragma('foreign_keys = ON')
@@ -18,10 +15,11 @@ class DatabaseManager {
     console.debug('[DatabaseManager] constructor: init done')
   }
 
-  static getInstance(): DatabaseManager {
+  /** 首次调用时需传入 dbPath（由主进程解析 userData 路径后提供） */
+  static getInstance(dbPath: string): DatabaseManager {
     console.debug('[DatabaseManager] getInstance: hasInstance', !!DatabaseManager.instance)
     if (!DatabaseManager.instance) {
-      DatabaseManager.instance = new DatabaseManager()
+      DatabaseManager.instance = new DatabaseManager(dbPath)
     }
     return DatabaseManager.instance
   }
@@ -97,7 +95,12 @@ class DatabaseManager {
     // Migration: add 'active' column to subscriptions if missing
     try {
       this.db.prepare('SELECT active FROM subscriptions LIMIT 1').get()
-    } catch {
+    } catch (err) {
+      // 仅当列确实缺失（SQLITE_ERROR: no such column）时执行迁移，
+      // 其它真实错误（IO、语法等）向上抛，避免被静默吞掉
+      if (!(err instanceof Error) || !/no such column/i.test(err.message)) {
+        throw err
+      }
       console.debug('[DatabaseManager] initTables: adding missing active column to subscriptions')
       this.db.exec('ALTER TABLE subscriptions ADD COLUMN active INTEGER DEFAULT 0')
     }
@@ -105,7 +108,10 @@ class DatabaseManager {
     // Migration: add workspace_id column to bookmarks if missing
     try {
       this.db.prepare('SELECT workspace_id FROM bookmarks LIMIT 1').get()
-    } catch {
+    } catch (err) {
+      if (!(err instanceof Error) || !/no such column/i.test(err.message)) {
+        throw err
+      }
       console.debug('[DatabaseManager] initTables: adding missing workspace_id column to bookmarks')
       this.db.exec('ALTER TABLE bookmarks ADD COLUMN workspace_id TEXT')
     }

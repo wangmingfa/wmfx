@@ -22,6 +22,8 @@ export class MihomoProcess {
   private maxRestarts = 3
   /** 标记主动停止，避免意外关闭时自动重启 */
   private stopRequested = false
+  /** 崩溃后延迟重启的定时器引用，stop() 时需清除，防止退出后仍重启成孤儿进程 */
+  private restartTimer: ReturnType<typeof setTimeout> | null = null
   private onLog?: (msg: string) => void
   private onError?: (msg: string) => void
 
@@ -55,9 +57,11 @@ export class MihomoProcess {
       throw new Error(`Mihomo binary not found at ${binaryPath}`)
     }
 
-    /** spawn 独立进程，-d 指定配置目录 */
+    /** spawn 独立进程，-d 指定配置目录；detached 使子进程成为进程组组长，
+     *  stop() 的 process.kill(-pid) 才能杀整个进程组（mihomo 可能 fork 子进程） */
     const child = spawn(binaryPath, ['-d', this.configManager.configDir], {
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached: process.platform !== 'win32',
     })
     this.process = child
 
@@ -70,7 +74,8 @@ export class MihomoProcess {
     })
 
     child.on('error', (err) => {
-      // 仅在仍是本进程时清引用，避免误清后续 start() 新建的进程
+      // 仅在仍是本进程时清引用，避免误清后续 start() 新建的进程；
+      // spawn 错误（EACCES/ENOENT 等）不触发自动重启——二进制缺失/无权限时重启同样会失败
       if (this.process === child) {
         this.process = null
       }
@@ -87,11 +92,17 @@ export class MihomoProcess {
         `[MihomoProcess] exit: code=${code}, stopRequested=${this.stopRequested}, restartCount=${this.restartCount}`
       )
       this.onLog?.(`Mihomo exited with code ${code}`)
-      /** 仅在非主动停止时才自动重启 */
+      /** 仅在非主动停止时才自动重启；定时器保存引用供 stop() 清除 */
       if (!this.stopRequested && this.restartCount < this.maxRestarts) {
         this.restartCount++
         this.onLog?.(`Restarting mihomo (attempt ${this.restartCount})...`)
-        setTimeout(() => this.start(), 1000)
+        this.restartTimer = setTimeout(() => {
+          this.restartTimer = null
+          // 回调时再复查 stopRequested：stop() 可能已在延迟期间被调用
+          if (!this.stopRequested) {
+            this.start()
+          }
+        }, 1000)
       }
     })
 
@@ -111,6 +122,11 @@ export class MihomoProcess {
    */
   stop(): void {
     this.stopRequested = true
+    // 清除待触发的崩溃重启定时器，防止退出后仍重启成孤儿进程
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer)
+      this.restartTimer = null
+    }
     const proc = this.process
     if (!proc) return
     const pid = proc.pid
@@ -120,6 +136,9 @@ export class MihomoProcess {
     fetch(url, {
       method: 'POST',
       headers: { Authorization: `Bearer ${secret}` },
+      // API 停止带超时：Mihomo 卡死/不响应时 1s 后仍会走 SIGTERM 兜底，
+      // 避免 .finally 永不执行导致退出后进程残留
+      signal: AbortSignal.timeout(1000),
     })
       .catch(() => {
         console.debug('[MihomoProcess] stop: API stop failed, falling back to SIGTERM')

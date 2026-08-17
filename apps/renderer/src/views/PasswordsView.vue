@@ -145,9 +145,11 @@ import type { PasswordEntry } from '@browser/ipc-contract'
 import { NInput, NModal } from 'naive-ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import PageLayout from '@/components/PageLayout.vue'
+import { useConfirm } from '@/composables/useConfirm'
 import { useI18n } from '@/composables/useI18n'
 
 const { t } = useI18n()
+const { confirm } = useConfirm()
 
 const passwords = ref<PasswordEntry[]>([])
 const searchQuery = ref('')
@@ -212,8 +214,13 @@ async function save(): Promise<void> {
 
 async function remove(item: PasswordEntry): Promise<void> {
   console.debug('[Passwords] remove: id', item.id)
-  // eslint-disable-next-line no-alert
-  if (!confirm(t('passwords.deleteConfirm', { domain: item.domain }))) {
+  const ok = await confirm({
+    title: t('passwords.delete'),
+    content: t('passwords.deleteConfirm', { domain: item.domain }),
+    positiveText: t('passwords.delete'),
+    negativeText: t('passwords.cancel'),
+  })
+  if (!ok) {
     return
   }
   await window.browserAPI.deletePassword(item.id)
@@ -242,17 +249,22 @@ function onChanged(): void {
   void loadAll()
 }
 
+/** onPasswordsChanged 的取消函数，卸载时调用避免累积监听器 */
+let disposePasswordsChanged: (() => void) | null = null
+
 onMounted(async () => {
   console.debug('[Passwords] onMounted: 加载密码列表')
   await loadAll()
-  window.browserAPI.onPasswordsChanged(onChanged)
+  disposePasswordsChanged = window.browserAPI.onPasswordsChanged(onChanged)
 })
 
 onUnmounted(() => {
   if (searchTimer) {
     clearTimeout(searchTimer)
   }
-  // onPasswordsChanged 通过 ipcRenderer.on 注册，卸载时无需手动移除（renderer 进程单例 contextBridge 会随视图销毁回收）
+  // 注销 IPC 监听：离开密码页再回来时避免重复注册（与仓库内其它组件一致）
+  disposePasswordsChanged?.()
+  disposePasswordsChanged = null
 })
 </script>
 

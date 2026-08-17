@@ -171,13 +171,17 @@ async function checkDelay(): Promise<void> {
   }
   console.debug('[NodeView] checkDelay: group', selectedGroup.value)
   loading.value = true
-  const results = await window.browserAPI.checkProxyDelay(selectedGroup.value)
-  const map: Record<string, number> = {}
-  for (const r of results) {
-    map[r.nodeName] = r.delay
+  try {
+    const results = await window.browserAPI.checkProxyDelay(selectedGroup.value)
+    const map: Record<string, number> = {}
+    for (const r of results) {
+      map[r.nodeName] = r.delay
+    }
+    delays.value = map
+  } finally {
+    // 失败也要复位 loading，避免按钮永久禁用
+    loading.value = false
   }
-  delays.value = map
-  loading.value = false
 }
 
 function formatDelay(d: number): string {

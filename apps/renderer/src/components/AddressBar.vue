@@ -317,10 +317,16 @@ function fetchSuggestions(): void {
   }
   debounceTimer = setTimeout(async () => {
     console.debug('[AddressBar] fetchSuggestions: query', urlInput.value)
-    suggestions.value = await window.browserAPI.getAutocompleteSuggestions({
-      query: urlInput.value,
-      limit: 6,
-    })
+    try {
+      suggestions.value = await window.browserAPI.getAutocompleteSuggestions({
+        query: urlInput.value,
+        limit: 6,
+      })
+    } catch (err) {
+      console.error('[AddressBar] fetchSuggestions 失败', err)
+      suggestions.value = []
+      return
+    }
     activeIndex.value = -1
     // 防抖完成后，如果弹窗仍开着，推送新建议让其渲染
     if (currentPopover) {

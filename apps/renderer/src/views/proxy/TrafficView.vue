@@ -50,10 +50,8 @@ let statusInterval: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
   console.debug('[TrafficView] onMounted: 注册流量监听与状态轮询')
-  unsubscribeTraffic = () => {
-    window.browserAPI.removeListener('proxy:traffic', null as never)
-  }
-  window.browserAPI.onProxyTraffic((data: { up: number, down: number }) => {
+  // onProxyTraffic 返回 disposer，卸载时按引用注销（此前 removeListener(null) 永远注销不掉）
+  unsubscribeTraffic = window.browserAPI.onProxyTraffic((data: { up: number, down: number }) => {
     trafficUp.value = data.up
     trafficDown.value = data.down
     statusText.value = t('proxy.trafficRunning')

@@ -20,7 +20,8 @@ export function useBookmarks() {
   async function load(): Promise<void> {
     const ws = await window.browserAPI.getActiveWorkspace()
     const wsId = ws?.id ?? null
-    bookmarks.value = await window.browserAPI.getBookmarksByWorkspace(null)
+    // 按当前工作区加载书签：此前恒传 null 导致切换工作区后书签列表不刷新
+    bookmarks.value = await window.browserAPI.getBookmarksByWorkspace(wsId)
     console.debug('[useBookmarks] load: workspaceId=%s count', wsId, bookmarks.value.length)
   }
 

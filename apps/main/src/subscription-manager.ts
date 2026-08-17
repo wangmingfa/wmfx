@@ -87,8 +87,8 @@ export class SubscriptionManager {
 
   activateSubscription(id: string): void {
     console.debug('[SubscriptionManager] activateSubscription: id', id)
-    this.repo.deactivateAll()
-    this.repo.update(id, { active: 1 })
+    // 原子激活：单条 UPDATE 置目标为 1、其余为 0，避免两步操作崩溃导致无激活订阅
+    this.repo.activateOnly(id)
   }
 
   deactivateSubscription(id: string): void {

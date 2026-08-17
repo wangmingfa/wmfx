@@ -11,6 +11,9 @@
 import type { ConfigManager } from './ConfigManager'
 import type { ProxyGroup, ProxyNode } from './types'
 
+/** REST API 请求超时（ms）：core 挂起/不响应时中止，避免无限等待 */
+const REQUEST_TIMEOUT_MS = 10_000
+
 export class ApiClient {
   private configManager: ConfigManager
 
@@ -32,6 +35,8 @@ export class ApiClient {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${secret}`,
       },
+      // 请求超时：core 挂起/不响应时不再无限等待（配合调用方重试/降级）
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     }
     if (body) {
       options.body = JSON.stringify(body)

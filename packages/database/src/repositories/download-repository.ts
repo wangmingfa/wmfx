@@ -60,6 +60,14 @@ export class DownloadRepository {
     return stmt.get(id) as DownloadItem | undefined
   }
 
+  /** 允许更新的列白名单：禁止将 Object.entries 的 key 直接拼入 SQL（防注入） */
+  private static readonly UPDATABLE_COLUMNS = new Set([
+    'state',
+    'received_bytes',
+    'total_bytes',
+    'error_msg',
+  ])
+
   update(
     id: string,
     updates: Partial<Pick<DownloadItem, 'state' | 'received_bytes' | 'total_bytes' | 'error_msg'>>
@@ -67,6 +75,10 @@ export class DownloadRepository {
     const fields: string[] = []
     const params: unknown[] = []
     for (const [key, value] of Object.entries(updates)) {
+      if (!DownloadRepository.UPDATABLE_COLUMNS.has(key)) {
+        console.warn(`[DownloadRepository] update: blocked column '${key}' id=${id}`)
+        continue
+      }
       fields.push(`${key} = ?`)
       params.push(value)
     }

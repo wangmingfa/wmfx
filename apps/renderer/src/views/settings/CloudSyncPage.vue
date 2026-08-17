@@ -219,14 +219,13 @@ import SectionBlock from '@/components/SectionBlock.vue'
 import SectionItem from '@/components/SectionItem.vue'
 import { useI18n } from '@/composables/useI18n'
 
-const PBKDF2_SALT = new Uint8Array(16)
-
 const { t } = useI18n()
 
 const config = ref<{
   enabled: boolean
   type: 'webdav'
   webdav: { baseUrl: string, username: string, password: string, remotePath: string }
+  pbkdf2Salt?: string
   lastSyncAt?: number
   lastSyncSize?: number
   lastSyncMessage?: string
@@ -235,6 +234,24 @@ const config = ref<{
   type: 'webdav',
   webdav: { baseUrl: '', username: '', password: '', remotePath: '/.wmfx/' },
 })
+
+/** 生成 16 字节随机 PBKDF2 salt（base64），避免固定 salt 使所有用户派生同一密钥 */
+function generatePbkdf2Salt(): string {
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  return btoa(String.fromCharCode(...bytes))
+}
+
+/** 获取当前 salt：配置已持久化则复用，否则生成并保存（首次同步时落盘） */
+function getOrCreateSalt(): string {
+  if (config.value.pbkdf2Salt) {
+    return config.value.pbkdf2Salt
+  }
+  const salt = generatePbkdf2Salt()
+  config.value.pbkdf2Salt = salt
+  save()
+  return salt
+}
 
 const connected = ref(false)
 const records = ref<Array<{ timestamp: number, action: 'upload' | 'download' | 'test', ok: boolean, message: string, bytes?: number }>>([])
@@ -291,9 +308,12 @@ async function deriveKey() {
   }
   try {
     const enc = new TextEncoder()
+    const saltB64 = getOrCreateSalt()
+    // base64 → bytes 作为 PBKDF2 salt（持久化在 CloudSyncConfig，与其它实例/用户区分）
+    const salt = Uint8Array.from(atob(saltB64), c => c.charCodeAt(0))
     const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey'])
     const key = await crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt: PBKDF2_SALT, iterations: 100000, hash: 'SHA-256' },
+      { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
       keyMaterial,
       { name: 'AES-GCM', length: 256 },
       false,

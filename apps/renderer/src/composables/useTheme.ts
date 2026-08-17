@@ -31,12 +31,24 @@ export function useTheme() {
   }
 }
 
+/** 系统配色 MediaQueryList（懒注册一次，模块级单例） */
+let systemThemeMql: MediaQueryList | null = null
+
 function setTheme(setting: ThemeMode): void {
   if (themeSetting.value === setting) {
     resolveThemeFlag.value++
   }
   themeSetting.value = setting
   applyToDOM(resolvedTheme.value)
+  // system 模式需监听系统配色变化：OS 切换亮/暗时刷新 resolvedTheme
+  if (setting === 'system' && !systemThemeMql) {
+    systemThemeMql = window.matchMedia('(prefers-color-scheme: dark)')
+    systemThemeMql.addEventListener('change', () => {
+      if (themeSetting.value === 'system') {
+        resolveThemeFlag.value++
+      }
+    })
+  }
 }
 
 /**

@@ -90,7 +90,7 @@ declare global {
       searchPasswords: IpcInvoke['password:search']
       savePassword: IpcInvoke['password:save']
       deletePassword: IpcInvoke['password:delete']
-      onPasswordsChanged: (handler: () => void) => void
+      onPasswordsChanged: (handler: () => void) => () => void
       // Page
       printPage: IpcInvoke['page:print']
       printToPDF: IpcInvoke['page:printToPDF']
@@ -135,8 +135,8 @@ declare global {
       findPrevious: IpcInvoke['page:findPrevious']
       onFoundInPage: (
         handler: (data: { matches: number; activeMatch: number; tabId: string }) => void
-      ) => void
-      onOpenFind: (handler: (tabId: string) => void) => void
+      ) => () => void
+      onOpenFind: (handler: (tabId: string) => void) => () => void
       onFocusAddressBar: (handler: () => void) => () => void
       onOpenCommandPalette: (handler: () => void) => () => void
       // Tab reorder
@@ -155,7 +155,7 @@ declare global {
       // Events
       onTabStateChange: (handler: (state: TabState) => void) => void
       onTabCreated: (handler: (state: TabState) => void) => void
-      onTabRemoved: (handler: (tabId: string) => void) => void
+      onTabRemoved: (handler: (tabId: string) => void) => () => void
       onDownloadProgress: (
         handler: (data: {
           id: string
@@ -193,6 +193,7 @@ declare global {
           id: string
           name: string
           url: string
+          active: number
           last_update: number
           expire: number
           upload: number
@@ -248,7 +249,7 @@ declare global {
       onNativeMenuAction: (cb: (payload: { menuId: string; itemId: string }) => void) => void
       onNativeMenuClosed: (cb: (menuId: string) => void) => void
       // Proxy traffic broadcast
-      onProxyTraffic: (handler: (data: { up: number; down: number }) => void) => void
+      onProxyTraffic: (handler: (data: { up: number; down: number }) => void) => () => void
       // Error / Cert Warning
       getErrorInfo: () => Promise<{
         code: number

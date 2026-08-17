@@ -194,14 +194,26 @@ watch(
   },
 )
 
+/** 三个 IPC 监听的取消函数，卸载时调用避免累积监听器 */
+let disposeFoundInPage: (() => void) | null = null
+let disposeOpenFind: (() => void) | null = null
+let disposeTabRemoved: (() => void) | null = null
+
 onMounted(() => {
   console.debug('[FindBar] onMounted: registering listeners')
-  window.browserAPI.onFoundInPage(onFoundInPage)
-  window.browserAPI.onOpenFind(onOpenFind)
-  window.browserAPI.onTabRemoved(onTabRemoved)
+  disposeFoundInPage = window.browserAPI.onFoundInPage(onFoundInPage)
+  disposeOpenFind = window.browserAPI.onOpenFind(onOpenFind)
+  disposeTabRemoved = window.browserAPI.onTabRemoved(onTabRemoved)
 })
 
 onUnmounted(() => {
+  // 注销 IPC 监听：HTML 全屏切换或布局切换触发卸载时避免泄漏
+  disposeFoundInPage?.()
+  disposeFoundInPage = null
+  disposeOpenFind?.()
+  disposeOpenFind = null
+  disposeTabRemoved?.()
+  disposeTabRemoved = null
   popover?.close()
   popover = null
 })

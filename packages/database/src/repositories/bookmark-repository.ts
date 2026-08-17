@@ -128,6 +128,15 @@ export class BookmarkRepository {
     return rows
   }
 
+  /** 允许更新的列白名单：禁止将 Object.entries 的 key 直接拼入 SQL（防注入） */
+  private static readonly UPDATABLE_COLUMNS = new Set([
+    'title',
+    'url',
+    'favicon',
+    'position',
+    'parent_id',
+  ])
+
   update(
     id: string,
     updates: Partial<Pick<BookmarkItem, 'title' | 'url' | 'favicon' | 'position' | 'parent_id'>>
@@ -135,6 +144,10 @@ export class BookmarkRepository {
     const fields: string[] = []
     const params: unknown[] = []
     for (const [key, value] of Object.entries(updates)) {
+      if (!BookmarkRepository.UPDATABLE_COLUMNS.has(key)) {
+        console.warn(`[BookmarkRepository] update: blocked column '${key}' id=${id}`)
+        continue
+      }
       fields.push(`${key} = ?`)
       params.push(value)
     }

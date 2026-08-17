@@ -65,7 +65,7 @@ const api: {
   getPartitions: () => Promise<string[]>
   onTabStateChange: (cb: (state: TabState) => void) => void
   onTabCreated: (cb: (state: TabState) => void) => void
-  onTabRemoved: (cb: (tabId: string) => void) => void
+  onTabRemoved: (cb: (tabId: string) => void) => () => void
   removeListener: (
     channel: string,
     cb: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void
@@ -113,6 +113,7 @@ const api: {
   searchPasswords: (opts: { query: string }) => Promise<PasswordEntry[]>
   savePassword: (input: PasswordEntryInput) => Promise<PasswordEntry>
   deletePassword: (id: string) => Promise<void>
+  onPasswordsChanged: (handler: () => void) => () => void
   // Page
   printPage: (opts: TabPrintOptions) => Promise<void>
   printToPDF: (opts: TabPrintToPdfOptions) => Promise<{ path: string }>
@@ -250,8 +251,8 @@ const api: {
       totalMatches: number
       selection: string
     }) => void
-  ) => void
-  onOpenFind: (cb: (tabId: string) => void) => void
+  ) => () => void
+  onOpenFind: (cb: (tabId: string) => void) => () => void
   onFocusAddressBar: (cb: () => void) => () => void
   onOpenCommandPalette: (cb: () => void) => () => void
   // Log
@@ -314,7 +315,7 @@ const api: {
   onPopoverDismiss: (cb: (popoverId: string) => void) => void
   onPopoverEvent: (cb: (payload: PopoverEventPayload) => void) => void
   // Proxy traffic broadcast
-  onProxyTraffic: (cb: (data: { up: number; down: number }) => void) => void
+  onProxyTraffic: (cb: (data: { up: number; down: number }) => void) => () => void
   // Error / Cert Warning
   getErrorInfo: () => Promise<{ code: number; description: string; requestedUrl: string } | null>
   retry: () => Promise<void>
@@ -370,7 +371,11 @@ const api: {
   onTabStateChange: (cb) =>
     ipcRenderer.on('tab:state-change', (_e, state) => cb(state as TabState)),
   onTabCreated: (cb) => ipcRenderer.on('tab:created', (_e, state) => cb(state as TabState)),
-  onTabRemoved: (cb) => ipcRenderer.on('tab:removed', (_e, tabId) => cb(tabId as string)),
+  onTabRemoved: (cb) => {
+    const listener = (_e: Electron.IpcRendererEvent, tabId: string): void => cb(tabId)
+    ipcRenderer.on('tab:removed', listener)
+    return () => ipcRenderer.removeListener('tab:removed', listener)
+  },
   removeListener: (channel, cb) => ipcRenderer.removeListener(channel, cb),
   // Download
   createDownload: (opts) => ipcRenderer.invoke('download:create', opts),
@@ -407,6 +412,11 @@ const api: {
   searchPasswords: (opts) => ipcRenderer.invoke('password:search', opts),
   savePassword: (input) => ipcRenderer.invoke('password:save', input),
   deletePassword: (id) => ipcRenderer.invoke('password:delete', id),
+  onPasswordsChanged: (cb) => {
+    const listener = (): void => cb()
+    ipcRenderer.on('passwords:changed', listener)
+    return () => ipcRenderer.removeListener('passwords:changed', listener)
+  },
   // Page
   printPage: (opts) => ipcRenderer.invoke('page:print', opts),
   printToPDF: (opts) => ipcRenderer.invoke('page:printToPDF', opts),
@@ -543,8 +553,8 @@ const api: {
   activateSubscription: (id) => ipcRenderer.invoke('proxy:activateSubscription', id),
   deactivateSubscription: (id) => ipcRenderer.invoke('proxy:deactivateSubscription', id),
   // Broadcast
-  onFoundInPage: (cb) =>
-    ipcRenderer.on('page:foundInPage', (_e, data) =>
+  onFoundInPage: (cb) => {
+    const listener = (_e: Electron.IpcRendererEvent, data: unknown): void =>
       cb(
         data as {
           tabId: string
@@ -554,8 +564,14 @@ const api: {
           selection: string
         }
       )
-    ),
-  onOpenFind: (cb) => ipcRenderer.on('page:openFind', (_e, tabId) => cb(tabId as string)),
+    ipcRenderer.on('page:foundInPage', listener)
+    return () => ipcRenderer.removeListener('page:foundInPage', listener)
+  },
+  onOpenFind: (cb) => {
+    const listener = (_e: Electron.IpcRendererEvent, tabId: string): void => cb(tabId)
+    ipcRenderer.on('page:openFind', listener)
+    return () => ipcRenderer.removeListener('page:openFind', listener)
+  },
   onFocusAddressBar: (cb) => {
     const listener = (): void => cb()
     ipcRenderer.on('shell:focusAddressBar', listener)
@@ -604,8 +620,12 @@ const api: {
   onPopoverDismiss: (cb) => ipcRenderer.on('popover:dismiss', (_e, id) => cb(id as string)),
   onPopoverEvent: (cb) =>
     ipcRenderer.on('popover:event', (_e, payload) => cb(payload as PopoverEventPayload)),
-  onProxyTraffic: (cb) =>
-    ipcRenderer.on('proxy:traffic', (_e, data) => cb(data as { up: number; down: number })),
+  onProxyTraffic: (cb) => {
+    const listener = (_e: Electron.IpcRendererEvent, data: unknown): void =>
+      cb(data as { up: number; down: number })
+    ipcRenderer.on('proxy:traffic', listener)
+    return () => ipcRenderer.removeListener('proxy:traffic', listener)
+  },
   // Error / Cert Warning
   getErrorInfo: () => ipcRenderer.invoke('page:getErrorInfo'),
   retry: () => ipcRenderer.invoke('page:retry'),

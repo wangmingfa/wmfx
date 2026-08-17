@@ -48,6 +48,7 @@ import {
   requireAdBlocker,
   requireRequestCapturer,
 } from '../window-manager'
+import { isAllowedSessionId, isSafeWebUrl } from './validate'
 
 /** Type for raw WebContents event methods (TS overloads don't cover 'found-in-page') */
 interface WebContentsEventTarget {
@@ -99,26 +100,19 @@ function getInstance(event?: Electron.IpcMainInvokeEvent): BrowserWindowInstance
       win ? 'found' : 'null',
       win?.id
     )
-    if (win) {
-      const key = String(win.id)
-      const result = globalThis.browserInstances?.get(key)
-      console.debug(
-        '[IPC] getInstance: browserInstances.get(%s) = %s',
-        key,
-        result ? 'found' : 'null'
-      )
-      return result ?? null
-    }
+    // 找不到 sender 对应窗口时返回 null，不回退到聚焦窗口：
+    // 来源不明的消息不应作用到用户正在操作的窗口
+    if (!win) return null
+    const key = String(win.id)
+    const result = globalThis.browserInstances?.get(key)
+    console.debug(
+      '[IPC] getInstance: browserInstances.get(%s) = %s',
+      key,
+      result ? 'found' : 'null'
+    )
+    return result ?? null
   }
-  const focused = BrowserWindow.getFocusedWindow()
-  console.debug(
-    '[IPC] getInstance: fallback getFocusedWindow %s (id=%s)',
-    focused ? 'found' : 'null',
-    focused?.id
-  )
-  if (!focused) return null
-  const key = String(focused.id)
-  return globalThis.browserInstances?.get(key) ?? null
+  return null
 }
 
 // ─── Cloud Sync ───────────────────────────────────────────
@@ -148,6 +142,10 @@ export function registerIpcHandlers(): void {
 
   handle('tab:create', (event, opts) => {
     console.debug('[IPC] tab:create: url sessionId', opts?.url, opts?.sessionId)
+    // 校验：sessionId 白名单，防止构造任意 persist:* 分区（磁盘膨胀）
+    if (opts?.sessionId && !isAllowedSessionId(opts.sessionId)) {
+      throw new Error(`blocked sessionId: ${opts.sessionId}`)
+    }
     const inst = getInstance(event)
     if (!inst) return {} as ReturnType<IpcContract['tab:create']>
     return inst.tabManager.create(opts)
@@ -235,6 +233,10 @@ export function registerIpcHandlers(): void {
 
   handle('tab:createNewTab', (event, sessionId) => {
     console.debug('[IPC] tab:createNewTab: sessionId', sessionId)
+    // 校验：sessionId 白名单，防止构造任意 persist:* 分区
+    if (sessionId && !isAllowedSessionId(sessionId)) {
+      throw new Error(`blocked sessionId: ${sessionId}`)
+    }
     const inst = getInstance(event)
     if (!inst) return {} as ReturnType<IpcContract['tab:create']>
     return inst.tabManager.createNewTab(sessionId)
@@ -242,6 +244,10 @@ export function registerIpcHandlers(): void {
 
   handle('nav:loadURLCurrent', (event, url) => {
     console.debug('[IPC] nav:loadURLCurrent: url', url)
+    // 校验：仅允许 http/https 导航
+    if (typeof url === 'string' && !isSafeWebUrl(url)) {
+      throw new Error(`blocked url scheme: ${url}`)
+    }
     const inst = getInstance(event)
     if (!inst) return
     // 优先用 sender 反查（标签页内调用）；外壳渲染进程（命令面板/ChromeUI）调用时
@@ -286,6 +292,10 @@ export function registerIpcHandlers(): void {
 
   handle('nav:loadURL', (event, tabId, url) => {
     console.debug('[IPC] nav:loadURL: tabId url', tabId, url)
+    // 校验：仅允许 http/https 导航，拦截 file:/chrome:/javascript: 等 scheme
+    if (typeof url === 'string' && !isSafeWebUrl(url)) {
+      throw new Error(`blocked url scheme: ${url}`)
+    }
     const inst = getInstance(event)
     if (!inst) return
     inst.navigationManager.loadURL(tabId, url)
@@ -298,6 +308,10 @@ export function registerIpcHandlers(): void {
 
   handle('download:create', (event, opts) => {
     console.debug('[IPC] download:create: url', opts?.url)
+    // 校验：仅允许 http/https 下载源
+    if (typeof opts?.url === 'string' && !isSafeWebUrl(opts.url)) {
+      throw new Error(`blocked url scheme: ${opts.url}`)
+    }
     const inst = getInstance(event)
     if (!inst) return {} as ReturnType<IpcContract['download:create']>
     return inst.downloadManager.create(opts)
@@ -1322,6 +1336,15 @@ export function registerIpcHandlers(): void {
     if (prev) wcEventTarget.removeListener('found-in-page', prev)
     wcEventTarget.on('found-in-page', foundHandler)
     foundHandlers.set(wcId, foundHandler)
+
+    // tab 关闭时 webContents 直接销毁（不触发 page:endFind），
+    // 这里挂 destroyed 清理，避免 foundHandlers 残留引用已销毁 wc 的过期条目
+    wc.once('destroyed', () => {
+      const cur = foundHandlers.get(wcId)
+      if (cur) wcEventTarget.removeListener('found-in-page', cur)
+      foundHandlers.delete(wcId)
+      findQueries.delete(wcId)
+    })
 
     // findNext:false 表示新搜索会话，Chromium 会重置匹配集。不能在此前同步调 stopFindInPage：
     // 二者同一 tick 提交会产生竞态，导致本次 findInPage 被取消、拿不到 found-in-page 结果

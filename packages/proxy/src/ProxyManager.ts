@@ -63,7 +63,10 @@ export class ProxyManager implements ProxyProvider {
       }
       await new Promise((r) => setTimeout(r, 200))
     }
-    if (!ready) console.debug('[ProxyManager] start: API not ready after 30 attempts')
+    if (!ready) {
+      // 轮询超时视为启动失败：抛错让上层感知，且不连接流量监控（WS 会向死端口无限重连）
+      throw new Error('[ProxyManager] start: Mihomo API not ready after 30 attempts')
+    }
     this.trafficMonitor.connect()
   }
 

@@ -95,8 +95,12 @@ export class WorkspaceManager {
     // 清理 session partition
     const partition = this.getSessionPartition(id)
     const sess = session.fromPartition(partition)
-    void sess.clearStorageData()
-    void sess.clearCache()
+    sess.clearStorageData().catch((err) => {
+      console.error(`[WorkspaceManager] delete: clearStorageData failed id=${id}`, err)
+    })
+    sess.clearCache().catch((err) => {
+      console.error(`[WorkspaceManager] delete: clearCache failed id=${id}`, err)
+    })
 
     this.workspaceRepo.delete(id)
   }

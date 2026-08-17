@@ -236,24 +236,28 @@ async function saveLanguage(): Promise<void> {
 
 async function loadSettings(): Promise<void> {
   console.debug('[Settings/General] loadSettings')
-  const allSettings = await window.browserAPI.getAllSettings()
-  searchEngine.value = (allSettings.searchEngine as string) ?? 'google'
-  newTabUrl.value = (allSettings.newTabUrl as string) ?? ''
-  defaultZoom.value = Number(allSettings.defaultZoom) ?? 1.0
-  const saved = await window.browserAPI.getSetting('newTabOpenInNewTab')
-  if (typeof saved === 'boolean') {
-    openInNewTab.value = saved
+  try {
+    const allSettings = await window.browserAPI.getAllSettings()
+    searchEngine.value = (allSettings.searchEngine as string) ?? 'google'
+    newTabUrl.value = (allSettings.newTabUrl as string) ?? ''
+    defaultZoom.value = Number(allSettings.defaultZoom) ?? 1.0
+    const saved = await window.browserAPI.getSetting('newTabOpenInNewTab')
+    if (typeof saved === 'boolean') {
+      openInNewTab.value = saved
+    }
+    openBookmarkInNewTabSetting.value = Boolean(await window.browserAPI.getSetting('openBookmarkInNewTab'))
+    searchSuggestions.value = Boolean(await window.browserAPI.getSetting('searchSuggestions'))
+    launchBehavior.value = ((await window.browserAPI.getSetting('launchBehavior')) as string) ?? 'restore'
+    defaultFont.value = ((await window.browserAPI.getSetting('defaultFont')) as string) ?? 'system-ui'
+    defaultFontSize.value = Number(await window.browserAPI.getSetting('defaultFontSize')) ?? 16
+    defaultEncoding.value = ((await window.browserAPI.getSetting('defaultEncoding')) as string) ?? 'utf-8'
+    const langSaved = (await window.browserAPI.getSetting('currentLang')) as string
+    currentLang.value = langSaved ?? 'zh-CN'
+    setLang(currentLang.value)
+    isDefaultBrowser.value = await window.browserAPI.isDefaultBrowser()
+  } catch (err) {
+    console.error('[Settings/General] loadSettings 失败', err)
   }
-  openBookmarkInNewTabSetting.value = Boolean(await window.browserAPI.getSetting('openBookmarkInNewTab'))
-  searchSuggestions.value = Boolean(await window.browserAPI.getSetting('searchSuggestions'))
-  launchBehavior.value = ((await window.browserAPI.getSetting('launchBehavior')) as string) ?? 'restore'
-  defaultFont.value = ((await window.browserAPI.getSetting('defaultFont')) as string) ?? 'system-ui'
-  defaultFontSize.value = Number(await window.browserAPI.getSetting('defaultFontSize')) ?? 16
-  defaultEncoding.value = ((await window.browserAPI.getSetting('defaultEncoding')) as string) ?? 'utf-8'
-  const langSaved = (await window.browserAPI.getSetting('currentLang')) as string
-  currentLang.value = langSaved ?? 'zh-CN'
-  setLang(currentLang.value)
-  isDefaultBrowser.value = await window.browserAPI.isDefaultBrowser()
 }
 
 onMounted(loadSettings)

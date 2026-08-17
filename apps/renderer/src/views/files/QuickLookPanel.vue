@@ -123,7 +123,7 @@
 import type { FileStore } from './useFileStore'
 
 import { Icon } from '@iconify/vue/dist/offline'
-import { computed, inject, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import { fileStoreInjectionKey } from './injectionKeys'
 
@@ -376,6 +376,11 @@ onMounted(() => {
     const panel = document.querySelector('.quick-look-panel') as HTMLElement
     panel?.focus()
   })
+})
+
+onUnmounted(() => {
+  // 注销全局 keydown：离开 /files 路由再回来时避免重复注册监听
+  document.removeEventListener('keydown', handleKeyDown)
 })
 
 defineExpose({

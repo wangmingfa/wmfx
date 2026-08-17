@@ -179,10 +179,12 @@ function dayLabel(dateStr: string | number): string {
 async function loadDownloads() {
   console.debug('[DownloadsView] loadDownloads')
   const list = await window.browserAPI.getDownloads()
+  // 单个文件存在性检查失败只降级该条（_fileExists=false），
+  // 不让 Promise.all 整体 reject 导致整个下载列表不显示
   downloads.value = await Promise.all(
     list.map(async item => ({
       ...item,
-      _fileExists: await window.browserAPI.fileExists(item.path),
+      _fileExists: await window.browserAPI.fileExists(item.path).catch(() => false),
       _hover: false,
     })),
   )

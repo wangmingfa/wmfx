@@ -21,7 +21,9 @@ describe('ConfigManager.generateConfig', () => {
     const cfg = YAML.parse(cm.generateConfig())
     expect(cfg['mixed-port']).toBe(7890)
     expect(cfg['external-controller']).toBe('127.0.0.1:9090')
-    expect(cfg.secret).toBe('wmfx')
+    // secret 为随机生成值（32 字节 hex，64 字符），不再使用固定 'wmfx'
+    expect(cfg.secret).toMatch(/^[0-9a-f]{64}$/)
+    expect(cfg.secret).toBe(cm.getSecret())
     expect(cfg.mode).toBe('rule')
     expect(cfg['allow-lan']).toBe(false)
     expect(cfg['log-level']).toBe('info')

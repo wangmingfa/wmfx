@@ -74,8 +74,13 @@ export class WorkspaceRepository {
 
   delete(id: string): void {
     console.debug('[WorkspaceRepository] delete: id', id)
-    this.db.prepare('DELETE FROM workspace WHERE id = ?').run(id)
-    this.db.prepare('UPDATE bookmarks SET workspace_id = NULL WHERE workspace_id = ?').run(id)
+    // 两步操作包事务：先删 workspace 再清 bookmarks 引用，
+    // 避免第二步失败产生悬空 workspace_id（bookmarks 无外键约束）
+    const tx = this.db.transaction(() => {
+      this.db.prepare('DELETE FROM workspace WHERE id = ?').run(id)
+      this.db.prepare('UPDATE bookmarks SET workspace_id = NULL WHERE workspace_id = ?').run(id)
+    })
+    tx()
   }
 
   reorder(ids: string[]): void {

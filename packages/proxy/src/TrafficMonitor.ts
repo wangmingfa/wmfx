@@ -8,6 +8,8 @@ export class TrafficMonitor {
   private listeners: Set<(data: TrafficData) => void> = new Set()
   /** 断线重连定时器引用，断开后 3 秒自动重连；显式停止时用于清理避免重复重连 */
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  /** 显式停止标志：disconnect() 后不再自动重连（WS close 事件异步晚到也会被拦截） */
+  private stopped = false
 
   constructor(configManager: ConfigManager) {
     this.configManager = configManager
@@ -15,6 +17,7 @@ export class TrafficMonitor {
 
   connect(): void {
     if (this.ws) return
+    if (this.stopped) return
 
     const secret = this.configManager.getSecret()
     const cfg = this.configManager.getConfig()
@@ -34,6 +37,8 @@ export class TrafficMonitor {
     this.ws.on('close', (code) => {
       console.debug(`[TrafficMonitor] close: code=${code}, scheduling reconnect in 3s`)
       this.ws = null
+      // 已显式停止则不再重连（如代理关闭后旧 close 事件晚到）
+      if (this.stopped) return
       this.reconnectTimer = setTimeout(() => this.connect(), 3000)
     })
 
@@ -45,6 +50,7 @@ export class TrafficMonitor {
 
   disconnect(): void {
     console.debug('[TrafficMonitor] disconnect: closing WebSocket and clearing reconnect timer')
+    this.stopped = true
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null

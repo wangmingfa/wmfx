@@ -7,6 +7,7 @@
  * - SessionManager 模块级单例，保证 default / incognito 分区跨窗口一致
  * - 无痕窗口：defaultSessionName='incognito'、不持久化会话/尺寸、整窗视觉隔离
  */
+import path from 'node:path'
 import type { ThemeMode } from '@browser/ipc-contract'
 import type { ProxyManager } from '@browser/proxy'
 import { NEW_TAB_URL } from '@browser/shared'
@@ -90,6 +91,11 @@ export function getSharedSessionManager(): SessionManager {
     if (appAdBlocker) {
       sharedSessionManager.onSessionReady((sess) => appAdBlocker!.attach(sess))
     }
+    // 每个新建 session 挂载请求拦截器（RequestCapturer.attach 内部幂等）
+    // 此前缺失导致 wmfx://interceptor 抓包功能从未真正挂载到任何 session
+    if (appRequestCapturer) {
+      sharedSessionManager.onSessionReady((sess) => appRequestCapturer!.attach(sess))
+    }
   }
   return sharedSessionManager
 }
@@ -172,6 +178,9 @@ function resolveWindowBounds(
  * 直接复用 logger.ts 的 logBoxInfo：它负责 stdout + 日志文件双路输出、CJK 显示宽度对齐、
  * 时间戳边框，避免重复造轮子或自己拼 box 导致终端错位。
  */
+/** 启动耗时 box 是否已打印（仅首个普通窗口打印一次） */
+let startupBoxPrinted = false
+
 function printStartupBox(startMs: number, trigger: string): void {
   const ms = Math.round(Date.now() - startMs)
   const s = (ms / 1000).toFixed(2)
@@ -224,7 +233,8 @@ export function createWindow(
   win.webContents.setBackgroundThrottling(false)
 
   const sessionManager = getSharedSessionManager()
-  const database = DatabaseManager.getInstance()
+  // dbPath 由主进程解析（userData 下），database 包不再依赖 electron
+  const database = DatabaseManager.getInstance(path.join(app.getPath('userData'), 'wmfx.db'))
   const historyRepo = new HistoryRepository(database.db)
   const downloadRepo = new DownloadRepository(database.db)
   const bookmarkRepo = new BookmarkRepository(database.db)
@@ -283,7 +293,12 @@ export function createWindow(
     win.show()
     win.focus()
     shown = true
-    printStartupBox(globalThis._wmfxProcessStart, 'ready-to-show')
+    // 启动耗时只在首个普通窗口打印一次：运行数分钟后再开窗口，
+    // 进程启动时间戳已无意义，重复打印会误导
+    if (!isIncognito && !startupBoxPrinted) {
+      startupBoxPrinted = true
+      printStartupBox(globalThis._wmfxProcessStart, 'ready-to-show')
+    }
   })
   // 兜底：10s 后未 ready-to-show 也强制显示（防止 renderer 渲染异常导致窗口永不可见）
   const showFallback = setTimeout(() => {
@@ -291,7 +306,10 @@ export function createWindow(
       console.warn('[WindowManager] ready-to-show timeout, force showing windowId=%s', win.id)
       win.show()
       win.focus()
-      printStartupBox(globalThis._wmfxProcessStart, 'ready-to-show TIMEOUT')
+      if (!isIncognito && !startupBoxPrinted) {
+        startupBoxPrinted = true
+        printStartupBox(globalThis._wmfxProcessStart, 'ready-to-show TIMEOUT')
+      }
     }
   }, 10_000)
   win.once('closed', () => clearTimeout(showFallback))
@@ -328,11 +346,15 @@ export function createWindow(
   const devUrl = getRendererDevServerUrl()
   if (devUrl) {
     console.debug('[WindowManager] createWindow: loading dev server url', devUrl)
-    void win.loadURL(devUrl)
+    win.loadURL(devUrl).catch((err) => {
+      console.error(`[WindowManager] createWindow: loadURL failed (dev) windowId=${win.id}`, err)
+    })
   } else {
     const indexHtml = getRendererIndexHtml()
     console.debug('[WindowManager] createWindow', indexHtml)
-    void win.loadFile(indexHtml)
+    win.loadFile(indexHtml).catch((err) => {
+      console.error(`[WindowManager] createWindow: loadFile failed windowId=${win.id}`, err)
+    })
   }
 
   const instance: BrowserWindowInstance = {
@@ -363,12 +385,17 @@ export function createWindow(
       isIncognito
     )
     globalThis.browserInstances.delete(String(win.id))
-    // 最后一个无痕窗口关闭后清空内存 partition 存储（关闭即焚）
+    // 最后一个无痕窗口关闭后清空内存 partition 存储（关闭即焚）。
+    // 注意：普通窗口内也可能存在 sessionId='incognito' 的标签（IPC 可构造），
+    // 它们同样使用 incognito 内存分区，清空前必须一并统计，避免清空正在使用的存储。
     if (isIncognito) {
       const stillIncognito = Array.from(globalThis.browserInstances.values()).some(
         (i) => i.isIncognito
       )
-      if (!stillIncognito) {
+      const incognitoTabInUse = Array.from(globalThis.browserInstances.values()).some((inst) =>
+        inst.tabManager.getList().some((t) => t.sessionId === 'incognito')
+      )
+      if (!stillIncognito && !incognitoTabInUse) {
         console.info('[WindowManager] last incognito window closed: clearing in-memory session')
         void sessionManager.clearIncognitoData()
       }
@@ -376,11 +403,6 @@ export function createWindow(
   })
 
   return instance
-}
-
-/** 兼容旧调用名：创建普通主窗口 */
-export function createMainWindow(proxyManager: ProxyManager): BrowserWindowInstance {
-  return createWindow({}, proxyManager)
 }
 
 /** 应用级共享 ProxyManager，供 openIncognitoWindow 等工厂方法使用 */

@@ -98,7 +98,8 @@ const dragId = ref<string | null>(null)
 const lastOpenFolderId = ref<string | null>(null)
 
 async function getSetting(key: string): Promise<unknown> {
-  return window.browserAPI.getSetting(key as never)
+  // getSetting 本身接受 string，无需 as never 绕过类型
+  return window.browserAPI.getSetting(key)
 }
 
 async function openBookmark(item: BookmarkItem): Promise<void> {

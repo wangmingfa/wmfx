@@ -6,7 +6,9 @@
  * - 保存时由 ConfigManager 通过 yaml 库生成合法的 config.yaml
  * - 避免手写 YAML 字符串拼接导致的格式错误（中文、特殊字符等）
  */
-import { mkdirSync, writeFileSync } from 'node:fs'
+
+import { randomBytes } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import YAML from 'yaml'
 import type { ProxyConfig } from './types'
@@ -15,17 +17,23 @@ const DEFAULT_CONFIG: ProxyConfig = {
   mixedPort: 7890,
   controllerPort: 9090,
   controllerHost: '127.0.0.1',
-  secret: 'wmfx',
+  // 占位值：真实 secret 由 loadOrCreateSecret 随机生成并持久化，不再使用固定默认值
+  secret: '',
   mode: 'rule',
   allowLan: false,
   logLevel: 'info',
 }
+
+/** 随机 secret 持久化文件名（位于 configDir 下） */
+const SECRET_FILE = '.secret'
 
 export class ConfigManager {
   /** 配置文件存放目录 */
   readonly configDir: string
   /** 内部配置模型，UI 修改的目标 */
   private config: ProxyConfig
+  /** 随机生成的 REST API 密钥（首次运行生成并持久化到 configDir/.secret） */
+  private secret: string
   /** 订阅解析后的代理节点列表，保存时注入 config.yaml 的 proxies 字段 */
   private subscriptionProxies: Record<string, unknown>[] = []
   /** 订阅解析后的代理组定义，保存时注入 config.yaml 的 proxy-groups 字段 */
@@ -40,6 +48,28 @@ export class ConfigManager {
     this.configDir = configDir
     this.config = { ...DEFAULT_CONFIG, ...overrides }
     mkdirSync(configDir, { recursive: true })
+    this.secret = this.loadOrCreateSecret()
+  }
+
+  /**
+   * 读取或生成随机 REST API 密钥：
+   * - 首次运行生成 32 字节 hex 写入 configDir/.secret（0600），之后复用
+   * - 避免使用固定默认值（如 'wmfx'），防止本机任意进程用已知 token 控制代理
+   */
+  private loadOrCreateSecret(): string {
+    const secretPath = join(this.configDir, SECRET_FILE)
+    try {
+      if (existsSync(secretPath)) {
+        const existing = readFileSync(secretPath, 'utf-8').trim()
+        if (existing) return existing
+      }
+    } catch (err) {
+      console.warn(`[ConfigManager] loadOrCreateSecret: read failed, regenerating: ${err}`)
+    }
+    const secret = randomBytes(32).toString('hex')
+    writeFileSync(secretPath, secret, { encoding: 'utf-8', mode: 0o600 })
+    console.debug('[ConfigManager] loadOrCreateSecret: generated new secret')
+    return secret
   }
 
   /** 返回 config.yaml 的完整路径 */
@@ -53,8 +83,7 @@ export class ConfigManager {
    */
   generateConfig(): string {
     console.debug('[ConfigManager] generateConfig: building YAML from internal model')
-    const { mixedPort, controllerPort, controllerHost, secret, mode, allowLan, logLevel } =
-      this.config
+    const { mixedPort, controllerPort, controllerHost, mode, allowLan, logLevel } = this.config
 
     // 构建 JS 对象，由 YAML.stringify() 负责序列化
     const config: Record<string, unknown> = {
@@ -63,7 +92,8 @@ export class ConfigManager {
       mode,
       'log-level': logLevel,
       'external-controller': `${controllerHost}:${controllerPort}`,
-      secret,
+      // 与 getSecret() 同源：写入的 secret 必须与 REST API 认证用的随机值一致
+      secret: this.getSecret(),
     }
 
     // 注入订阅节点列表
@@ -97,11 +127,13 @@ export class ConfigManager {
     return YAML.stringify(config)
   }
 
-  /** 将生成的 YAML 写入 config.yaml */
+  /** 将生成的 YAML 写入 config.yaml（临时文件 + rename 原子替换，避免崩溃留下截断配置） */
   writeConfig(): void {
     const yaml = this.generateConfig()
     const configPath = this.getConfigPath()
-    writeFileSync(configPath, yaml, 'utf-8')
+    const tmpPath = `${configPath}.tmp`
+    writeFileSync(tmpPath, yaml, 'utf-8')
+    renameSync(tmpPath, configPath)
     console.debug(`[ConfigManager] writeConfig: path=${configPath}, size=${yaml.length}`)
   }
 
@@ -109,9 +141,9 @@ export class ConfigManager {
     return this.config.mixedPort
   }
 
-  /** 获取 REST API 认证密钥 */
+  /** 获取 REST API 认证密钥（随机生成并持久化的值，不用占位默认值） */
   getSecret(): string {
-    return this.config.secret
+    return this.secret
   }
 
   /** 获取 Mihomo external-controller 的 HTTP 地址 */

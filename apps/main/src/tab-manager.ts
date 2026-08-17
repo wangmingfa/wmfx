@@ -15,7 +15,7 @@ import {
   wmfxPath,
 } from '@browser/shared'
 import {
-  type BrowserWindow,
+  BrowserWindow,
   type ContextMenuParams,
   clipboard,
   nativeTheme,
@@ -145,6 +145,9 @@ export class TabManager {
 
     this.tabs.set(tabId, tab)
     this.openOrder.push(tabId)
+    // 初始化活跃时间戳：create/restore 的标签即使不激活（activate 会再更新），
+    // checkSuspendTabs 也不会因 lastActiveTime 缺失（?? 0）在下一个 60s tick 误挂起
+    this.lastActiveTime.set(tabId, Date.now())
     this.spawnView(tab, wantInternal)
 
     if (opts?.activate !== false) {
@@ -157,7 +160,9 @@ export class TabManager {
     if (wantInternal) {
       loadInternalView(tab.view, wmfxPath(resolvedUrl))
     } else {
-      tab.view.webContents.loadURL(resolvedUrl)
+      tab.view.webContents.loadURL(resolvedUrl).catch((err) => {
+        console.error(`[TabManager] create: loadURL failed tabId=${tabId}`, err)
+      })
     }
 
     this.window.webContents.send('tab:created', this.buildTabState(tab))
@@ -196,7 +201,9 @@ export class TabManager {
     if (wantInternal) {
       loadInternalView(tab.view, wmfxPath(url))
     } else {
-      tab.view.webContents.loadURL(url)
+      tab.view.webContents.loadURL(url).catch((err) => {
+        console.error(`[TabManager] relaunchView: loadURL failed tabId=${tabId}`, err)
+      })
     }
 
     return { view: tab.view, didRelaunch: true }
@@ -451,10 +458,19 @@ export class TabManager {
     if (this.settingsManager && this.defaultSessionName !== 'incognito') {
       this.settingsManager.set('openTabs', this.serializeTabs())
       this.settingsManager.set('activeTabIndex', this.getActiveTabIndex())
-      this.settingsManager.set(
-        'windowBounds',
-        this.window.isMaximized() ? null : this.window.getBounds()
-      )
+      // 仅第一个普通窗口写回窗口尺寸：避免用户开两个普通窗口并关闭第二个时，
+      // 用第二个窗口的位置/尺寸覆盖主窗口的恢复尺寸（与 window-manager saveBounds 保持一致）
+      const normalWindows = BrowserWindow.getAllWindows().filter((w) => {
+        if (w.isDestroyed()) return false
+        const inst = globalThis.browserInstances?.get(String(w.id))
+        return inst && !inst.isIncognito
+      })
+      if (normalWindows[0]?.id === this.window.id) {
+        this.settingsManager.set(
+          'windowBounds',
+          this.window.isMaximized() ? null : this.window.getBounds()
+        )
+      }
     }
     if (this.suspendTimer) {
       clearInterval(this.suspendTimer)
@@ -514,6 +530,11 @@ export class TabManager {
     console.debug('[TabManager] spawnView: tabId wantInternal', tab.id, wantInternal)
     const webPreferences: Electron.WebPreferences = {
       session: this.getSession(tab.sessionId),
+      // 显式加固，与主窗口/popover 保持一致：外部页不依赖 Electron 默认值，
+      // 避免未来默认值变化导致意外获得 Node 能力
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
     }
     if (wantInternal) {
       webPreferences.preload = getPreloadPath()
@@ -551,11 +572,7 @@ export class TabManager {
   getExternalWebContents(): Electron.WebContents[] {
     const result: Electron.WebContents[] = []
     for (const tab of this.tabs.values()) {
-      if (
-        !tab.isInternal &&
-        tab.view?.webContents?.isDestroyed &&
-        !tab.view.webContents.isDestroyed()
-      ) {
+      if (!tab.isInternal && tab.view && !tab.view.webContents.isDestroyed()) {
         const url = tab.view.webContents.getURL()
         if (url.startsWith('http://') || url.startsWith('https://')) {
           result.push(tab.view.webContents)
@@ -614,6 +631,10 @@ export class TabManager {
       webPreferences: {
         session: this.getSession(tab.sessionId),
         preload: getPreloadPath(),
+        // 显式加固，与主窗口/popover 保持一致
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
       },
     })
     view.setBackgroundColor(this.resolveViewBackgroundColor())
@@ -636,7 +657,12 @@ export class TabManager {
       console.debug(`[TabManager] enterReadingMode: guard failed tabId=${tabId}`)
       return
     }
-    const article = await this.pageEnhanceManager.extractArticle(tab.view.webContents)
+    const article = await this.pageEnhanceManager
+      .extractArticle(tab.view.webContents)
+      .catch((err) => {
+        console.error(`[TabManager] enterReadingMode: extractArticle failed tabId=${tabId}`, err)
+        return null
+      })
     if (!this.tabs.has(tabId)) return
     if (!article) {
       console.debug(`[TabManager] enterReadingMode: no article tabId=${tabId}, abort`)
@@ -740,7 +766,9 @@ export class TabManager {
       if (tab.isInternal) {
         loadInternalView(tab.view, wmfxPath(url))
       } else {
-        tab.view.webContents.loadURL(url)
+        tab.view.webContents.loadURL(url).catch((err) => {
+          console.error(`[TabManager] resumeTab: loadURL failed tabId=${tab.id}`, err)
+        })
       }
     }
   }
@@ -816,7 +844,12 @@ export class TabManager {
             ${encoding ? `document.charset = '${encoding}';` : ''}
           })()`,
           false
-        )
+        ).catch((err) => {
+          console.error(
+            `[TabManager] did-navigate: inject font/encoding failed tabId=${tab.id}`,
+            err
+          )
+        })
       }
 
       // 外部页导航：按 forceDark 设置注入/移除暗色 CSS（isExternal 由 PageEnhanceManager 内部判断，wmfx:// 内部页不会被处理）；若处于阅读态，文章随新页失效，自动退出
@@ -830,7 +863,9 @@ export class TabManager {
       if (!tab.isInternal && this.settingsManager?.get('keyboardMode') === 'vim') {
         const vimScriptPath = resolveFromRoot('resources/content-vim.js')
         const vimScript = readFileSync(vimScriptPath, 'utf-8')
-        wc.executeJavaScript(vimScript, false)
+        wc.executeJavaScript(vimScript, false).catch((err) => {
+          console.error(`[TabManager] did-navigate: inject vim script failed tabId=${tab.id}`, err)
+        })
       }
 
       // 无痕标签不写入历史（独立无痕窗口 / 无痕 session）
@@ -986,7 +1021,9 @@ export class TabManager {
       if (isWmfxUrl(url)) {
         loadInternalView(tab.view, wmfxPath(url))
       } else {
-        tab.view.webContents.loadURL(url)
+        tab.view.webContents.loadURL(url).catch((err) => {
+          console.error(`[TabManager] render-process-gone: loadURL failed tabId=${tab.id}`, err)
+        })
       }
     })
 

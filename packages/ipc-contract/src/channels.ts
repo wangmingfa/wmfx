@@ -35,6 +35,8 @@ export interface CloudSyncConfig {
     timeout?: number
     followRedirect?: boolean
   }
+  /** PBKDF2 随机 salt（base64），首次同步时生成并持久化，避免所有用户派生同一密钥 */
+  pbkdf2Salt?: string
   lastSyncAt?: number
   lastSyncSize?: number
   lastSyncMessage?: string

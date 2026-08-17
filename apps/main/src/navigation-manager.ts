@@ -58,7 +58,10 @@ export class NavigationManager {
           ? url
           : `https://${url}`
       this.tabManager.setNavigating(tabId, normalized)
-      webContents.loadURL(normalized)
+      // 加载失败（did-fail-load / 页面崩溃）时 reject，记录并避免 unhandled rejection
+      webContents.loadURL(normalized).catch((err) => {
+        console.error(`[NavigationManager] loadURL failed: tabId=${tabId} url=${normalized}`, err)
+      })
     }
   }
 }

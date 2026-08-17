@@ -49,14 +49,16 @@ export class HistoryRepository {
   }
 
   search(query: string, limit = 50, offset = 0): HistoryItem[] {
+    // 转义 LIKE 通配符，避免用户输入 % / _ 产生意外匹配（非注入，仅语义修正）
+    const escaped = query.replace(/[%_\\]/g, (c) => `\\${c}`)
     const stmt = this.db.prepare(`
       SELECT id, url, title, favicon, visit_time, visit_count
       FROM history
-      WHERE url LIKE ? OR title LIKE ?
+      WHERE url LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\'
       ORDER BY visit_time DESC
       LIMIT ? OFFSET ?
     `)
-    const rows = stmt.all(`%${query}%`, `%${query}%`, limit, offset) as HistoryItem[]
+    const rows = stmt.all(`%${escaped}%`, `%${escaped}%`, limit, offset) as HistoryItem[]
     console.debug(
       '[HistoryRepository] search: query limit offset count',
       query,

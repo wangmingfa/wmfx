@@ -124,7 +124,8 @@ const addError = ref('')
 async function loadSubscriptions(): Promise<void> {
   console.debug('[SubscriptionView] loadSubscriptions')
   const items = await window.browserAPI.getSubscriptions()
-  subscriptions.value = items.map(item => ({ ...item, active: 0 }))
+  // 保留后端返回的 active 状态（此前强制清零导致激活徽标/停用按钮状态恒错）
+  subscriptions.value = items.map(item => ({ ...item }))
 }
 
 async function addSubscription(): Promise<void> {
